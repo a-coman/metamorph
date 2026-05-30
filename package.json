@@ -7,7 +7,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "db:migrate": "pnpm --filter @metamorph/api exec prisma migrate dev",
-    "db:studio": "pnpm --filter @metamorph/api exec prisma studio"
+    "db:studio": "pnpm --filter @metamorph/api exec prisma studio",
   },
   "keywords": [],
   "author": "",

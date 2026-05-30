@@ -1,0 +1,84 @@
+{
+  "vhosts": [{ "name": "/" }],
+  "exchanges": [
+    {
+      "name": "metamorph.topic",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "q.playwright",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "metamorph.topic",
+        "x-dead-letter-routing-key": "job.playwright.dlq"
+      }
+    },
+    {
+      "name": "q.playwright.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.llm",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "metamorph.topic",
+        "x-dead-letter-routing-key": "job.llm.dlq"
+      }
+    },
+    {
+      "name": "q.llm.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "metamorph.topic",
+      "vhost": "/",
+      "destination": "q.playwright",
+      "destination_type": "queue",
+      "routing_key": "job.playwright.#",
+      "arguments": {}
+    },
+    {
+      "source": "metamorph.topic",
+      "vhost": "/",
+      "destination": "q.playwright.dlq",
+      "destination_type": "queue",
+      "routing_key": "job.playwright.dlq",
+      "arguments": {}
+    },
+    {
+      "source": "metamorph.topic",
+      "vhost": "/",
+      "destination": "q.llm",
+      "destination_type": "queue",
+      "routing_key": "job.llm.#",
+      "arguments": {}
+    },
+    {
+      "source": "metamorph.topic",
+      "vhost": "/",
+      "destination": "q.llm.dlq",
+      "destination_type": "queue",
+      "routing_key": "job.llm.dlq",
+      "arguments": {}
+    }
+  ]
+}
