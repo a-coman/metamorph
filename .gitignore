@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# pnpm
+.pnpm-debug.log*
+
+# Environment (keep .env.example if you add one)
+.env
+.env.*
+!.env.example
+
+# Turbo
+.turbo/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+
+# TypeScript
+*.tsbuildinfo
+
+# Prisma (generated client)
+**/generated/prisma/
+
+# Test & coverage
+coverage/
+.nyc_output/
+
+# Playwright (worker / e2e)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js / Vercel
+.vercel
+
+# NestJS
+*.pid
+*.seed
+*.pid.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.pem
+.cache/

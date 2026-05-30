@@ -1,0 +1,28 @@
+{
+  "name": "metamorph",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "db:migrate": "pnpm --filter @metamorph/api exec prisma migrate dev",
+    "db:studio": "pnpm --filter @metamorph/api exec prisma studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.5.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "turbo": "^2.9.16",
+    "typescript": "^6.0.3"
+  }
+}
