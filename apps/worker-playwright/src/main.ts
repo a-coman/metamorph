@@ -1,6 +1,9 @@
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
-import { createDiscoverJobService } from './discovery/composition-root.js';
+import {
+  createDiscoverJobService,
+  createPlaywrightDiscoverSubscriber,
+} from './discovery/composition-root.js';
 import { prisma } from './shared/infrastructure/prisma/prisma-client.js';
 
 const workerDir = resolve(import.meta.dirname, '..');
@@ -15,6 +18,29 @@ function parseJobId(args: string[]): string | undefined {
     return args[flagIndex + 1];
   }
   return undefined;
+}
+
+async function runConsume(): Promise<void> {
+  const subscriber = createPlaywrightDiscoverSubscriber();
+  await subscriber.start();
+
+  const shutdown = async (signal: string) => {
+    console.log(`Received ${signal}, shutting down consumer...`);
+    await subscriber.stop();
+    await prisma.$disconnect();
+    process.exit(0);
+  };
+
+  process.once('SIGINT', () => {
+    void shutdown('SIGINT');
+  });
+  process.once('SIGTERM', () => {
+    void shutdown('SIGTERM');
+  });
+
+  await new Promise<void>(() => {
+    // keep process alive until signal
+  });
 }
 
 async function main() {
@@ -38,7 +64,12 @@ async function main() {
     return;
   }
 
-  console.error('Unknown command. Available: discover --job-id <uuid>');
+  if (command === 'consume') {
+    await runConsume();
+    return;
+  }
+
+  console.error('Unknown command. Available: consume | discover --job-id <uuid>');
   process.exitCode = 1;
 }
 
@@ -48,5 +79,7 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    if (process.argv[2] !== 'consume') {
+      await prisma.$disconnect();
+    }
   });

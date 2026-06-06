@@ -2,9 +2,18 @@ import { chromium } from 'playwright';
 import { DiscoverJobService } from './application/services/discover-job.service.js';
 import { SavePageSnapshotService } from './application/services/save-page-snapshot.service.js';
 import { S3ArtifactStorageAdapter } from './infrastructure/minio/s3-artifact-storage.adapter.js';
+import { PlaywrightDiscoverSubscriber } from './infrastructure/messaging/playwright-discover.subscriber.js';
 import { PageInventoryPlaywrightAdapter } from './infrastructure/playwright/page-inventory-playwright.adapter.js';
 import { DiscoverJobPrismaRepository } from './infrastructure/persistence/repositories/discover-job-prisma.repository.js';
 import { PageSnapshotPrismaRepository } from './infrastructure/persistence/repositories/page-snapshot-prisma.repository.js';
+
+function requireRabbitMqUrl(): string {
+  const url = process.env.RABBITMQ_URL;
+  if (!url) {
+    throw new Error('RABBITMQ_URL is required');
+  }
+  return url;
+}
 
 export function createDiscoverJobService(): DiscoverJobService {
   const jobRepository = new DiscoverJobPrismaRepository();
@@ -27,4 +36,10 @@ export function createDiscoverJobService(): DiscoverJobService {
         args: ['--disable-dev-shm-usage'],
       }),
   );
+}
+
+export function createPlaywrightDiscoverSubscriber(): PlaywrightDiscoverSubscriber {
+  return new PlaywrightDiscoverSubscriber(createDiscoverJobService(), {
+    url: requireRabbitMqUrl(),
+  });
 }
