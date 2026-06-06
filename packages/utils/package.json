@@ -1,7 +1,15 @@
 {
   "name": "@metamorph/utils",
   "version": "1.0.0",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
   "type": "module",
   "dependencies": {
     "shallow-equal-object": "^1.1.1",
