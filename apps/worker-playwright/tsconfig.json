@@ -2,9 +2,11 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "noEmit": true,
+    "rootDir": "../.."
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "../api/generated/prisma/**/*"
   ]
 }

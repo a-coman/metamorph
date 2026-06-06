@@ -81,13 +81,40 @@ services:
       "
     restart: "no"
 
-  # Playwright worker / inventory capture (headless; no GUI needed)
-  # Usage: pnpm inventory:capture -- https://example.com
+  # Phase 1 discover worker — Playwright + Prisma + MinIO (no local Chromium needed)
+  # Usage: pnpm discover <job-id>
   worker-playwright:
     build:
       context: .
-      dockerfile: packages/inventory/Dockerfile
+      dockerfile: apps/worker-playwright/Dockerfile
     container_name: metamorph-worker-playwright
+    profiles: ["workers"]
+    init: true
+    ipc: host
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      PLAYWRIGHT_HEADLESS: "true"
+      CI: "true"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-metamorph}:${POSTGRES_PASSWORD:-metamorph}@postgres:5432/${POSTGRES_DB:-metamorph}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-metamorph-artifacts}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+    shm_size: "1gb"
+
+  # Standalone inventory capture to disk (dev only, no DB)
+  # Usage: pnpm inventory:capture -- https://example.com
+  inventory-capture:
+    build:
+      context: .
+      dockerfile: packages/inventory/Dockerfile
+    container_name: metamorph-inventory-capture
     profiles: ["workers"]
     init: true
     ipc: host

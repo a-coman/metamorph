@@ -4,18 +4,30 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/main.ts"
+    "dev": "tsx watch src/main.ts",
+    "discover": "pnpm --filter @metamorph/inventory build:browser && tsx src/main.ts discover",
+    "discover:run": "tsx src/main.ts discover",
+    "db:generate": "prisma generate --schema=../api/prisma/schema.prisma"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1056.0"
+    "@aws-sdk/client-s3": "^3.1056.0",
+    "@metamorph/core": "workspace:*",
+    "@metamorph/inventory": "workspace:*",
+    "@metamorph/utils": "workspace:*",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "dotenv": "^17.4.2",
+    "pg": "^8.21.0",
+    "playwright": "1.58.2"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "@types/node": "^25.9.1",
+    "prisma": "^7.8.0",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   }
