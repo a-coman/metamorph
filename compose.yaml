@@ -10,7 +10,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PG 18+: mount parent dir; data lives in /var/lib/postgresql/<major>/docker
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test:
         [
@@ -79,6 +80,25 @@ services:
       echo Bucket $$MINIO_BUCKET ready
       "
     restart: "no"
+
+  # Playwright worker / inventory capture (headless; no GUI needed)
+  # Usage: pnpm inventory:capture -- https://example.com
+  worker-playwright:
+    build:
+      context: .
+      dockerfile: packages/inventory/Dockerfile
+    container_name: metamorph-worker-playwright
+    profiles: ["workers"]
+    init: true
+    ipc: host
+    working_dir: /app
+    environment:
+      PLAYWRIGHT_HEADLESS: "true"
+      CI: "true"
+      INVENTORY_OUT_DIR: /app/tmp/inventory
+    volumes:
+      - ./packages/inventory/tmp:/app/tmp/inventory
+    shm_size: "1gb"
 
 volumes:
   postgres_data:
