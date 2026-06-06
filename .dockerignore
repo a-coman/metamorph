@@ -1,0 +1,10 @@
+node_modules
+.git
+.next
+dist
+tmp
+**/.turbo
+apps/web/.next
+apps/api/dist
+apps/api/generated
+*.png

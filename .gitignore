@@ -63,3 +63,8 @@ Thumbs.db
 # Misc
 *.pem
 .cache/
+.vscode/
+.cursor/
+docs/
+tmp/
+.pnpm-store/
