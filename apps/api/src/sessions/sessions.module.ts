@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SessionQueryPort } from './application/ports/session-query.port.js';
 import { SessionPort } from './application/ports/session.port.js';
+import { EnqueueDiscoverJobService } from './application/services/enqueue-discover-job.service.js';
 import { SessionService } from './application/services/session.service.js';
 import { SessionRepositoryPort } from './domain/repositories/session.repository.port.js';
 import { SessionPrismaQuery } from './infrastructure/persistence/repositories/session-prisma.query.js';
@@ -11,6 +12,7 @@ import { SessionsController } from './presentation/controllers/sessions.controll
   controllers: [SessionsController],
   providers: [
     SessionService,
+    EnqueueDiscoverJobService,
     { provide: SessionRepositoryPort, useClass: SessionPrismaRepository },
     { provide: SessionQueryPort, useClass: SessionPrismaQuery },
     { provide: SessionPort, useExisting: SessionService },

@@ -15,4 +15,5 @@ export type CreateSessionResultDto = {
 
 export type QueueDiscoverResultDto = {
   jobId: string;
+  status: string;
 };

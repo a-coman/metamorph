@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  DomainEvents,
   type DomainError,
   type Either,
   left,
@@ -8,6 +7,7 @@ import {
 } from '@metamorph/utils';
 import { SessionAggregate } from '../../domain/aggregates/session.aggregate.js';
 import { SessionNotFoundError } from '../../domain/errors/session.errors.js';
+import { DiscoverJobQueuedEvent } from '../../domain/events/discover-job-queued.event.js';
 import { SessionRepositoryPort } from '../../domain/repositories/session.repository.port.js';
 import type {
   CreateSessionDto,
@@ -17,12 +17,14 @@ import type {
 import type { SessionDetailsDto } from '../dtos/session-details.dto.js';
 import { SessionPort } from '../ports/session.port.js';
 import { SessionQueryPort } from '../ports/session-query.port.js';
+import { EnqueueDiscoverJobService } from './enqueue-discover-job.service.js';
 
 @Injectable()
 export class SessionService implements SessionPort {
   constructor(
     private readonly sessionRepository: SessionRepositoryPort,
     private readonly sessionQuery: SessionQueryPort,
+    private readonly enqueueDiscoverJobService: EnqueueDiscoverJobService,
   ) {}
 
   async createSession(
@@ -36,9 +38,7 @@ export class SessionService implements SessionPort {
     const aggregate = aggregateOrError.value;
     await this.sessionRepository.save(aggregate);
 
-    const events = aggregate.pullDomainEvents();
-    DomainEvents.dispatch(events);
-
+    const jobStatus = await this.processDiscoverJobQueuedEvents(aggregate);
     const job = aggregate.jobs[0];
     if (!job) {
       throw new Error('Session aggregate must include an initial discover job');
@@ -47,7 +47,7 @@ export class SessionService implements SessionPort {
     return right({
       sessionId: aggregate.id.value,
       jobId: job.id.value,
-      status: job.status,
+      status: jobStatus ?? job.status,
     });
   }
 
@@ -62,10 +62,12 @@ export class SessionService implements SessionPort {
     const job = aggregate.queueDiscover();
     await this.sessionRepository.save(aggregate);
 
-    const events = aggregate.pullDomainEvents();
-    DomainEvents.dispatch(events);
+    const jobStatus = await this.processDiscoverJobQueuedEvents(aggregate);
 
-    return right({ jobId: job.id.value });
+    return right({
+      jobId: job.id.value,
+      status: jobStatus ?? job.status,
+    });
   }
 
   async getSession(
@@ -77,5 +79,29 @@ export class SessionService implements SessionPort {
     }
 
     return right(details);
+  }
+
+  private async processDiscoverJobQueuedEvents(
+    aggregate: SessionAggregate,
+  ): Promise<string | undefined> {
+    const events = aggregate.pullDomainEvents();
+    let lastStatus: string | undefined;
+
+    for (const event of events) {
+      if (event instanceof DiscoverJobQueuedEvent) {
+        const result = await this.enqueueDiscoverJobService.enqueue(
+          event.jobId,
+          event.sessionId,
+        );
+
+        if (result.isLeft()) {
+          throw new Error(result.value.errorMessage ?? 'Enqueue discover failed');
+        }
+
+        lastStatus = result.value.status;
+      }
+    }
+
+    return lastStatus;
   }
 }
