@@ -1,6 +1,8 @@
 import { chromium } from 'playwright';
+import { ChainDiscoverLlmJobService } from './application/services/chain-discover-llm-job.service.js';
 import { DiscoverJobService } from './application/services/discover-job.service.js';
 import { SavePageSnapshotService } from './application/services/save-page-snapshot.service.js';
+import { RabbitMqLlmPublisherAdapter } from './infrastructure/messaging/rabbitmq-llm-publisher.adapter.js';
 import { S3ArtifactStorageAdapter } from './infrastructure/minio/s3-artifact-storage.adapter.js';
 import { PlaywrightDiscoverSubscriber } from './infrastructure/messaging/playwright-discover.subscriber.js';
 import { PageInventoryPlaywrightAdapter } from './infrastructure/playwright/page-inventory-playwright.adapter.js';
@@ -13,6 +15,12 @@ function requireRabbitMqUrl(): string {
     throw new Error('RABBITMQ_URL is required');
   }
   return url;
+}
+
+function createChainDiscoverLlmJobService(): ChainDiscoverLlmJobService {
+  return new ChainDiscoverLlmJobService(
+    new RabbitMqLlmPublisherAdapter(requireRabbitMqUrl()),
+  );
 }
 
 export function createDiscoverJobService(): DiscoverJobService {
@@ -30,6 +38,7 @@ export function createDiscoverJobService(): DiscoverJobService {
     jobRepository,
     inventoryCapture,
     savePageSnapshot,
+    createChainDiscoverLlmJobService(),
     () =>
       chromium.launch({
         headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',

@@ -8,6 +8,7 @@ import {
 import { DiscoverJobRepositoryPort } from '../../domain/repositories/discover-job.repository.port.js';
 import { DiscoverJobPort } from '../ports/discover-job.port.js';
 import { PageInventoryCapturePort } from '../ports/page-inventory-capture.port.js';
+import { ChainDiscoverLlmJobService } from './chain-discover-llm-job.service.js';
 import { SavePageSnapshotService } from './save-page-snapshot.service.js';
 
 export class DiscoverJobService implements DiscoverJobPort {
@@ -15,6 +16,7 @@ export class DiscoverJobService implements DiscoverJobPort {
     private readonly jobRepository: DiscoverJobRepositoryPort,
     private readonly inventoryCapture: PageInventoryCapturePort,
     private readonly savePageSnapshot: SavePageSnapshotService,
+    private readonly chainDiscoverLlmJob: ChainDiscoverLlmJobService,
     private readonly launchBrowser: () => Promise<Browser>,
   ) {}
 
@@ -47,6 +49,13 @@ export class DiscoverJobService implements DiscoverJobPort {
 
       job.complete();
       await this.jobRepository.save(job);
+
+      await this.chainDiscoverLlmJob.chain({
+        sessionId: job.sessionId,
+        sessionUrl: job.sessionUrl,
+        pageSnapshotId: result.pageSnapshotId,
+        parentDiscoverJobId: job.id.value,
+      });
 
       console.log(
         `Discover job ${jobId} done — snapshot ${result.pageSnapshotId}, artifact ${result.artifactPath}`,
