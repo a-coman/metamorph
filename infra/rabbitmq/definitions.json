@@ -1,5 +1,22 @@
 {
   "vhosts": [{ "name": "/" }],
+  "users": [
+    {
+      "name": "guest",
+      "password_hash": "r0zb5lfzTRfg0qpm/rgTQ/miVGxerKD7VRXAJpwKE/coNyEg",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": "administrator"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "guest",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
   "exchanges": [
     {
       "name": "metamorph.topic",

@@ -81,14 +81,12 @@ services:
       "
     restart: "no"
 
-  # Phase 1 discover worker — Playwright + Prisma + MinIO (no local Chromium needed)
-  # Usage: pnpm discover <job-id>
+  # Phase 2 discover worker — long-running RabbitMQ consumer
   worker-playwright:
     build:
       context: .
       dockerfile: apps/worker-playwright/Dockerfile
     container_name: metamorph-worker-playwright
-    profiles: ["workers"]
     init: true
     ipc: host
     working_dir: /app
@@ -97,6 +95,8 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
     environment:
       PLAYWRIGHT_HEADLESS: "true"
       CI: "true"
@@ -106,6 +106,9 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-metamorph-artifacts}
       MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-metamorph.topic}
+    command: ["consume"]
     shm_size: "1gb"
 
   # Standalone inventory capture to disk (dev only, no DB)
