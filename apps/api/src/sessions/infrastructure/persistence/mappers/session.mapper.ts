@@ -101,26 +101,34 @@ function toPrismaJobType(type: JobType): PrismaJobType {
 
 function toDomainJobStatus(status: PrismaJobStatus): JobStatus {
   switch (status) {
+    case PrismaJobStatus.pending_enqueue:
+      return JobStatus.pending_enqueue;
+    case PrismaJobStatus.enqueue_failed:
+      return JobStatus.enqueue_failed;
+    case PrismaJobStatus.queued:
+      return JobStatus.queued;
     case PrismaJobStatus.running:
       return JobStatus.running;
     case PrismaJobStatus.done:
       return JobStatus.done;
     case PrismaJobStatus.failed:
       return JobStatus.failed;
-    default:
-      return JobStatus.queued;
   }
 }
 
 function toPrismaJobStatus(status: JobStatus): PrismaJobStatus {
   switch (status) {
+    case JobStatus.pending_enqueue:
+      return PrismaJobStatus.pending_enqueue;
+    case JobStatus.enqueue_failed:
+      return PrismaJobStatus.enqueue_failed;
+    case JobStatus.queued:
+      return PrismaJobStatus.queued;
     case JobStatus.running:
       return PrismaJobStatus.running;
     case JobStatus.done:
       return PrismaJobStatus.done;
     case JobStatus.failed:
       return PrismaJobStatus.failed;
-    default:
-      return PrismaJobStatus.queued;
   }
 }

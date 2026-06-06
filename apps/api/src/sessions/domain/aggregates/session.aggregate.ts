@@ -4,10 +4,14 @@ import {
   UniqueEntityID,
   left,
   right,
+  type DomainError,
 } from '@metamorph/utils';
 import { Job } from '../entities/job.entity.js';
 import { SessionMode } from '../enums/session-mode.enum.js';
-import { InvalidSessionUrlError } from '../errors/session.errors.js';
+import {
+  InvalidSessionUrlError,
+  JobNotFoundInSessionError,
+} from '../errors/session.errors.js';
 import { DiscoverJobQueuedEvent } from '../events/discover-job-queued.event.js';
 import { SessionCreatedEvent } from '../events/session-created.event.js';
 
@@ -76,6 +80,43 @@ export class SessionAggregate extends AggregateRoot<SessionProps> {
       new DiscoverJobQueuedEvent(job.id.value, this.id.value),
     );
     return job;
+  }
+
+  markJobEnqueued(jobId: string): Either<DomainError, void> {
+    const job = this.findJob(jobId);
+    if (!job) {
+      return left(new JobNotFoundInSessionError(jobId));
+    }
+
+    const result = job.markEnqueued();
+    if (result.isLeft()) {
+      return result;
+    }
+
+    this.props.updatedAt = new Date();
+    return right(undefined);
+  }
+
+  markJobEnqueueFailed(
+    jobId: string,
+    message: string,
+  ): Either<DomainError, void> {
+    const job = this.findJob(jobId);
+    if (!job) {
+      return left(new JobNotFoundInSessionError(jobId));
+    }
+
+    const result = job.markEnqueueFailed(message);
+    if (result.isLeft()) {
+      return result;
+    }
+
+    this.props.updatedAt = new Date();
+    return right(undefined);
+  }
+
+  private findJob(jobId: string): Job | undefined {
+    return this.props.jobs.find((job) => job.id.value === jobId);
   }
 
   get url(): string {

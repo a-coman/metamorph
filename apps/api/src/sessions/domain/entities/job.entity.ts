@@ -1,4 +1,12 @@
-import { Entity, UniqueEntityID } from '@metamorph/utils';
+import {
+  Entity,
+  Either,
+  UniqueEntityID,
+  left,
+  right,
+  type DomainError,
+} from '@metamorph/utils';
+import { InvalidJobStatusTransitionError } from '../errors/session.errors.js';
 import { JobStatus } from '../enums/job-status.enum.js';
 import { JobType } from '../enums/job-type.enum.js';
 
@@ -19,7 +27,7 @@ export class Job extends Entity<JobProps> {
   static createDiscover(): Job {
     return new Job({
       type: JobType.discover,
-      status: JobStatus.queued,
+      status: JobStatus.pending_enqueue,
       createdAt: new Date(),
     });
   }
@@ -50,5 +58,37 @@ export class Job extends Entity<JobProps> {
 
   get finishedAt(): Date | null | undefined {
     return this.props.finishedAt;
+  }
+
+  markEnqueued(): Either<DomainError, void> {
+    if (this.props.status !== JobStatus.pending_enqueue) {
+      return left(
+        new InvalidJobStatusTransitionError(
+          this.id.value,
+          this.props.status,
+          'mark enqueued',
+        ),
+      );
+    }
+
+    this.props.status = JobStatus.queued;
+    this.props.errorMessage = null;
+    return right(undefined);
+  }
+
+  markEnqueueFailed(message: string): Either<DomainError, void> {
+    if (this.props.status !== JobStatus.pending_enqueue) {
+      return left(
+        new InvalidJobStatusTransitionError(
+          this.id.value,
+          this.props.status,
+          'mark enqueue failed',
+        ),
+      );
+    }
+
+    this.props.status = JobStatus.enqueue_failed;
+    this.props.errorMessage = message;
+    return right(undefined);
   }
 }
