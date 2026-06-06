@@ -1,0 +1,21 @@
+{
+  "name": "@metamorph/contracts",
+  "version": "1.0.0",
+  "description": "Shared RabbitMQ routing keys and message schemas",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "type": "module",
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}
