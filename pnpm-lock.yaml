@@ -403,6 +403,34 @@ importers:
         version: 5.9.3
 
   apps/worker-llm:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1056.0
+        version: 3.1056.0
+      '@metamorph/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@metamorph/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@metamorph/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
+      '@prisma/adapter-pg':
+        specifier: ^7.8.0
+        version: 7.8.0
+      '@prisma/client':
+        specifier: ^7.8.0
+        version: 7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3))(typescript@6.0.3)
+      amqplib:
+        specifier: ^0.10.9
+        version: 0.10.9
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
+      pg:
+        specifier: ^8.21.0
+        version: 8.21.0
     devDependencies:
       '@types/amqplib':
         specifier: ^0.10.8
@@ -410,6 +438,9 @@ importers:
       '@types/node':
         specifier: ^25.9.1
         version: 25.9.1
+      prisma:
+        specifier: ^7.8.0
+        version: 7.8.0(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)
       tsx:
         specifier: ^4.22.3
         version: 4.22.3
@@ -485,6 +516,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
