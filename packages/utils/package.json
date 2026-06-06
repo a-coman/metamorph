@@ -1,0 +1,14 @@
+{
+  "name": "@metamorph/utils",
+  "version": "1.0.0",
+  "exports": { ".": "./src/index.ts" },
+  "type": "module",
+  "dependencies": {
+    "shallow-equal-object": "^1.1.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^10.0.0",
+    "typescript": "^6.0.3"
+  }
+}
