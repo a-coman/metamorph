@@ -1,7 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Metamorph — PostgreSQL schema (see docs/plan.html §8 Datos)
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +7,341 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum SessionMode {
+  hitl
+  auto
+}
+
+enum JobStatus {
+  pending_enqueue
+  queued
+  running
+  done
+  failed
+  enqueue_failed
+}
+
+enum JobType {
+  discover
+  discover_llm @map("discover.llm")
+  execute_pair
+  replay
+  regenerate_step
+  llm_oracle
+}
+
+enum MrVersionStatus {
+  draft_pending_hitl
+  approved
+  replayable
+  stale
+  violation_pending_triage
+}
+
+enum Verdict {
+  pass
+  fail
+}
+
+enum VerdictEffective {
+  pass
+  fail
+  fail_weak_disagreement @map("fail_weak_disagreement")
+}
+
+enum ViolationTriage {
+  false_positive
+  bug
+  flaky
+  bad_mr
+}
+
+enum ObservationRole {
+  source
+  follow_up
+}
+
+enum ArtifactKind {
+  screenshot
+  annotated_screenshot
+  trace
+  video
+}
+
+enum RunStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+// ─── Session & jobs ──────────────────────────────────────────────────────────
+
+model Session {
+  id            String      @id @default(uuid()) @db.Uuid
+  url           String
+  mode          SessionMode @default(hitl)
+  generateCount Int         @default(1) @map("generate_count")
+  weakOracle    Boolean     @default(false) @map("weak_oracle")
+  /// Optional user-provided MR definition JSON (skip discover LLM propose step)
+  userMrJson    Json?       @map("user_mr_json")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  jobs          Job[]
+  pageSnapshots PageSnapshot[]
+  mrVersions    MrVersion[]
+  artifacts     Artifact[]
+
+  @@map("sessions")
+}
+
+model Job {
+  id           String    @id @default(uuid()) @db.Uuid
+  sessionId    String    @map("session_id") @db.Uuid
+  mrVersionId  String?   @map("mr_version_id") @db.Uuid
+  type         JobType
+  status       JobStatus @default(pending_enqueue)
+  payload      Json      @default("{}")
+  attempt      Int       @default(1)
+  maxAttempts  Int       @default(3) @map("max_attempts")
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  startedAt    DateTime? @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+
+  session   Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  mrVersion MrVersion? @relation(fields: [mrVersionId], references: [id], onDelete: SetNull)
+  runs          Run[]
+  llmCalls      LlmCall[]
+  pageSnapshots PageSnapshot[]
+
+  @@index([sessionId])
+  @@index([status])
+  @@index([type, status])
+  @@map("jobs")
+}
+
+// ─── Discovery ───────────────────────────────────────────────────────────────
+
+model PageSnapshot {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  jobId     String?  @map("job_id") @db.Uuid
+  url       String
+  /// Set-of-Marks inventory JSON (E01, E02… + locators)
+  inventory Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session              Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  job                  Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  mrVersions           MrVersion[]
+  artifacts            Artifact[]
+  annotatedScreenshot  Artifact?   @relation("AnnotatedScreenshot", fields: [annotatedScreenshotId], references: [id], onDelete: SetNull)
+  annotatedScreenshotId String?    @unique @map("annotated_screenshot_artifact_id") @db.Uuid
+  rawScreenshot        Artifact?   @relation("RawScreenshot", fields: [rawScreenshotId], references: [id], onDelete: SetNull)
+  rawScreenshotId      String?     @unique @map("raw_screenshot_artifact_id") @db.Uuid
+
+  @@index([sessionId])
+  @@map("page_snapshots")
+}
+
+// ─── Metamorphic relations ───────────────────────────────────────────────────
+
+model MrDefinition {
+  id               String   @id @default(uuid()) @db.Uuid
+  /// Host extracted from URL for similar-MR warnings (e.g. amazon.es)
+  host             String
+  transformFamily  String   @map("transform_family")
+  /// Full mr_definition tuple: precondition, transformation, relation
+  definition       Json
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  versions MrVersion[]
+
+  @@index([host, transformFamily])
+  @@map("mr_definitions")
+}
+
+model MrVersion {
+  id                     String          @id @default(uuid()) @db.Uuid
+  sessionId              String          @map("session_id") @db.Uuid
+  mrDefinitionId         String          @map("mr_definition_id") @db.Uuid
+  pageSnapshotId         String?         @map("page_snapshot_id") @db.Uuid
+  status                 MrVersionStatus @default(draft_pending_hitl)
+  /// LLM-filled slots JSON (element_id references, actions catalog)
+  generationSlots        Json            @default("{}") @map("generation_slots")
+  playbookBlobId         String?         @map("playbook_blob_id") @db.Uuid
+  schemaBlobId           String?         @map("schema_blob_id") @db.Uuid
+  /// Locator validation score for auto-approve (0–1)
+  locatorValidationScore Float?          @map("locator_validation_score")
+  approvedAt             DateTime?       @map("approved_at")
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+
+  session      Session       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  mrDefinition MrDefinition  @relation(fields: [mrDefinitionId], references: [id], onDelete: Restrict)
+  pageSnapshot PageSnapshot? @relation(fields: [pageSnapshotId], references: [id], onDelete: SetNull)
+  playbookBlob PlaybookBlob? @relation(fields: [playbookBlobId], references: [id], onDelete: SetNull)
+  schemaBlob   SchemaBlob?   @relation(fields: [schemaBlobId], references: [id], onDelete: SetNull)
+  jobs         Job[]
+  runs         Run[]
+  violations   Violation[]
+  llmCalls     LlmCall[]
+
+  @@index([sessionId])
+  @@index([status])
+  @@index([mrDefinitionId])
+  @@map("mr_versions")
+}
+
+model PlaybookBlob {
+  id              String   @id @default(uuid()) @db.Uuid
+  content         String   @db.Text
+  contentHash     String   @map("content_hash")
+  templateVersion String   @default("playbook-template@1") @map("template_version")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  mrVersions MrVersion[]
+
+  @@index([contentHash])
+  @@map("playbook_blobs")
+}
+
+model SchemaBlob {
+  id          String   @id @default(uuid()) @db.Uuid
+  content     String   @db.Text
+  contentHash String   @map("content_hash")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  mrVersions MrVersion[]
+
+  @@index([contentHash])
+  @@map("schema_blobs")
+}
+
+// ─── Execution ───────────────────────────────────────────────────────────────
+
+model Run {
+  id                  String            @id @default(uuid()) @db.Uuid
+  mrVersionId         String            @map("mr_version_id") @db.Uuid
+  jobId               String            @map("job_id") @db.Uuid
+  status              RunStatus         @default(pending)
+  inputBundle         Json              @default("{}") @map("input_bundle")
+  attempt             Int               @default(1)
+  verdictStrict       Verdict?          @map("verdict_strict")
+  verdictWeak         Verdict?          @map("verdict_weak")
+  verdictEffective    VerdictEffective? @map("verdict_effective")
+  playbookContentHash String?           @map("playbook_content_hash")
+  openrouterModel     String?           @map("openrouter_model")
+  promptVersion       String?           @map("prompt_version")
+  sourceFinalUrl      String?           @map("source_final_url")
+  followUpFinalUrl    String?           @map("follow_up_final_url")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  finishedAt          DateTime?         @map("finished_at")
+
+  mrVersion    MrVersion     @relation(fields: [mrVersionId], references: [id], onDelete: Restrict)
+  job          Job           @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  observations Observation[]
+  violations   Violation[]
+  artifacts    Artifact[]
+  llmCalls     LlmCall[]
+
+  @@index([mrVersionId])
+  @@index([jobId])
+  @@map("runs")
+}
+
+model Observation {
+  id          String          @id @default(uuid()) @db.Uuid
+  runId       String          @map("run_id") @db.Uuid
+  role        ObservationRole
+  payload     Json
+  payloadHash String          @map("payload_hash")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, role])
+  @@map("observations")
+}
+
+model Violation {
+  id           String           @id @default(uuid()) @db.Uuid
+  runId        String           @map("run_id") @db.Uuid
+  mrVersionId  String           @map("mr_version_id") @db.Uuid
+  verdictStrict Verdict         @default(fail) @map("verdict_strict")
+  triage       ViolationTriage?
+  triageNote   String?          @map("triage_note")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  triagedAt    DateTime?        @map("triaged_at")
+
+  run       Run       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  mrVersion MrVersion @relation(fields: [mrVersionId], references: [id], onDelete: Restrict)
+
+  @@index([mrVersionId])
+  @@map("violations")
+}
+
+// ─── Artifacts (MinIO paths) ─────────────────────────────────────────────────
+
+model Artifact {
+  id             String       @id @default(uuid()) @db.Uuid
+  sessionId      String?      @map("session_id") @db.Uuid
+  runId          String?      @map("run_id") @db.Uuid
+  pageSnapshotId String?      @map("page_snapshot_id") @db.Uuid
+  kind           ArtifactKind
+  path           String
+  mimeType       String?      @map("mime_type")
+  sizeBytes      Int?         @map("size_bytes")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  session                   Session?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  run                       Run?          @relation(fields: [runId], references: [id], onDelete: SetNull)
+  pageSnapshot              PageSnapshot? @relation(fields: [pageSnapshotId], references: [id], onDelete: SetNull)
+  pageSnapshotAnnotated     PageSnapshot? @relation("AnnotatedScreenshot")
+  pageSnapshotRaw           PageSnapshot? @relation("RawScreenshot")
+
+  @@index([runId])
+  @@index([sessionId])
+  @@map("artifacts")
+}
+
+// ─── LLM audit ───────────────────────────────────────────────────────────────
+
+model LlmCall {
+  id            String   @id @default(uuid()) @db.Uuid
+  jobId         String?  @map("job_id") @db.Uuid
+  runId         String?  @map("run_id") @db.Uuid
+  mrVersionId   String?  @map("mr_version_id") @db.Uuid
+  purpose       String
+  model         String
+  promptVersion String   @map("prompt_version")
+  tokensIn      Int?     @map("tokens_in")
+  tokensOut     Int?     @map("tokens_out")
+  latencyMs     Int?     @map("latency_ms")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  job       Job?       @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  run       Run?       @relation(fields: [runId], references: [id], onDelete: SetNull)
+  mrVersion MrVersion? @relation(fields: [mrVersionId], references: [id], onDelete: SetNull)
+
+  @@index([jobId])
+  @@map("llm_calls")
+}
+
+// ─── Worker runtime config (single-row) ──────────────────────────────────────
+
+model WorkerConfig {
+  id                    String   @id @default("default") @db.VarChar(32)
+  maxConcurrentBrowsers Int      @default(2) @map("max_concurrent_browsers")
+  playwrightHeadless    Boolean  @default(true) @map("playwright_headless")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("worker_config")
 }
