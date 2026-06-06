@@ -15,6 +15,12 @@ export type SessionSnapshotSummaryDto = {
   labeledCount: number;
 };
 
+export type SessionMrVersionSummaryDto = {
+  id: string;
+  status: string;
+  transformFamily: string;
+};
+
 export type SessionDetailsDto = {
   id: string;
   url: string;
@@ -25,4 +31,5 @@ export type SessionDetailsDto = {
   updatedAt: Date;
   jobs: SessionJobSummaryDto[];
   pageSnapshots: SessionSnapshotSummaryDto[];
+  mrVersions: SessionMrVersionSummaryDto[];
 };

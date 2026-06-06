@@ -35,6 +35,18 @@ export class SessionPrismaQuery extends SessionQueryPort {
           orderBy: { createdAt: 'desc' },
           take: 5,
         },
+        mrVersions: {
+          select: {
+            id: true,
+            status: true,
+            mrDefinition: {
+              select: {
+                transformFamily: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
@@ -60,6 +72,11 @@ export class SessionPrismaQuery extends SessionQueryPort {
           labeledCount: inventory.labeledCount ?? 0,
         };
       }),
+      mrVersions: session.mrVersions.map((mrVersion) => ({
+        id: mrVersion.id,
+        status: mrVersion.status,
+        transformFamily: mrVersion.mrDefinition.transformFamily,
+      })),
     };
   }
 }

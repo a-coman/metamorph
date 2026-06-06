@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HealthModule } from './health/health.module.js';
+import { MrVersionsModule } from './mr-versions/mr-versions.module.js';
 import { SessionsModule } from './sessions/sessions.module.js';
 import { CoreModule } from './shared/core/core.module.js';
 import { MinioModule } from './shared/infrastructure/minio/minio.module.js';
@@ -14,6 +15,7 @@ import { PrismaModule } from './shared/infrastructure/prisma/prisma.module.js';
     RabbitMqModule,
     HealthModule,
     SessionsModule,
+    MrVersionsModule,
   ],
 })
 export class AppModule {}
