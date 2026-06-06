@@ -111,6 +111,34 @@ services:
     command: ["consume"]
     shm_size: "1gb"
 
+  worker-llm:
+    build:
+      context: .
+      dockerfile: apps/worker-llm/Dockerfile
+    container_name: metamorph-worker-llm
+    init: true
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-metamorph}:${POSTGRES_PASSWORD:-metamorph}@postgres:5432/${POSTGRES_DB:-metamorph}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-metamorph-artifacts}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-metamorph.topic}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o}
+    command: ["consume"]
+
   # Standalone inventory capture to disk (dev only, no DB)
   # Usage: pnpm inventory:capture -- https://example.com
   inventory-capture:
