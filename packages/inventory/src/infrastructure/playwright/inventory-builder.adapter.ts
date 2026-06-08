@@ -1,27 +1,18 @@
 import type { Page } from 'playwright';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { InventoryItem } from '@metamorph/core';
 import type {
   BuildPageInventoryOptions,
   PageInventory,
 } from '../../domain/types/inventory-item.types.js';
 import { PageInventoryBuilderPort } from '../../domain/repositories/page-inventory-builder.repository.port.js';
+import { loadBrowserScanScript } from './load-browser-scan-script.js';
 import {
   captureAnnotatedScreenshot,
+  captureRawScreenshot,
   prepareCaptureViewport,
 } from './prepare-viewport.js';
 
 const DEFAULT_MAX_ITEMS = 200;
-const browserBundlePath = join(
-  dirname(fileURLToPath(import.meta.url)),
-  'inventory.browser.bundle.js',
-);
-
-function loadBrowserScanScript(): string {
-  return readFileSync(browserBundlePath, 'utf8');
-}
 
 export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort {
   async buildFromPage(
@@ -48,6 +39,8 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
       waitAfterViewportMs,
     );
 
+    const rawScreenshot = await captureRawScreenshot(page);
+
     const browserScript = loadBrowserScanScript();
     const items = (await page.evaluate(
       ({ script, opts }) => {
@@ -67,6 +60,7 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
       pageMetrics,
       viewport,
       items,
+      rawScreenshot,
       screenshot,
       labeledCount: items.filter((item) => item.labelShown).length,
     };

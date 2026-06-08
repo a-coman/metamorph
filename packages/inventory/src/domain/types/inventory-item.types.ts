@@ -6,13 +6,15 @@ import type {
 
 export type { InventoryItem, PageMetrics, ViewportSize };
 
-/** Result of a capture run (includes binary screenshot; not persisted as-is). */
+/** Result of a capture run (includes binary screenshots; not persisted as-is). */
 export type PageInventory = {
   url: string;
   capturedAt: string;
   pageMetrics: PageMetrics;
   viewport: ViewportSize;
   items: InventoryItem[];
+  /** Required for initial discover capture; optional for probe snapshots. */
+  rawScreenshot?: Buffer;
   screenshot: Buffer;
   labeledCount: number;
 };

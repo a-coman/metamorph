@@ -20,6 +20,8 @@ export {
   readPageMetrics,
 } from './infrastructure/playwright/prepare-viewport.js';
 
+export { loadBrowserScanScript } from './infrastructure/playwright/load-browser-scan-script.js';
+
 export { toPageSnapshotPayload } from './application/mappers/page-snapshot.mapper.js';
 
 export {
