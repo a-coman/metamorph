@@ -137,6 +137,8 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o}
+      OPENROUTER_TIMEOUT_MS: ${OPENROUTER_TIMEOUT_MS:-120000}
+      OPENROUTER_USE_JSON_SCHEMA: ${OPENROUTER_USE_JSON_SCHEMA:-false}
     command: ["consume"]
 
   # Standalone inventory capture to disk (dev only, no DB)

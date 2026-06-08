@@ -75,3 +75,57 @@ After a failed job, create a new one:
 ```bash
 curl -s -X POST localhost:3001/sessions/<SESSION_ID>/discover
 ```
+
+## Phase 5: Exploración incremental (LangGraph)
+
+Tras `discover`, el pipeline encadena `explore` (worker-llm):
+
+```
+discover (raw + annotated PNG) → snapshot_0 → mr_plan → plan_explore ⇄ probe → explore_verify → compile_draft → draft_pending_hitl
+```
+
+**Fresh start** (sin retrocompatibilidad con datos legacy):
+
+```bash
+docker compose down -v
+docker compose up -d postgres minio minio-init rabbitmq
+```
+
+**Workers requeridos** (RabbitMQ + ambos workers en marcha):
+
+```bash
+docker compose up -d postgres minio minio-init rabbitmq
+pnpm db:migrate   # incluye exploring, ExplorationCheckpoint, JobType explore/probe
+pnpm db:generate
+
+# Terminal 1 — API
+pnpm --filter @metamorph/api dev
+
+# Terminal 2 — worker-playwright (discover + probe + execute_pair)
+pnpm --filter @metamorph/worker-playwright consume
+
+# Terminal 3 — worker-llm (explore + explore_resume)
+pnpm --filter @metamorph/worker-llm consume
+```
+
+Verificar que los workers están Up:
+
+```bash
+docker compose --profile workers ps
+# o procesos consume activos en terminales 2 y 3
+```
+
+**E2E explore** (Airbnb/Amazon):
+
+```bash
+node scripts/e2e-explore.mjs
+# E2E_URL=https://www.amazon.es/ node scripts/e2e-explore.mjs
+```
+
+Observa progreso en:
+
+```bash
+curl -s localhost:3001/mr-versions/<MR_VERSION_ID>/exploration | jq
+```
+
+Estados MR nuevos: `exploring`, `exploration_failed` → `draft_pending_hitl` tras compilar playbook validado.

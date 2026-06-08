@@ -19,6 +19,9 @@ node_modules/
 # Turbo
 .turbo/
 
+# Playwright execute-pair run artifacts
+apps/worker-playwright/.runs/
+
 # Build outputs
 dist/
 build/
