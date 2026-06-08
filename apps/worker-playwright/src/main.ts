@@ -2,8 +2,9 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import {
   createDiscoverJobService,
-  createPlaywrightDiscoverSubscriber,
+  createPlaywrightJobSubscriber,
 } from './discovery/composition-root.js';
+import { createExecutePairJobService } from './execute-pair/composition-root.js';
 import { prisma } from './shared/infrastructure/prisma/prisma-client.js';
 
 const workerDir = resolve(import.meta.dirname, '..');
@@ -21,7 +22,7 @@ function parseJobId(args: string[]): string | undefined {
 }
 
 async function runConsume(): Promise<void> {
-  const subscriber = createPlaywrightDiscoverSubscriber();
+  const subscriber = createPlaywrightJobSubscriber();
   await subscriber.start();
 
   const shutdown = async (signal: string) => {
@@ -64,12 +65,32 @@ async function main() {
     return;
   }
 
+  if (command === 'execute-pair') {
+    const jobId = parseJobId(rest);
+    if (!jobId) {
+      console.error('Usage: execute-pair --job-id <uuid>');
+      process.exitCode = 1;
+      return;
+    }
+
+    const executePairJob = createExecutePairJobService();
+    const result = await executePairJob.run(jobId);
+
+    if (result.isLeft()) {
+      throw new Error(result.value.errorMessage ?? 'Execute pair job failed');
+    }
+
+    return;
+  }
+
   if (command === 'consume') {
     await runConsume();
     return;
   }
 
-  console.error('Unknown command. Available: consume | discover --job-id <uuid>');
+  console.error(
+    'Unknown command. Available: consume | discover --job-id <uuid> | execute-pair --job-id <uuid>',
+  );
   process.exitCode = 1;
 }
 

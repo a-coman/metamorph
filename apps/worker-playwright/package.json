@@ -9,6 +9,8 @@
     "consume:run": "tsx src/main.ts consume",
     "discover": "pnpm --filter @metamorph/inventory build:browser && tsx src/main.ts discover",
     "discover:run": "tsx src/main.ts discover",
+    "execute-pair": "tsx src/main.ts execute-pair",
+    "execute-pair:run": "tsx src/main.ts execute-pair",
     "db:generate": "prisma generate --schema=../api/prisma/schema.prisma"
   },
   "keywords": [],
@@ -26,6 +28,7 @@
     "@prisma/client": "^7.8.0",
     "dotenv": "^17.4.2",
     "pg": "^8.21.0",
+    "@playwright/test": "1.58.2",
     "playwright": "1.58.2"
   },
   "devDependencies": {
