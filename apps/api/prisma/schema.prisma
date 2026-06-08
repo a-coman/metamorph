@@ -27,7 +27,8 @@ enum JobStatus {
 
 enum JobType {
   discover
-  discover_llm @map("discover.llm")
+  explore
+  probe
   execute_pair
   replay
   regenerate_step
@@ -35,6 +36,8 @@ enum JobType {
 }
 
 enum MrVersionStatus {
+  exploring
+  exploration_failed
   draft_pending_hitl
   approved
   replayable
@@ -140,9 +143,10 @@ model PageSnapshot {
 
   session              Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   job                  Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
-  mrVersions           MrVersion[]
-  artifacts            Artifact[]
-  annotatedScreenshot  Artifact?   @relation("AnnotatedScreenshot", fields: [annotatedScreenshotId], references: [id], onDelete: SetNull)
+  mrVersions              MrVersion[]
+  explorationCheckpoints  ExplorationCheckpoint[]
+  artifacts               Artifact[]
+  annotatedScreenshot     Artifact?   @relation("AnnotatedScreenshot", fields: [annotatedScreenshotId], references: [id], onDelete: SetNull)
   annotatedScreenshotId String?    @unique @map("annotated_screenshot_artifact_id") @db.Uuid
   rawScreenshot        Artifact?   @relation("RawScreenshot", fields: [rawScreenshotId], references: [id], onDelete: SetNull)
   rawScreenshotId      String?     @unique @map("raw_screenshot_artifact_id") @db.Uuid
@@ -191,13 +195,32 @@ model MrVersion {
   schemaBlob   SchemaBlob?   @relation(fields: [schemaBlobId], references: [id], onDelete: SetNull)
   jobs         Job[]
   runs         Run[]
-  violations   Violation[]
-  llmCalls     LlmCall[]
+  violations              Violation[]
+  llmCalls                LlmCall[]
+  explorationCheckpoints  ExplorationCheckpoint[]
 
   @@index([sessionId])
   @@index([status])
   @@index([mrDefinitionId])
   @@map("mr_versions")
+}
+
+model ExplorationCheckpoint {
+  id          String   @id @default(uuid()) @db.Uuid
+  mrVersionId String   @map("mr_version_id") @db.Uuid
+  phase       String
+  sequence    Int
+  snapshotId  String   @map("snapshot_id") @db.Uuid
+  stepsJson   Json     @map("steps_json")
+  verdict     String
+  rationale   String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  mrVersion MrVersion    @relation(fields: [mrVersionId], references: [id], onDelete: Cascade)
+  snapshot  PageSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+
+  @@index([mrVersionId])
+  @@map("exploration_checkpoints")
 }
 
 model PlaybookBlob {

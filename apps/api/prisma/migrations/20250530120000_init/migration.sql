@@ -12,7 +12,6 @@ CREATE TYPE "JobStatus" AS ENUM (
 
 CREATE TYPE "JobType" AS ENUM (
     'discover',
-    'discover.llm',
     'execute_pair',
     'replay',
     'regenerate_step',
