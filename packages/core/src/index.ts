@@ -28,12 +28,6 @@ export {
 } from './domain/schemas/generation-slots.schema.js';
 
 export {
-  LlmDiscoverOutputSchema,
-  LLM_DISCOVER_PROMPT_VERSION,
-  type LlmDiscoverOutput,
-} from './domain/schemas/llm-discover-output.schema.js';
-
-export {
   PLAYBOOK_TEMPLATE_VERSION,
   renderPlaybook,
   renderObservationSchema,
