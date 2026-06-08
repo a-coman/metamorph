@@ -1,9 +1,9 @@
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import {
-  createDiscoverLlmJobService,
-  createLlmDiscoverSubscriber,
-} from './discover-llm/composition-root.js';
+  createExploreJobService,
+  createLlmExploreSubscriber,
+} from './explore/composition-root.js';
 import { prisma } from './shared/infrastructure/prisma/prisma-client.js';
 
 const workerDir = resolve(import.meta.dirname, '..');
@@ -21,7 +21,7 @@ function parseJobId(args: string[]): string | undefined {
 }
 
 async function runConsume(): Promise<void> {
-  const subscriber = createLlmDiscoverSubscriber();
+  const subscriber = createLlmExploreSubscriber();
   await subscriber.start();
 
   const shutdown = async (signal: string) => {
@@ -46,22 +46,22 @@ async function runConsume(): Promise<void> {
 async function main() {
   const [, , command, ...rest] = process.argv;
 
-  if (command === 'discover-llm') {
+  if (command === 'explore') {
     const jobId = parseJobId(rest);
     if (!jobId) {
-      console.error('Usage: discover-llm --job-id <uuid>');
+      console.error('Usage: explore --job-id <uuid>');
       process.exitCode = 1;
       return;
     }
 
-    const discoverLlmJob = createDiscoverLlmJobService();
-    const result = await discoverLlmJob.run(jobId);
+    const exploreJob = createExploreJobService();
+    const result = await exploreJob.run(jobId);
 
     if (result.isLeft()) {
-      throw new Error(result.value.errorMessage ?? 'Discover LLM job failed');
+      throw new Error(result.value.errorMessage ?? 'Explore job failed');
     }
 
-    console.log(`MR version created: ${result.value.mrVersionId}`);
+    console.log(`MR version: ${result.value.mrVersionId ?? 'pending'}`);
     return;
   }
 
@@ -70,9 +70,7 @@ async function main() {
     return;
   }
 
-  console.error(
-    'Unknown command. Available: consume | discover-llm --job-id <uuid>',
-  );
+  console.error('Unknown command. Available: consume | explore --job-id <uuid>');
   process.exitCode = 1;
 }
 
