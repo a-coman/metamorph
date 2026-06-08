@@ -1,6 +1,10 @@
 export {
+  JOB_LLM_EXPLORE,
+  JOB_LLM_EXPLORE_RESUME,
   JOB_LLM_DLQ,
   JOB_PLAYWRIGHT_DISCOVER,
+  JOB_PLAYWRIGHT_EXECUTE_PAIR,
+  JOB_PLAYWRIGHT_PROBE,
   JOB_PLAYWRIGHT_DLQ,
   QUEUE_LLM,
   QUEUE_LLM_DLQ,
@@ -9,6 +13,20 @@ export {
   RABBITMQ_EXCHANGE_DEFAULT,
 } from './routing-keys.js';
 export {
+  llmExploreJobMessageSchema,
+  llmExploreResumeMessageSchema,
+  llmJobMessageSchema,
+  type LlmExploreJobMessage,
+  type LlmExploreResumeMessage,
+  type LlmJobMessage,
+} from './messages/llm-explore-job.message.js';
+export {
   playwrightDiscoverJobMessageSchema,
+  playwrightExecutePairJobMessageSchema,
+  playwrightProbeJobMessageSchema,
+  playwrightJobMessageSchema,
   type PlaywrightDiscoverJobMessage,
+  type PlaywrightExecutePairJobMessage,
+  type PlaywrightProbeJobMessage,
+  type PlaywrightJobMessage,
 } from './messages/playwright-job.message.js';
