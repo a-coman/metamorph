@@ -28,6 +28,7 @@ export class MrVersionPrismaQuery extends MrVersionQueryPort {
       id: row.id,
       status: row.status,
       generationSlots: row.generationSlots,
+      validatedSteps: extractValidatedSteps(row.generationSlots),
       mrDefinition: row.mrDefinition.definition,
       pageSnapshotId: row.pageSnapshotId,
       locatorValidationScore: row.locatorValidationScore,
@@ -80,4 +81,16 @@ export class MrVersionService {
 
     return playbook;
   }
+}
+
+function extractValidatedSteps(generationSlots: unknown) {
+  const slots = generationSlots as {
+    source?: { steps?: unknown[] };
+    follow_up?: { steps?: unknown[] };
+  };
+
+  return {
+    source: slots.source?.steps ?? [],
+    follow_up: slots.follow_up?.steps ?? [],
+  };
 }
