@@ -1,4 +1,11 @@
-export const PLAYBOOK_TEMPLATE_VERSION = 'playbook-template@1';
+import { FINAL_PAGE_STABILIZATION_CODE } from '../../application/compiler/step-execution-policy.js';
+import {
+  OBSERVATION_FIELD_TYPES,
+  ObservationCatalogFieldSchema,
+} from '../../domain/schemas/observation-catalog.schema.js';
+import { renderObservationFieldExtractor } from './observation-extractors.v1.js';
+
+export const PLAYBOOK_TEMPLATE_VERSION = 'playbook-template@2';
 
 export type PlaybookRenderInput = {
   observationFields: string[];
@@ -8,15 +15,7 @@ export type PlaybookRenderInput = {
 
 export function renderPlaybook(input: PlaybookRenderInput): string {
   const observationBody = input.observationFields
-    .map((field) => {
-      if (field === 'url') {
-        return `    url: page.url(),`;
-      }
-      if (field === 'title') {
-        return `    title: await page.title(),`;
-      }
-      return `    ${field}: null, // TODO: refine extraction for "${field}"`;
-    })
+    .map((field) => renderObservationFieldExtractor(field))
     .join('\n');
 
   const sourceSteps = input.sourceStepLines.join('\n');
@@ -33,6 +32,7 @@ ${observationBody}
 test('source', async ({ page }) => {
 ${sourceSteps}
 
+${FINAL_PAGE_STABILIZATION_CODE}
   const observation = await extractObservation(page);
   await test.info().attach('observation', {
     body: JSON.stringify(observation),
@@ -43,6 +43,7 @@ ${sourceSteps}
 test('follow_up', async ({ page }) => {
 ${followUpSteps}
 
+${FINAL_PAGE_STABILIZATION_CODE}
   const observation = await extractObservation(page);
   await test.info().attach('observation', {
     body: JSON.stringify(observation),
@@ -54,8 +55,10 @@ ${followUpSteps}
 
 export function renderObservationSchema(fields: string[]): string {
   const properties: Record<string, { type: string }> = {};
+
   for (const field of fields) {
-    properties[field] = { type: field === 'resultCount' ? 'number' : 'string' };
+    const parsed = ObservationCatalogFieldSchema.parse(field);
+    properties[field] = { type: OBSERVATION_FIELD_TYPES[parsed] };
   }
 
   return JSON.stringify(
