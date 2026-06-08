@@ -15,18 +15,36 @@ export class SavePageSnapshotService {
     const snapshotKey = randomUUID();
     const artifactPath = `sessions/${dto.sessionId}/snapshots/${snapshotKey}/annotated.png`;
 
-    await this.artifactStorage.put(
-      artifactPath,
-      dto.inventory.screenshot,
-      'image/png',
-    );
+    const uploads: Promise<void>[] = [
+      this.artifactStorage.put(
+        artifactPath,
+        dto.inventory.screenshot,
+        'image/png',
+      ),
+    ];
+
+    let rawArtifactPath: string | undefined;
+    if (dto.inventory.rawScreenshot) {
+      rawArtifactPath = `sessions/${dto.sessionId}/snapshots/${snapshotKey}/raw.png`;
+      uploads.push(
+        this.artifactStorage.put(
+          rawArtifactPath,
+          dto.inventory.rawScreenshot,
+          'image/png',
+        ),
+      );
+    }
+
+    await Promise.all(uploads);
 
     return this.pageSnapshots.save({
       sessionId: dto.sessionId,
       jobId: dto.jobId,
       url: payload.url,
       inventory: payload,
+      rawArtifactPath,
       artifactPath,
+      rawScreenshot: dto.inventory.rawScreenshot,
       screenshot: dto.inventory.screenshot,
     });
   }

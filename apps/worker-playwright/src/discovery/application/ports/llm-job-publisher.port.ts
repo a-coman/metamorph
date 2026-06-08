@@ -1,5 +1,5 @@
 export abstract class LlmJobPublisherPort {
-  abstract publishDiscoverLlmJob(input: {
+  abstract publishExploreJob(input: {
     jobId: string;
     sessionId: string;
     pageSnapshotId: string;

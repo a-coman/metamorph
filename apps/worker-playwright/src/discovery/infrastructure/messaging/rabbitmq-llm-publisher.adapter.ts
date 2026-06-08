@@ -1,7 +1,7 @@
 import {
-  JOB_LLM_DISCOVER,
+  JOB_LLM_EXPLORE,
   RABBITMQ_EXCHANGE_DEFAULT,
-  type LlmDiscoverJobMessage,
+  type LlmExploreJobMessage,
 } from '@metamorph/contracts';
 import amqplib from 'amqplib';
 import { LlmJobPublisherPort } from '../../application/ports/llm-job-publisher.port.js';
@@ -17,7 +17,7 @@ export class RabbitMqLlmPublisherAdapter extends LlmJobPublisherPort {
     this.exchange = exchange;
   }
 
-  async publishDiscoverLlmJob(input: {
+  async publishExploreJob(input: {
     jobId: string;
     sessionId: string;
     pageSnapshotId: string;
@@ -27,16 +27,16 @@ export class RabbitMqLlmPublisherAdapter extends LlmJobPublisherPort {
     const channel = await connection.createConfirmChannel();
 
     try {
-      const message: LlmDiscoverJobMessage = {
+      const message: LlmExploreJobMessage = {
         job_id: input.jobId,
         session_id: input.sessionId,
-        type: 'discover.llm',
+        type: 'explore',
         page_snapshot_id: input.pageSnapshotId,
         payload: { url: input.url },
       };
 
       const body = Buffer.from(JSON.stringify(message));
-      const published = channel.publish(this.exchange, JOB_LLM_DISCOVER, body, {
+      const published = channel.publish(this.exchange, JOB_LLM_EXPLORE, body, {
         contentType: 'application/json',
         persistent: true,
       });

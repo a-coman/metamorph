@@ -5,7 +5,9 @@ export type PersistPageSnapshotInput = {
   jobId?: string;
   url: string;
   inventory: PageSnapshotInventory;
+  rawArtifactPath?: string;
   artifactPath: string;
+  rawScreenshot?: Buffer;
   screenshot: Buffer;
 };
 

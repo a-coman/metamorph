@@ -18,7 +18,23 @@ export class PageSnapshotPrismaRepository extends PageSnapshotRepositoryPort {
         },
       });
 
-      const artifact = await tx.artifact.create({
+      let rawScreenshotId: string | undefined;
+
+      if (input.rawArtifactPath && input.rawScreenshot) {
+        const rawArtifact = await tx.artifact.create({
+          data: {
+            sessionId: input.sessionId,
+            pageSnapshotId: pageSnapshot.id,
+            kind: ArtifactKind.screenshot,
+            path: input.rawArtifactPath,
+            mimeType: 'image/png',
+            sizeBytes: input.rawScreenshot.length,
+          },
+        });
+        rawScreenshotId = rawArtifact.id;
+      }
+
+      const annotatedArtifact = await tx.artifact.create({
         data: {
           sessionId: input.sessionId,
           pageSnapshotId: pageSnapshot.id,
@@ -31,12 +47,15 @@ export class PageSnapshotPrismaRepository extends PageSnapshotRepositoryPort {
 
       await tx.pageSnapshot.update({
         where: { id: pageSnapshot.id },
-        data: { annotatedScreenshotId: artifact.id },
+        data: {
+          ...(rawScreenshotId ? { rawScreenshotId } : {}),
+          annotatedScreenshotId: annotatedArtifact.id,
+        },
       });
 
       return {
         pageSnapshotId: pageSnapshot.id,
-        artifactId: artifact.id,
+        artifactId: annotatedArtifact.id,
         artifactPath: input.artifactPath,
       };
     });
