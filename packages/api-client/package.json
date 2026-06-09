@@ -1,0 +1,22 @@
+{
+  "name": "@metamorph/api-client",
+  "version": "1.0.0",
+  "description": "Shared HTTP API types, fetch client, and SSE helpers for Metamorph",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./sse": {
+      "types": "./dist/sse.d.ts",
+      "default": "./dist/sse.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "type": "module",
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}
