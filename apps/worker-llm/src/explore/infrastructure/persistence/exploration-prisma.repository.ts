@@ -90,10 +90,23 @@ export class ExplorationPrismaRepository {
   async markExplorationFailed(mrVersionId: string, reason: string): Promise<void> {
     await prisma.mrVersion.update({
       where: { id: mrVersionId },
-      data: { status: MrVersionStatus.exploration_failed },
+      data: {
+        status: MrVersionStatus.exploration_failed,
+        explorationFailureReason: reason,
+      },
     });
 
     console.error(`Exploration failed for mr_version ${mrVersionId}: ${reason}`);
+  }
+
+  async saveExplorationGoals(
+    mrVersionId: string,
+    goals: { source_phase_goal: string; follow_up_phase_goal: string },
+  ): Promise<void> {
+    await prisma.mrVersion.update({
+      where: { id: mrVersionId },
+      data: { explorationGoals: goals },
+    });
   }
 
   async saveDraft(input: {

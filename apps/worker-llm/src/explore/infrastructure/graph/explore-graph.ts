@@ -2,6 +2,7 @@ import { Annotation, END, START, StateGraph, interrupt } from '@langchain/langgr
 import {
   compilePlaybook,
   extractHostFromUrl,
+  isFillableInventoryItem,
   parseObservationCatalogFields,
   resolveStepTargets,
   validateInventoryElementIds,
@@ -58,6 +59,10 @@ const ExploreAnnotation = Annotation.Root({
   failureReason: Annotation<string | undefined>,
   checkpointSequence: Annotation<number>,
   snapshotBeforeId: Annotation<string | undefined>,
+  smokeGatePassed: Annotation<boolean | undefined>,
+  awaitingSmokeReplay: Annotation<boolean | undefined>,
+  smokeRecoveryAttempts: Annotation<number>,
+  maxSmokeRecoveryAttempts: Annotation<number>,
 });
 
 type State = typeof ExploreAnnotation.State;
@@ -185,6 +190,11 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         audit: planResult.audit,
       });
 
+      await deps.explorationRepo.saveExplorationGoals(
+        state.mrVersionId,
+        planResult.output.exploration,
+      );
+
       logExploreGraphEvent('mr_plan complete');
 
       return {
@@ -293,6 +303,25 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         };
       }
 
+      const itemMap = new Map(snapshot.inventory.items.map((item) => [item.shortId, item]));
+      const nonFillableFill = steps.filter((step) => {
+        if (step.action !== 'fill' || !step.element_id) {
+          return false;
+        }
+        const item = itemMap.get(step.element_id);
+        return item !== undefined && !isFillableInventoryItem(item);
+      });
+      if (nonFillableFill.length > 0) {
+        const ids = nonFillableFill.map((s) => s.element_id).join(', ');
+        return {
+          iteration: nextIteration,
+          probeError:
+            `fill not allowed on ${ids} (not input/textarea/combobox). ` +
+            'For travel/combobox UIs: batch 1 = click destination trigger + waitFor; batch 2 = fill the revealed input or pick a suggestion, then click search.',
+          planRecoveryAttempts: state.planRecoveryAttempts + 1,
+        };
+      }
+
       if (steps.length === 0) {
         return {
           iteration: nextIteration,
@@ -339,7 +368,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return {};
     }
 
-    const probeJobId = await deps.probePublisher.publish({
+    const probeJobId = await deps.probePublisher.publishIncremental({
       sessionId: state.sessionId,
       mrVersionId: state.mrVersionId,
       exploreJobId: state.exploreJobId,
@@ -360,15 +389,33 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   // Interrupt-only node: no side effects before `interrupt()`, so re-execution
   // on resume is safe and never republishes a probe.
   async function awaitProbeNode(state: State): Promise<Partial<State>> {
-    if (state.failed) {
+    if (state.failed || !state.pendingProbeJobId) {
       return {};
     }
 
-    if (state.lastVerdict === 'goal_reached' || state.pendingProbeSteps.length === 0) {
+    const isSmoke = state.awaitingSmokeReplay === true;
+    const skipIncremental =
+      !isSmoke &&
+      (state.lastVerdict === 'goal_reached' || state.pendingProbeSteps.length === 0);
+
+    if (skipIncremental) {
       return {};
     }
 
     const resumeValue = interrupt({ probeJobId: state.pendingProbeJobId }) as ProbeResumeValue;
+
+    if (isSmoke) {
+      logExploreGraphEvent(
+        `iter=${state.iteration} phase=${state.phase} smoke ${resumeValue.probe_status}${resumeValue.snapshot_id ? ` snapshot=${resumeValue.snapshot_id.slice(0, 8)}` : ''}${resumeValue.error ? ` err=${resumeValue.error.slice(0, 60)}` : ''}`,
+      );
+
+      return {
+        probeStatus: resumeValue.probe_status,
+        probeError: resumeValue.error,
+        currentSnapshotId: resumeValue.snapshot_id ?? state.currentSnapshotId,
+      };
+    }
+
     const executedSteps = state.pendingProbeSteps;
 
     logExploreGraphEvent(
@@ -603,8 +650,117 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     return {};
   }
 
+  async function dispatchSmokeNode(state: State): Promise<Partial<State>> {
+    if (state.failed || state.smokeGatePassed || state.lastVerdict !== 'goal_reached') {
+      return {};
+    }
+
+    if (state.pendingProbeJobId) {
+      return {};
+    }
+
+    const phaseSteps = state.validatedSteps[state.phase];
+    if (phaseSteps.length === 0) {
+      return {
+        failed: true,
+        failureReason: `Smoke replay: no validated steps for ${state.phase}`,
+      };
+    }
+
+    const probeJobId = await deps.probePublisher.publishSmokeReplay({
+      sessionId: state.sessionId,
+      mrVersionId: state.mrVersionId,
+      exploreJobId: state.exploreJobId,
+      phase: state.phase,
+      inventorySnapshotId: state.initialSnapshotId,
+      resumeUrl: state.sessionUrl,
+      replaySteps: phaseSteps,
+    });
+
+    logExploreGraphEvent(
+      `iter=${state.iteration} phase=${state.phase} smoke queued job=${probeJobId.slice(0, 8)} | path=${phaseSteps.length} steps`,
+    );
+
+    return {
+      pendingProbeJobId: probeJobId,
+      awaitingSmokeReplay: true,
+    };
+  }
+
+  async function assessSmokeNode(state: State): Promise<Partial<State>> {
+    if (state.failed || !state.awaitingSmokeReplay) {
+      return {};
+    }
+
+    if (state.probeStatus === 'failed') {
+      const phase = state.phase;
+      const error = state.probeError ?? 'Smoke replay failed';
+      const nextSmokeRecovery = state.smokeRecoveryAttempts + 1;
+
+      if (nextSmokeRecovery >= state.maxSmokeRecoveryAttempts) {
+        logExploreGraphEvent(
+          `iter=${state.iteration} phase=${phase} smoke failed — max retries (${state.maxSmokeRecoveryAttempts})`,
+        );
+        return {
+          failed: true,
+          failureReason: `Phase ${phase} smoke replay failed after ${state.maxSmokeRecoveryAttempts} attempts: ${error}`,
+        };
+      }
+
+      const current = [...state.validatedSteps[phase]];
+      const backtrackSize = Math.min(3, current.length);
+      if (backtrackSize > 0) {
+        current.splice(-backtrackSize, backtrackSize);
+      }
+
+      const smokeError = [
+        `Smoke replay failed (full path from homepage): ${error}`,
+        'The incremental probes passed but the complete scenario is unstable.',
+        'Simplify the path, dismiss modals earlier, or use more stable locators.',
+      ].join(' ');
+
+      logExploreGraphEvent(
+        `iter=${state.iteration} phase=${phase} smoke failed → backtrack | path=${current.length} steps`,
+      );
+
+      const validatedSteps = {
+        ...state.validatedSteps,
+        [phase]: current,
+      };
+
+      await deps.explorationRepo.updateGenerationSlots(
+        state.mrVersionId,
+        buildGenerationSlots({ ...state, validatedSteps }),
+      );
+
+      return {
+        lastVerdict: undefined,
+        smokeGatePassed: false,
+        awaitingSmokeReplay: false,
+        pendingProbeJobId: undefined,
+        probeStatus: undefined,
+        smokeRecoveryAttempts: nextSmokeRecovery,
+        validatedSteps,
+        probeError: smokeError,
+      };
+    }
+
+    logExploreGraphEvent(
+      `iter=${state.iteration} phase=${state.phase} smoke passed | path=${state.validatedSteps[state.phase].length} steps`,
+    );
+
+    return {
+      smokeGatePassed: true,
+      awaitingSmokeReplay: false,
+      pendingProbeJobId: undefined,
+      probeStatus: undefined,
+      probeError: undefined,
+      smokeRecoveryAttempts: 0,
+    };
+  }
+
   async function switchPhaseNode(state: State): Promise<Partial<State>> {
-    if (state.failed || state.lastVerdict !== 'goal_reached') {
+    if (state.failed || state.lastVerdict !== 'goal_reached' || !state.smokeGatePassed) {
       return {};
     }
 
@@ -628,11 +784,14 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       lastVerdict: undefined,
       checkpointRecoveryAttempts: 0,
       probeError: undefined,
+      smokeGatePassed: false,
+      awaitingSmokeReplay: false,
+      smokeRecoveryAttempts: 0,
     };
   }
 
   async function compileDraftNode(state: State): Promise<Partial<State>> {
-    if (state.failed || !state.mrDefinition) {
+    if (state.failed || !state.mrDefinition || !state.smokeGatePassed) {
       return {};
     }
 
@@ -686,13 +845,21 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     return {};
   }
 
+  function routeAfterGoalReached(state: State): string {
+    if (!state.smokeGatePassed) {
+      return 'dispatch_smoke';
+    }
+
+    return state.phase === 'source' ? 'switch_phase' : 'compile_draft';
+  }
+
   function routeAfterPlan(state: State): string {
     if (state.failed) {
       return 'fail';
     }
 
     if (state.lastVerdict === 'goal_reached') {
-      return state.phase === 'source' ? 'switch_phase' : 'compile_draft';
+      return routeAfterGoalReached(state);
     }
 
     if (state.pendingProbeSteps.length > 0) {
@@ -716,7 +883,27 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     }
 
     if (state.lastVerdict === 'goal_reached') {
-      return state.phase === 'source' ? 'switch_phase' : 'compile_draft';
+      return routeAfterGoalReached(state);
+    }
+
+    return 'plan_next';
+  }
+
+  function routeAfterAwaitProbe(state: State): string {
+    if (state.awaitingSmokeReplay) {
+      return 'assess_smoke';
+    }
+
+    return 'assess_checkpoint';
+  }
+
+  function routeAfterAssessSmoke(state: State): string {
+    if (state.failed) {
+      return 'fail';
+    }
+
+    if (state.smokeGatePassed) {
+      return routeAfterGoalReached(state);
     }
 
     return 'plan_next';
@@ -746,6 +933,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     .addNode('await_probe', awaitProbeNode)
     .addNode('assess_checkpoint', assessCheckpointNode)
     .addNode('commit_or_backtrack', commitOrBacktrackNode)
+    .addNode('dispatch_smoke', dispatchSmokeNode)
+    .addNode('assess_smoke', assessSmokeNode)
     .addNode('switch_phase', switchPhaseNode)
     .addNode('compile_draft', compileDraftNode)
     .addNode('fail', failNode)
@@ -757,16 +946,29 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     })
     .addConditionalEdges('plan_next', routeAfterPlan, {
       dispatch_probe: 'dispatch_probe',
+      dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
       compile_draft: 'compile_draft',
       plan_next: 'plan_next',
       fail: 'fail',
     })
     .addEdge('dispatch_probe', 'await_probe')
-    .addEdge('await_probe', 'assess_checkpoint')
+    .addEdge('dispatch_smoke', 'await_probe')
+    .addConditionalEdges('await_probe', routeAfterAwaitProbe, {
+      assess_checkpoint: 'assess_checkpoint',
+      assess_smoke: 'assess_smoke',
+    })
     .addEdge('assess_checkpoint', 'commit_or_backtrack')
     .addConditionalEdges('commit_or_backtrack', routeAfterCommit, {
       plan_next: 'plan_next',
+      dispatch_smoke: 'dispatch_smoke',
+      switch_phase: 'switch_phase',
+      compile_draft: 'compile_draft',
+      fail: 'fail',
+    })
+    .addConditionalEdges('assess_smoke', routeAfterAssessSmoke, {
+      plan_next: 'plan_next',
+      dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
       compile_draft: 'compile_draft',
       fail: 'fail',

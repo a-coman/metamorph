@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { ExplorationTimelineDto } from '../../application/dtos/mr-version.dto.js';
+import type {
+  ExplorationCheckpointStatsDto,
+  ExplorationPhaseGoalsDto,
+  ExplorationTimelineDto,
+} from '../../application/dtos/mr-version.dto.js';
 import { ExplorationQueryPort } from '../../application/ports/exploration-query.port.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
 
@@ -50,6 +54,9 @@ export class ExplorationPrismaQuery extends ExplorationQueryPort {
       }
     }
 
+    const phaseGoals = parsePhaseGoals(mrVersion.explorationGoals);
+    const checkpointStats = buildCheckpointStats(checkpoints);
+
     return {
       mrVersionId,
       status: mrVersion.status,
@@ -68,8 +75,49 @@ export class ExplorationPrismaQuery extends ExplorationQueryPort {
         tracePath: tracePathBySnapshot.get(row.snapshotId) ?? null,
         createdAt: row.createdAt,
       })),
+      ...(mrVersion.explorationFailureReason
+        ? { failureReason: mrVersion.explorationFailureReason }
+        : {}),
+      ...(phaseGoals ? { phaseGoals } : {}),
+      checkpointStats,
     };
   }
+}
+
+function parsePhaseGoals(raw: unknown): ExplorationPhaseGoalsDto | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+
+  const goals = raw as Record<string, unknown>;
+  const source = goals.source_phase_goal;
+  const followUp = goals.follow_up_phase_goal;
+
+  if (typeof source !== 'string' || typeof followUp !== 'string') {
+    return undefined;
+  }
+
+  return { source, follow_up: followUp };
+}
+
+function buildCheckpointStats(
+  checkpoints: { phase: string; verdict: string }[],
+): ExplorationCheckpointStatsDto {
+  const empty = { ok: 0, fail: 0, goal_reached: 0 };
+  const stats: ExplorationCheckpointStatsDto = {
+    source: { ...empty },
+    follow_up: { ...empty },
+  };
+
+  for (const row of checkpoints) {
+    const phase = row.phase === 'follow_up' ? 'follow_up' : 'source';
+    const verdict = row.verdict as keyof typeof empty;
+    if (verdict in stats[phase]) {
+      stats[phase][verdict] += 1;
+    }
+  }
+
+  return stats;
 }
 
 @Injectable()

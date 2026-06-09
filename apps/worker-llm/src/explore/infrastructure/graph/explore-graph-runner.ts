@@ -52,6 +52,10 @@ export class ExploreGraphRunner {
       currentSnapshotId: input.pageSnapshotId,
       checkpointSequence: 0,
       lastExecutedSteps: [],
+      smokeGatePassed: false,
+      awaitingSmokeReplay: false,
+      smokeRecoveryAttempts: 0,
+      maxSmokeRecoveryAttempts: 2,
     };
 
     const result = (await graph.invoke(initialState, config)) as Record<string, unknown>;

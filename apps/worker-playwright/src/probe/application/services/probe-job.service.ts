@@ -54,13 +54,18 @@ export class ProbeJobService {
     }
 
     try {
-      const rawSteps = [...job.payload.validatedPrefix, ...job.payload.probeSteps];
+      const rawSteps =
+        job.payload.mode === 'smoke_replay'
+          ? job.payload.probeSteps
+          : [...job.payload.validatedPrefix, ...job.payload.probeSteps];
       const allSteps = withProbeGotoPrefix(rawSteps, job.payload.resumeUrl);
+      const maxAttempts = job.payload.mode === 'smoke_replay' ? 2 : 1;
 
-      const capture = await this.inventoryCapture.captureAfterSteps(
+      const capture = await this.runCaptureWithRetries(
         allSteps,
         snapshotData.inventory,
         jobId,
+        maxAttempts,
       );
 
       const saved = await this.savePageSnapshot.execute({
@@ -87,8 +92,9 @@ export class ProbeJobService {
         probeStatus: 'ok',
       });
 
+      const modeLabel = job.payload.mode === 'smoke_replay' ? 'smoke' : 'probe';
       console.log(
-        `Probe job ${jobId} done — snapshot ${saved.pageSnapshotId} url=${capture.inventory.url}${tracePath ? ` trace=${tracePath}` : ''}`,
+        `${modeLabel} job ${jobId} done — snapshot ${saved.pageSnapshotId} url=${capture.inventory.url}${tracePath ? ` trace=${tracePath}` : ''}`,
       );
 
       return right(undefined);
@@ -118,6 +124,32 @@ export class ProbeJobService {
 
       return this.failJob(job, jobId, message, traceZip, failureSnapshotId);
     }
+  }
+
+  private async runCaptureWithRetries(
+    steps: Parameters<ProbeInventoryCaptureAdapter['captureAfterSteps']>[0],
+    inventory: Parameters<ProbeInventoryCaptureAdapter['captureAfterSteps']>[1],
+    jobId: string,
+    maxAttempts: number,
+  ) {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await this.inventoryCapture.captureAfterSteps(steps, inventory, jobId);
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxAttempts) {
+          console.warn(
+            `Probe capture attempt ${attempt}/${maxAttempts} failed — retrying: ${
+              error instanceof Error ? error.message.slice(0, 120) : 'unknown'
+            }`,
+          );
+        }
+      }
+    }
+
+    throw lastError;
   }
 
   private async persistTrace(input: {

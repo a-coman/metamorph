@@ -9,4 +9,4 @@ export const ExploreVerifyOutputSchema = z.object({
 
 export type ExploreVerifyOutput = z.infer<typeof ExploreVerifyOutputSchema>;
 
-export const EXPLORE_VERIFY_PROMPT_VERSION = 'explore-verify-v1';
+export const EXPLORE_VERIFY_PROMPT_VERSION = 'explore-verify-v4';

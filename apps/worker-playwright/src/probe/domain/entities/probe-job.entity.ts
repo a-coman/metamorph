@@ -2,11 +2,14 @@ import type { SlotStep } from '@metamorph/core';
 import { JobStatus } from '../enums/job-status.enum.js';
 import { JobType } from '../enums/job-type.enum.js';
 
+export type ProbeJobMode = 'incremental' | 'smoke_replay';
+
 export type ProbeJobPayload = {
   exploreJobId: string;
   mrVersionId: string;
   phase: 'source' | 'follow_up';
   inventorySnapshotId: string;
+  mode: ProbeJobMode;
   validatedPrefix: SlotStep[];
   probeSteps: SlotStep[];
   resumeUrl: string;

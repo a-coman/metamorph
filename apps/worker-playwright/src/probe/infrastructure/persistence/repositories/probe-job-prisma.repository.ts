@@ -14,6 +14,7 @@ type ProbePayloadJson = {
   explore_job_id: string;
   phase: 'source' | 'follow_up';
   inventory_snapshot_id: string;
+  mode?: 'incremental' | 'smoke_replay';
   validated_prefix: SlotStep[];
   probe_steps: SlotStep[];
   resume_url: string;
@@ -40,6 +41,7 @@ export class ProbeJobPrismaRepository extends ProbeJobRepositoryPort {
         mrVersionId: row.mrVersionId ?? '',
         phase: payload.phase,
         inventorySnapshotId: payload.inventory_snapshot_id,
+        mode: payload.mode ?? 'incremental',
         validatedPrefix: payload.validated_prefix,
         probeSteps: payload.probe_steps,
         resumeUrl: payload.resume_url,

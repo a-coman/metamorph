@@ -1,4 +1,4 @@
-import type { PageSnapshotInventory } from '@metamorph/core';
+import { isFillableInventoryItem, type PageSnapshotInventory } from '@metamorph/core';
 
 export function buildInventorySummary(inventory: PageSnapshotInventory): string {
   return inventory.items
@@ -6,6 +6,7 @@ export function buildInventorySummary(inventory: PageSnapshotInventory): string 
       const parts = [
         item.shortId,
         item.tagName,
+        isFillableInventoryItem(item) ? 'fillable' : null,
         item.role ? `role=${item.role}` : null,
         item.name ? `name=${JSON.stringify(item.name)}` : null,
         item.ariaLabel ? `aria=${JSON.stringify(item.ariaLabel)}` : null,

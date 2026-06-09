@@ -29,8 +29,9 @@ export function buildMrPlanSystemPrompt(): string {
     ...MR_VERTICAL_RULES.map((rule) => `- ${rule}`),
     '- mr_definition.precondition and mr_definition.transformation MUST be objects, not strings.',
     '- mr_definition.relation MUST be an object with type/on/description, not a string.',
-    '- exploration.source_phase_goal: what the source Playwright scenario must achieve.',
-    '- exploration.follow_up_phase_goal: independent replay from homepage, rebuild source state, repeat filter once.',
+    '- exploration.source_phase_goal: what the source Playwright scenario must achieve (dismiss cookie banner if present, then reach search results with query applied).',
+    '- exploration.follow_up_phase_goal: independent replay from homepage, dismiss cookies again if needed, rebuild source state, repeat filter/search once.',
+    '- Keep goals simple: homepage → search results with a query; do not require login or advanced sidebar filters.',
     'Example:',
     JSON.stringify(
       {
@@ -53,9 +54,9 @@ export function buildMrPlanSystemPrompt(): string {
         },
         exploration: {
           source_phase_goal:
-            'Reach a search results or filtered listing page with the search/filter query applied.',
+            'Dismiss cookie consent if visible, search from the homepage, and reach a results page with the query applied (URL contains search params, product grid visible).',
           follow_up_phase_goal:
-            'From the homepage, rebuild the path to the same filtered results state as source, then repeat the filter action once to test idempotence.',
+            'From the homepage, dismiss cookies if needed, rebuild the same search path as source to reach matching results, then repeat the search submit once to test idempotence.',
         },
       },
       null,

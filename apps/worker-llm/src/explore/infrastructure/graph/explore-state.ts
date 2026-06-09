@@ -38,6 +38,11 @@ export type ExploreGraphState = {
   probeError?: string;
   probeStatus?: 'ok' | 'failed';
   lastVerdict?: 'ok' | 'fail' | 'goal_reached';
+  /** Full-path smoke replay passed for the current phase (after goal_reached). */
+  smokeGatePassed?: boolean;
+  awaitingSmokeReplay?: boolean;
+  smokeRecoveryAttempts: number;
+  maxSmokeRecoveryAttempts: number;
   failed?: boolean;
   failureReason?: string;
 };
@@ -63,6 +68,10 @@ export const DEFAULT_EXPLORE_STATE: Omit<
   planRecoveryAttempts: 0,
   maxPlanRecoveryAttempts: 3,
   checkpointRecoveryAttempts: 0,
+  smokeGatePassed: false,
+  awaitingSmokeReplay: false,
+  smokeRecoveryAttempts: 0,
+  maxSmokeRecoveryAttempts: 2,
 };
 
 export function buildGenerationSlots(state: ExploreGraphState): GenerationSlots {

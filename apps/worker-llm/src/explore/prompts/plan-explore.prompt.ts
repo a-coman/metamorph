@@ -31,6 +31,11 @@ export function buildPlanExploreSystemPrompt(phase: ExplorePhase): string {
     '- Allowed step actions: goto, click, fill, selectOption, press, scroll, waitFor.',
     '- When the screenshot shows a cookie consent banner, modal, or other overlay blocking the main UI, dismiss or accept it as the first step(s) in your batch using element_ids from the current inventory (before search, filter, or navigation toward the phase goal).',
     '- If no blocking overlay is visible, proceed directly toward the phase goal.',
+    '- For search boxes: prefer fill + press Enter over multiple ambiguous clicks.',
+    '- fill is ONLY allowed on inventory items with tagName input/textarea/select OR role textbox/searchbox/combobox.',
+    '- For div/button destination triggers (travel sites like Airbnb): click the trigger + waitFor in one batch; fill/type in the NEXT batch on the revealed input or pick a suggestion, then click the search button.',
+    '- Do not repeat cookie-dismiss steps already present in the validated path for this phase.',
+    '- Avoid login modals, account walls, and checkout flows — use public search/browse only.',
     '- When the phase goal is already met in the current screenshot/URL, return action=scenario_complete.',
     '- Do not propose steps that repeat an action already in validated steps unless the phase goal requires it.',
     '- Reserve action=abort for unrecoverable blockers only (captcha, hard auth wall).',
@@ -41,9 +46,13 @@ export function buildPlanExploreSystemPrompt(phase: ExplorePhase): string {
       '',
       'follow_up phase specifics:',
       '- follow_up is an INDEPENDENT Playwright scenario replayed from the homepage (validated follow_up path starts empty).',
+      '- Phase reset: you are back on the homepage snapshot — dismiss cookie banner again if visible before searching.',
       '- Use validated source steps as reference for which filter/search action to repeat.',
-      '- Build toward the same filtered results state as source (see source end URL), then repeat that filter action once.',
+      '- Build toward the same filtered results state as source (see source end URL), then repeat that filter/search action once.',
       '- An empty follow_up validated path at the start is EXPECTED — do not abort for that reason alone.',
+      '- Never abort because the path is empty: start with goto (if needed) + dismiss overlay + replicate source navigation incrementally.',
+      '- Each probe batch replays from homepage (validated prefix + new steps) — plan incremental progress, not one giant batch.',
+      '- On the results/listings page: repeat the SAME search/submit button only — do not reopen destination/date pickers for the idempotence step.',
     );
   }
 

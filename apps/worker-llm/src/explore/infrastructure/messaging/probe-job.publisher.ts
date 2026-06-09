@@ -9,6 +9,15 @@ import amqplib from 'amqplib';
 import { prisma } from '../../../shared/infrastructure/prisma/prisma-client.js';
 import type { ExplorePhase } from '../graph/explore-state.js';
 
+type PublishProbeInput = {
+  sessionId: string;
+  mrVersionId: string;
+  exploreJobId: string;
+  phase: ExplorePhase;
+  inventorySnapshotId: string;
+  resumeUrl: string;
+};
+
 export class ProbeJobPublisher {
   private readonly exchange: string;
 
@@ -19,16 +28,37 @@ export class ProbeJobPublisher {
     this.exchange = exchange;
   }
 
-  async publish(input: {
-    sessionId: string;
-    mrVersionId: string;
-    exploreJobId: string;
-    phase: ExplorePhase;
-    inventorySnapshotId: string;
+  async publishIncremental(input: PublishProbeInput & {
     validatedPrefix: SlotStep[];
     probeSteps: SlotStep[];
-    resumeUrl: string;
   }): Promise<string> {
+    return this.publish({
+      ...input,
+      mode: 'incremental' as const,
+      validatedPrefix: input.validatedPrefix,
+      probeSteps: input.probeSteps,
+    });
+  }
+
+  async publishSmokeReplay(input: PublishProbeInput & {
+    replaySteps: SlotStep[];
+  }): Promise<string> {
+    return this.publish({
+      ...input,
+      mode: 'smoke_replay' as const,
+      validatedPrefix: [],
+      probeSteps: input.replaySteps,
+    });
+  }
+
+  /** @deprecated Use publishIncremental */
+  async publish(input: PublishProbeInput & {
+    mode?: 'incremental' | 'smoke_replay';
+    validatedPrefix: SlotStep[];
+    probeSteps: SlotStep[];
+  }): Promise<string> {
+    const mode = input.mode ?? 'incremental';
+
     const job = await prisma.job.create({
       data: {
         sessionId: input.sessionId,
@@ -39,6 +69,7 @@ export class ProbeJobPublisher {
           explore_job_id: input.exploreJobId,
           phase: input.phase,
           inventory_snapshot_id: input.inventorySnapshotId,
+          mode,
           validated_prefix: input.validatedPrefix,
           probe_steps: input.probeSteps,
           resume_url: input.resumeUrl,
@@ -56,6 +87,7 @@ export class ProbeJobPublisher {
         type: 'probe',
         mr_version_id: input.mrVersionId,
         payload: {
+          mode,
           explore_job_id: input.exploreJobId,
           phase: input.phase,
           inventory_snapshot_id: input.inventorySnapshotId,

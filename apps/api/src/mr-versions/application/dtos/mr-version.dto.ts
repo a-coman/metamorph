@@ -25,6 +25,16 @@ export type ExplorationCheckpointDto = {
   createdAt: Date;
 };
 
+export type ExplorationPhaseGoalsDto = {
+  source: string;
+  follow_up: string;
+};
+
+export type ExplorationCheckpointStatsDto = {
+  source: { ok: number; fail: number; goal_reached: number };
+  follow_up: { ok: number; fail: number; goal_reached: number };
+};
+
 export type ExplorationTimelineDto = {
   mrVersionId: string;
   status: string;
@@ -33,6 +43,9 @@ export type ExplorationTimelineDto = {
     follow_up: unknown[];
   };
   checkpoints: ExplorationCheckpointDto[];
+  failureReason?: string;
+  phaseGoals?: ExplorationPhaseGoalsDto;
+  checkpointStats?: ExplorationCheckpointStatsDto;
 };
 
 export type MrVersionPlaybookDto = {

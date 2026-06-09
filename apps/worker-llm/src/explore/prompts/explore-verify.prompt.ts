@@ -9,7 +9,9 @@ export function buildExploreVerifySystemPrompt(phase: ExplorePhase): string {
     'Verdict rules (read carefully):',
     '- goal_reached: the PHASE GOAL is fully satisfied in the AFTER state (screenshot + URL after).',
     '  Use this when no further steps are needed for this phase.',
-    '  Example source: results/listing page with search query applied (URL often contains /s?k= or similar, product grid visible).',
+    '  Example source (e-commerce): results page with search query in URL (e.g. /s?k=) and product grid visible.',
+    '  Example source (travel/listings): search results page with listing cards visible and destination/query reflected in URL (e.g. /s/, query params, or map+listings view).',
+    '  If AFTER already shows the search/listings results for the target query, return goal_reached — do not return ok.',
     '- ok: the executed batch worked and moved toward the goal, but the PHASE GOAL is NOT fully met yet — more steps are needed.',
     '  Do NOT use ok when the phase goal is already satisfied.',
     '- fail: steps did not work, page did not advance, probe error, or state regressed.',
@@ -22,8 +24,11 @@ export function buildExploreVerifySystemPrompt(phase: ExplorePhase): string {
     lines.push(
       '',
       'follow_up verification:',
-      '- Partial progress toward the source end state (search results with filter applied) should be verdict=ok, not fail.',
-      '- goal_reached only when the filter action from source was repeated on the results page (idempotence step done).',
+      '- Partial progress toward the source end state (homepage → search → results) should be verdict=ok, not fail.',
+      '- Navigation steps that move toward the source end URL count as ok even if idempotence repeat is not done yet.',
+      '- goal_reached only when the filter/search action from source was repeated on the results page (idempotence step done).',
+      '- Do not return goal_reached until the repeat action was executed — reaching source end state alone is ok, not goal_reached.',
+      '- After the idempotence repeat, the AFTER URL must match the source end URL (same pathname and equivalent search params). If URL changed, verdict=fail or ok, not goal_reached.',
       '- Compare URL/state against the source end URL when provided.',
     );
   }

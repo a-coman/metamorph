@@ -184,6 +184,10 @@ model MrVersion {
   schemaBlobId           String?         @map("schema_blob_id") @db.Uuid
   /// Locator validation score for auto-approve (0–1)
   locatorValidationScore Float?          @map("locator_validation_score")
+  /// Set when status becomes exploration_failed (LangGraph fail node)
+  explorationFailureReason String?      @map("exploration_failure_reason")
+  /// Phase goals from mr_plan: { source_phase_goal, follow_up_phase_goal }
+  explorationGoals         Json?         @map("exploration_goals")
   approvedAt             DateTime?       @map("approved_at")
   createdAt              DateTime        @default(now()) @map("created_at")
   updatedAt              DateTime        @updatedAt @map("updated_at")
