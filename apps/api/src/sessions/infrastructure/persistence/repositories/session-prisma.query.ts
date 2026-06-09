@@ -1,7 +1,40 @@
 import { Injectable } from '@nestjs/common';
+import { JobStatus } from '../../../../../generated/prisma/enums.js';
 import { PrismaService } from '../../../../shared/infrastructure/prisma/prisma.service.js';
-import type { SessionDetailsDto } from '../../../application/dtos/session-details.dto.js';
+import type {
+  SessionDetailsDto,
+  SessionListDto,
+  SessionListItemDto,
+} from '../../../application/dtos/session-details.dto.js';
 import { SessionQueryPort } from '../../../application/ports/session-query.port.js';
+
+const ACTIVE_JOB_STATUSES: JobStatus[] = [
+  JobStatus.pending_enqueue,
+  JobStatus.queued,
+  JobStatus.running,
+];
+
+function deriveSessionStatus(
+  latestJob: { type: string; status: string } | undefined,
+  mrVersionStatus: string | undefined,
+): string {
+  if (
+    latestJob &&
+    ACTIVE_JOB_STATUSES.includes(latestJob.status as JobStatus)
+  ) {
+    return `${latestJob.type}:${latestJob.status}`;
+  }
+
+  if (mrVersionStatus) {
+    return mrVersionStatus;
+  }
+
+  if (latestJob) {
+    return `${latestJob.type}:${latestJob.status}`;
+  }
+
+  return 'idle';
+}
 
 @Injectable()
 export class SessionPrismaQuery extends SessionQueryPort {
@@ -77,6 +110,78 @@ export class SessionPrismaQuery extends SessionQueryPort {
         status: mrVersion.status,
         transformFamily: mrVersion.mrDefinition.transformFamily,
       })),
+    };
+  }
+
+  async findList(params: {
+    limit: number;
+    cursor?: string;
+  }): Promise<SessionListDto> {
+    const limit = params.limit;
+    const cursorSession = params.cursor
+      ? await this.prisma.session.findUnique({
+          where: { id: params.cursor },
+          select: { id: true, createdAt: true },
+        })
+      : null;
+
+    const sessions = await this.prisma.session.findMany({
+      take: limit + 1,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      ...(cursorSession
+        ? {
+            where: {
+              OR: [
+                { createdAt: { lt: cursorSession.createdAt } },
+                {
+                  createdAt: cursorSession.createdAt,
+                  id: { lt: cursorSession.id },
+                },
+              ],
+            },
+          }
+        : {}),
+      select: {
+        id: true,
+        url: true,
+        mode: true,
+        createdAt: true,
+        jobs: {
+          select: { type: true, status: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        mrVersions: {
+          select: { status: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    const hasMore = sessions.length > limit;
+    const page = hasMore ? sessions.slice(0, limit) : sessions;
+
+    const items: SessionListItemDto[] = page.map((session) => {
+      const latestJob = session.jobs[0];
+      const latestMr = session.mrVersions[0];
+      const mrVersionStatus = latestMr?.status;
+
+      return {
+        id: session.id,
+        url: session.url,
+        mode: session.mode,
+        createdAt: session.createdAt,
+        status: deriveSessionStatus(latestJob, mrVersionStatus),
+        ...(mrVersionStatus ? { mrVersionStatus } : {}),
+      };
+    });
+
+    return {
+      items,
+      ...(hasMore && page.length > 0
+        ? { nextCursor: page[page.length - 1]!.id }
+        : {}),
     };
   }
 }

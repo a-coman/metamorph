@@ -4,7 +4,10 @@ import type {
   CreateSessionResultDto,
   QueueDiscoverResultDto,
 } from '../dtos/create-session.dto.js';
-import type { SessionDetailsDto } from '../dtos/session-details.dto.js';
+import type {
+  SessionDetailsDto,
+  SessionListDto,
+} from '../dtos/session-details.dto.js';
 
 export abstract class SessionPort {
   abstract createSession(
@@ -18,4 +21,9 @@ export abstract class SessionPort {
   abstract getSession(
     sessionId: string,
   ): Promise<Either<DomainError, SessionDetailsDto>>;
+
+  abstract listSessions(params: {
+    limit: number;
+    cursor?: string;
+  }): Promise<SessionListDto>;
 }

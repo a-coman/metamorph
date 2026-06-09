@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { SessionPort } from '../../application/ports/session.port.js';
 import { CreateSessionRequest } from '../contracts/create-session.request.js';
+import { ListSessionsQuery } from '../contracts/list-sessions.query.js';
 import { toCreateSessionDto } from '../mappers/create-session.pmapper.js';
 import { mapSessionDomainError } from '../mappers/session-error.http-mapper.js';
 
@@ -30,6 +31,14 @@ export class SessionsController {
     }
 
     return result.value;
+  }
+
+  @Get()
+  list(@Query() query: ListSessionsQuery) {
+    return this.sessionPort.listSessions({
+      limit: query.limit ?? 20,
+      cursor: query.cursor,
+    });
   }
 
   @Get(':id')

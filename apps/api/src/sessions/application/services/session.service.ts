@@ -14,7 +14,10 @@ import type {
   CreateSessionResultDto,
   QueueDiscoverResultDto,
 } from '../dtos/create-session.dto.js';
-import type { SessionDetailsDto } from '../dtos/session-details.dto.js';
+import type {
+  SessionDetailsDto,
+  SessionListDto,
+} from '../dtos/session-details.dto.js';
 import { SessionPort } from '../ports/session.port.js';
 import { SessionQueryPort } from '../ports/session-query.port.js';
 import { EnqueueDiscoverJobService } from './enqueue-discover-job.service.js';
@@ -79,6 +82,13 @@ export class SessionService implements SessionPort {
     }
 
     return right(details);
+  }
+
+  async listSessions(params: {
+    limit: number;
+    cursor?: string;
+  }): Promise<SessionListDto> {
+    return this.sessionQuery.findList(params);
   }
 
   private async processDiscoverJobQueuedEvents(
