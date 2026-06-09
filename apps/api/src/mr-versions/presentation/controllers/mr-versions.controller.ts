@@ -1,6 +1,8 @@
-import { Controller, Get, Header, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Post } from '@nestjs/common';
 import { ApproveMrVersionService } from '../../application/services/approve-mr-version.service.js';
 import { ExecuteMrVersionService } from '../../application/services/execute-mr-version.service.js';
+import { RejectMrVersionService } from '../../application/services/reject-mr-version.service.js';
+import { ApproveMrVersionRequest } from '../contracts/approve-mr-version.request.js';
 import { RunQueryPort } from '../../application/ports/run-query.port.js';
 import { ExplorationService } from '../../infrastructure/persistence/exploration-prisma.query.js';
 import { MrVersionService } from '../../infrastructure/persistence/mr-version-prisma.query.js';
@@ -11,6 +13,7 @@ export class MrVersionsController {
     private readonly mrVersionService: MrVersionService,
     private readonly explorationService: ExplorationService,
     private readonly approveMrVersionService: ApproveMrVersionService,
+    private readonly rejectMrVersionService: RejectMrVersionService,
     private readonly executeMrVersionService: ExecuteMrVersionService,
     private readonly runQuery: RunQueryPort,
   ) {}
@@ -33,8 +36,13 @@ export class MrVersionsController {
   }
 
   @Post(':id/approve')
-  approve(@Param('id') id: string) {
-    return this.approveMrVersionService.approve(id);
+  approve(@Param('id') id: string, @Body() body: ApproveMrVersionRequest) {
+    return this.approveMrVersionService.approve(id, body.playbookContent);
+  }
+
+  @Post(':id/reject')
+  reject(@Param('id') id: string) {
+    return this.rejectMrVersionService.reject(id);
   }
 
   @Post(':id/execute')

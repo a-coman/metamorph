@@ -3,6 +3,7 @@ import { ExplorationQueryPort } from './application/ports/exploration-query.port
 import { MrVersionQueryPort } from './application/ports/mr-version-query.port.js';
 import { RunQueryPort } from './application/ports/run-query.port.js';
 import { ApproveMrVersionService } from './application/services/approve-mr-version.service.js';
+import { RejectMrVersionService } from './application/services/reject-mr-version.service.js';
 import { EnqueueExecutePairJobService } from './application/services/enqueue-execute-pair-job.service.js';
 import { ExecuteMrVersionService } from './application/services/execute-mr-version.service.js';
 import {
@@ -23,6 +24,7 @@ import { RunsController } from './presentation/controllers/runs.controller.js';
     MrVersionService,
     ExplorationService,
     ApproveMrVersionService,
+    RejectMrVersionService,
     EnqueueExecutePairJobService,
     ExecuteMrVersionService,
     { provide: MrVersionQueryPort, useClass: MrVersionPrismaQuery },
