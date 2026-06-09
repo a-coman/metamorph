@@ -9,6 +9,7 @@ import {
 } from '../../infrastructure/templates/playbook-template.v1.js';
 import {
   renderCompiledStepLines,
+  renderFillCode,
   renderGotoCode,
 } from './step-execution-policy.js';
 import { withProbeGotoPrefix } from './probe-spec-compiler.js';
@@ -118,7 +119,7 @@ function renderStepCode(
 
     case 'fill': {
       const target = resolveTarget(step, itemMap);
-      return `await ${target}.fill(${JSON.stringify(step.value ?? '')});`;
+      return renderFillCode(target, step.value ?? '');
     }
 
     case 'selectOption': {

@@ -41,3 +41,57 @@ export {
   PlaybookCompileError,
   type CompilePlaybookResult,
 } from './application/compiler/playbook-compiler.js';
+
+export {
+  resolveStepTargets,
+  withProbeGotoPrefix,
+  compileProbeSpec,
+  type CompileProbeSpecResult,
+} from './application/compiler/probe-spec-compiler.js';
+
+export {
+  GOTO_WAIT_UNTIL,
+  POST_ACTION_SETTLE_MS,
+  shouldStabilizeAfterAction,
+  FINAL_PAGE_STABILIZATION_CODE,
+  isFillableInventoryItem,
+  renderFillCode,
+} from './application/compiler/step-execution-policy.js';
+
+export {
+  OBSERVATION_CATALOG_FIELDS,
+  ObservationCatalogFieldSchema,
+  OBSERVATION_FIELD_TYPES,
+  buildObservationPayloadSchema,
+  parseObservationCatalogFields,
+  type ObservationCatalogField,
+} from './domain/schemas/observation-catalog.schema.js';
+
+export {
+  MrPlanOutputSchema,
+  MR_PLAN_PROMPT_VERSION,
+  type MrPlanOutput,
+  type MrIntent,
+} from './domain/schemas/mr-plan-output.schema.js';
+
+export {
+  ExplorePlanActionSchema,
+  ExplorePlanOutputSchema,
+  PLAN_EXPLORE_PROMPT_VERSION,
+  type ExplorePlanOutput,
+} from './domain/schemas/explore-plan-output.schema.js';
+
+export {
+  ExploreVerifyVerdictSchema,
+  ExploreVerifyOutputSchema,
+  EXPLORE_VERIFY_PROMPT_VERSION,
+  type ExploreVerifyOutput,
+} from './domain/schemas/explore-verify-output.schema.js';
+
+export {
+  evaluateMr,
+  validateObservationPayload,
+  MrEvaluationError,
+  type FieldEvaluationDetail,
+  type MrEvaluationResult,
+} from './application/mr-engine/mr-engine.js';

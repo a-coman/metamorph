@@ -1,4 +1,31 @@
 import type { SlotAction } from '../../domain/schemas/generation-slots.schema.js';
+import type { InventoryItem } from '../../domain/schemas/page-snapshot.schema.js';
+
+const FILLABLE_TAGS = new Set(['input', 'textarea', 'select']);
+const FILLABLE_ROLES = new Set(['textbox', 'searchbox', 'combobox', 'spinbutton']);
+
+export function isFillableInventoryItem(item: InventoryItem): boolean {
+  const tag = item.tagName.toLowerCase();
+  if (FILLABLE_TAGS.has(tag)) {
+    return true;
+  }
+  const role = item.role?.toLowerCase();
+  return role !== undefined && FILLABLE_ROLES.has(role);
+}
+
+/** Playwright fill with click+type fallback for custom combobox / div triggers (e.g. Airbnb). */
+export function renderFillCode(targetExpr: string, value: string): string {
+  const encoded = JSON.stringify(value);
+  return `await (async () => {
+    const __fillTarget = ${targetExpr};
+    try {
+      await __fillTarget.fill(${encoded});
+    } catch {
+      await __fillTarget.click();
+      await page.keyboard.type(${encoded});
+    }
+  })()`;
+}
 
 export const GOTO_WAIT_UNTIL = 'domcontentloaded' as const;
 
@@ -34,7 +61,10 @@ export function renderCompiledStepLines(
   action: SlotAction,
   stepId: number,
 ): string[] {
-  const lines = [`  // @step id=${stepId}`, `  ${stepCode}`];
+  const lines = [
+    `  // @step id=${stepId}`,
+    ...stepCode.split('\n').map((line) => `  ${line}`),
+  ];
 
   if (shouldStabilizeAfterAction(action)) {
     lines.push(renderPostStepStabilizationCode('  '));

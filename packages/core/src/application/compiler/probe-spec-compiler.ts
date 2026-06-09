@@ -3,6 +3,7 @@ import type { InventoryItem, PageSnapshotInventory } from '../../domain/schemas/
 import { PlaybookCompileError } from './playbook-compiler.js';
 import {
   renderCompiledStepLines,
+  renderFillCode,
   renderGotoCode,
 } from './step-execution-policy.js';
 
@@ -125,7 +126,7 @@ function renderProbeStepCode(
 
     case 'fill': {
       const target = resolveTarget(step, itemMap);
-      return `await ${target}.fill(${JSON.stringify(step.value ?? '')});`;
+      return renderFillCode(target, step.value ?? '');
     }
 
     case 'selectOption': {

@@ -177,9 +177,17 @@ export class ProbeInventoryCaptureAdapter {
         await resolveTarget(page, step, itemMap).click();
         break;
 
-      case 'fill':
-        await resolveTarget(page, step, itemMap).fill(step.value ?? '');
+      case 'fill': {
+        const fillLocator = resolveTarget(page, step, itemMap);
+        const fillValue = step.value ?? '';
+        try {
+          await fillLocator.fill(fillValue);
+        } catch {
+          await fillLocator.click();
+          await page.keyboard.type(fillValue);
+        }
         break;
+      }
 
       case 'selectOption':
         await resolveTarget(page, step, itemMap).selectOption(step.value ?? '');
