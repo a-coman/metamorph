@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ArtifactsModule } from './artifacts/artifacts.module.js';
+import { EventsModule } from './events/events.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MrVersionsModule } from './mr-versions/mr-versions.module.js';
 import { PageSnapshotsModule } from './page-snapshots/page-snapshots.module.js';
@@ -20,6 +21,7 @@ import { PrismaModule } from './shared/infrastructure/prisma/prisma.module.js';
     MrVersionsModule,
     ArtifactsModule,
     PageSnapshotsModule,
+    EventsModule,
   ],
 })
 export class AppModule {}
