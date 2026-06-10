@@ -51,6 +51,7 @@ export {
 
 export {
   GOTO_WAIT_UNTIL,
+  NETWORK_IDLE_WAIT_UNTIL,
   POST_ACTION_SETTLE_MS,
   shouldStabilizeAfterAction,
   FINAL_PAGE_STABILIZATION_CODE,

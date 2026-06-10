@@ -28,6 +28,7 @@ export function renderFillCode(targetExpr: string, value: string): string {
 }
 
 export const GOTO_WAIT_UNTIL = 'domcontentloaded' as const;
+export const NETWORK_IDLE_WAIT_UNTIL = 'networkidle' as const;
 
 /** Minimum settle time after navigation actions so SPAs can paint results. */
 export const POST_ACTION_SETTLE_MS = 1000;
@@ -50,6 +51,7 @@ export function renderGotoCode(url: string): string {
 export function renderPostStepStabilizationCode(indent = '  '): string {
   return [
     `${indent}await page.waitForLoadState('${GOTO_WAIT_UNTIL}').catch(() => undefined);`,
+    `${indent}await page.waitForLoadState('${NETWORK_IDLE_WAIT_UNTIL}').catch(() => undefined);`,
     `${indent}await page.waitForTimeout(${POST_ACTION_SETTLE_MS});`,
   ].join('\n');
 }

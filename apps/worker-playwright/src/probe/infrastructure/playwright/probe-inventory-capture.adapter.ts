@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   GOTO_WAIT_UNTIL,
+  NETWORK_IDLE_WAIT_UNTIL,
   POST_ACTION_SETTLE_MS,
   shouldStabilizeAfterAction,
   type InventoryItem,
@@ -217,6 +218,7 @@ export class ProbeInventoryCaptureAdapter {
 
 async function stabilizePage(page: Page): Promise<void> {
   await page.waitForLoadState(GOTO_WAIT_UNTIL).catch(() => undefined);
+  await page.waitForLoadState(NETWORK_IDLE_WAIT_UNTIL).catch(() => undefined);
   await page.waitForTimeout(POST_ACTION_SETTLE_MS);
 }
 
