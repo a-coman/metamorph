@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventsModule } from '../events/events.module.js';
 import { ExplorationQueryPort } from './application/ports/exploration-query.port.js';
 import { MrVersionQueryPort } from './application/ports/mr-version-query.port.js';
 import { RunQueryPort } from './application/ports/run-query.port.js';
@@ -19,6 +20,7 @@ import { MrVersionsController } from './presentation/controllers/mr-versions.con
 import { RunsController } from './presentation/controllers/runs.controller.js';
 
 @Module({
+  imports: [EventsModule],
   controllers: [MrVersionsController, RunsController],
   providers: [
     MrVersionService,

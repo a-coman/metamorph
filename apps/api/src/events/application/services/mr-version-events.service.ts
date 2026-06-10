@@ -40,7 +40,7 @@ export class MrVersionEventsService {
     return new Observable((subscriber) => {
       const startedAt = Date.now();
       let lastStatus: string | null = null;
-      let lastCheckpointId: string | null = null;
+      let seenCheckpointIds = new Set<string>();
       let lastRunState = new Map<string, string>();
       let initialized = false;
 
@@ -83,38 +83,46 @@ export class MrVersionEventsService {
           return null;
         }
 
-        const events: MrVersionEvent[] = [];
+        type TimestampedEvent = { event: MrVersionEvent; timestamp: Date };
+        const timestampedEvents: TimestampedEvent[] = [];
         const runState = new Map<string, string>();
 
         if (initialized && lastStatus !== mrVersion.status) {
-          events.push({
-            type: 'status.changed',
-            status: mrVersion.status,
+          timestampedEvents.push({
+            event: { type: 'status.changed', status: mrVersion.status },
+            timestamp: new Date(),
           });
         }
         lastStatus = mrVersion.status;
 
-        const latestCheckpoint =
-          mrVersion.explorationCheckpoints.at(-1) ?? null;
-        if (
-          initialized &&
-          latestCheckpoint &&
-          latestCheckpoint.id !== lastCheckpointId
-        ) {
-          const tracePaths = await this.tracePathQuery.resolveBySnapshotIds([
-            latestCheckpoint.snapshotId,
-          ]);
-
-          events.push({
-            type: 'checkpoint.created',
-            checkpoint: {
-              ...latestCheckpoint,
-              tracePath:
-                tracePaths.get(latestCheckpoint.snapshotId) ?? null,
-            },
-          });
+        const snapshotIdsForTrace: string[] = [];
+        for (const checkpoint of mrVersion.explorationCheckpoints) {
+          if (!seenCheckpointIds.has(checkpoint.id)) {
+            snapshotIdsForTrace.push(checkpoint.snapshotId);
+          }
         }
-        lastCheckpointId = latestCheckpoint?.id ?? null;
+
+        const traceInfoMap = snapshotIdsForTrace.length > 0
+          ? await this.tracePathQuery.resolveBySnapshotIds(snapshotIdsForTrace)
+          : new Map();
+
+        for (const checkpoint of mrVersion.explorationCheckpoints) {
+          if (!seenCheckpointIds.has(checkpoint.id)) {
+            const traceInfo = traceInfoMap.get(checkpoint.snapshotId);
+            timestampedEvents.push({
+              event: {
+                type: 'checkpoint.created',
+                checkpoint: {
+                  ...checkpoint,
+                  tracePath: traceInfo?.path ?? null,
+                  traceArtifactId: traceInfo?.artifactId ?? null,
+                },
+              },
+              timestamp: checkpoint.createdAt,
+            });
+            seenCheckpointIds.add(checkpoint.id);
+          }
+        }
 
         for (const run of mrVersion.runs) {
           const key = `${run.status}:${run.verdictStrict ?? ''}`;
@@ -123,15 +131,18 @@ export class MrVersionEventsService {
           if (initialized) {
             const previous = lastRunState.get(run.id);
             if (previous !== key) {
-              events.push({
-                type: 'run.updated',
-                run,
+              timestampedEvents.push({
+                event: { type: 'run.updated', run },
+                timestamp: run.createdAt,
               });
             }
           }
         }
         lastRunState = runState;
         initialized = true;
+
+        timestampedEvents.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        const events = timestampedEvents.map((te) => te.event);
 
         const latestRun = mrVersion.runs[0];
         const terminal = isStreamTerminal(
@@ -142,38 +153,45 @@ export class MrVersionEventsService {
         return { events, terminal };
       };
 
-      const timer = setInterval(() => {
-        void poll()
-          .then((result) => {
-            if (!result) {
-              clearInterval(timer);
-              return;
-            }
+      const handlePollResult = (result: { events: MrVersionEvent[]; terminal: boolean } | null) => {
+        if (!result) {
+          return true;
+        }
 
-            for (const event of result.events) {
-              subscriber.next({ data: event });
-            }
+        for (const event of result.events) {
+          subscriber.next({ data: event });
+        }
 
-            if (
-              result.terminal ||
-              Date.now() - startedAt >= STREAM_TIMEOUT_MS
-            ) {
-              subscriber.complete();
-              clearInterval(timer);
-            }
-          })
-          .catch((error: unknown) => {
-            subscriber.error(error);
-            clearInterval(timer);
-          });
-      }, POLL_INTERVAL_MS);
+        if (result.terminal || Date.now() - startedAt >= STREAM_TIMEOUT_MS) {
+          subscriber.complete();
+          return true;
+        }
+        return false;
+      };
 
-      void poll().catch((error: unknown) => {
-        subscriber.error(error);
-        clearInterval(timer);
-      });
+      let timer: ReturnType<typeof setInterval> | undefined;
 
-      return () => clearInterval(timer);
+      void poll()
+        .then((result) => {
+          const done = handlePollResult(result);
+          if (!done) {
+            timer = setInterval(() => {
+              void poll()
+                .then(handlePollResult)
+                .catch((error: unknown) => {
+                  subscriber.error(error);
+                  if (timer) clearInterval(timer);
+                });
+            }, POLL_INTERVAL_MS);
+          }
+        })
+        .catch((error: unknown) => {
+          subscriber.error(error);
+        });
+
+      return () => {
+        if (timer) clearInterval(timer);
+      };
     });
   }
 }

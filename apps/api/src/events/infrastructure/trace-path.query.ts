@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../shared/infrastructure/prisma/prisma.service.js';
 
+export type TraceInfo = {
+  path: string;
+  artifactId: string;
+};
+
 @Injectable()
 export class TracePathQuery {
   constructor(private readonly prisma: PrismaService) {}
 
   async resolveBySnapshotIds(
     snapshotIds: string[],
-  ): Promise<Map<string, string>> {
+  ): Promise<Map<string, TraceInfo>> {
     if (snapshotIds.length === 0) {
       return new Map();
     }
@@ -17,20 +22,23 @@ export class TracePathQuery {
         pageSnapshotId: { in: snapshotIds },
         kind: 'trace',
       },
-      select: { pageSnapshotId: true, path: true },
+      select: { id: true, pageSnapshotId: true, path: true },
       orderBy: { createdAt: 'desc' },
     });
 
-    const tracePathBySnapshot = new Map<string, string>();
+    const traceBySnapshot = new Map<string, TraceInfo>();
     for (const artifact of traceArtifacts) {
       if (
         artifact.pageSnapshotId &&
-        !tracePathBySnapshot.has(artifact.pageSnapshotId)
+        !traceBySnapshot.has(artifact.pageSnapshotId)
       ) {
-        tracePathBySnapshot.set(artifact.pageSnapshotId, artifact.path);
+        traceBySnapshot.set(artifact.pageSnapshotId, {
+          path: artifact.path,
+          artifactId: artifact.id,
+        });
       }
     }
 
-    return tracePathBySnapshot;
+    return traceBySnapshot;
   }
 }

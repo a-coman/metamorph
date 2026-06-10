@@ -77,7 +77,8 @@ export class Job extends Entity<JobProps> {
   }
 
   markEnqueueFailed(message: string): Either<DomainError, void> {
-    if (this.props.status !== JobStatus.pending_enqueue) {
+    const allowedFromStatuses = [JobStatus.pending_enqueue, JobStatus.queued];
+    if (!allowedFromStatuses.includes(this.props.status)) {
       return left(
         new InvalidJobStatusTransitionError(
           this.id.value,

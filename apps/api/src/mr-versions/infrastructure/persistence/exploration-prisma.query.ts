@@ -6,10 +6,14 @@ import type {
 } from '../../application/dtos/mr-version.dto.js';
 import { ExplorationQueryPort } from '../../application/ports/exploration-query.port.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
+import { TracePathQuery } from '../../../events/infrastructure/trace-path.query.js';
 
 @Injectable()
 export class ExplorationPrismaQuery extends ExplorationQueryPort {
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tracePathQuery: TracePathQuery,
+  ) {
     super();
   }
 
@@ -35,24 +39,9 @@ export class ExplorationPrismaQuery extends ExplorationQueryPort {
     });
 
     const snapshotIds = checkpoints.map((row) => row.snapshotId);
-    const traceArtifacts =
-      snapshotIds.length > 0
-        ? await this.prisma.artifact.findMany({
-            where: {
-              pageSnapshotId: { in: snapshotIds },
-              kind: 'trace',
-            },
-            select: { pageSnapshotId: true, path: true },
-            orderBy: { createdAt: 'desc' },
-          })
-        : [];
-
-    const tracePathBySnapshot = new Map<string, string>();
-    for (const artifact of traceArtifacts) {
-      if (artifact.pageSnapshotId && !tracePathBySnapshot.has(artifact.pageSnapshotId)) {
-        tracePathBySnapshot.set(artifact.pageSnapshotId, artifact.path);
-      }
-    }
+    const traceBySnapshot = await this.tracePathQuery.resolveBySnapshotIds(
+      snapshotIds,
+    );
 
     const phaseGoals = parsePhaseGoals(mrVersion.explorationGoals);
     const checkpointStats = buildCheckpointStats(checkpoints);
@@ -64,17 +53,21 @@ export class ExplorationPrismaQuery extends ExplorationQueryPort {
         source: generationSlots.source?.steps ?? [],
         follow_up: generationSlots.follow_up?.steps ?? [],
       },
-      checkpoints: checkpoints.map((row) => ({
-        id: row.id,
-        phase: row.phase,
-        sequence: row.sequence,
-        snapshotId: row.snapshotId,
-        stepsJson: row.stepsJson,
-        verdict: row.verdict,
-        rationale: row.rationale,
-        tracePath: tracePathBySnapshot.get(row.snapshotId) ?? null,
-        createdAt: row.createdAt,
-      })),
+      checkpoints: checkpoints.map((row) => {
+        const trace = traceBySnapshot.get(row.snapshotId);
+        return {
+          id: row.id,
+          phase: row.phase,
+          sequence: row.sequence,
+          snapshotId: row.snapshotId,
+          stepsJson: row.stepsJson,
+          verdict: row.verdict,
+          rationale: row.rationale,
+          tracePath: trace?.path ?? null,
+          traceArtifactId: trace?.artifactId ?? null,
+          createdAt: row.createdAt,
+        };
+      }),
       ...(mrVersion.explorationFailureReason
         ? { failureReason: mrVersion.explorationFailureReason }
         : {}),

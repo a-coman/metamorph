@@ -8,5 +8,6 @@ import { SessionEventsController } from './presentation/controllers/session-even
 @Module({
   controllers: [SessionEventsController, MrVersionEventsController],
   providers: [SessionEventsService, MrVersionEventsService, TracePathQuery],
+  exports: [TracePathQuery],
 })
 export class EventsModule {}

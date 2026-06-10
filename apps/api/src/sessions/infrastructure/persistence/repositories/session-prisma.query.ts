@@ -18,10 +18,15 @@ function deriveSessionStatus(
   latestJob: { type: string; status: string } | undefined,
   mrVersionStatus: string | undefined,
 ): string {
-  if (
-    latestJob &&
-    ACTIVE_JOB_STATUSES.includes(latestJob.status as JobStatus)
-  ) {
+  const jobActive =
+    latestJob !== undefined &&
+    ACTIVE_JOB_STATUSES.includes(latestJob.status as JobStatus);
+
+  if (jobActive) {
+    // During exploration, MR status is more meaningful than probe/explore jobs.
+    if (mrVersionStatus === 'exploring') {
+      return 'exploring';
+    }
     return `${latestJob.type}:${latestJob.status}`;
   }
 
@@ -166,14 +171,17 @@ export class SessionPrismaQuery extends SessionQueryPort {
       const latestJob = session.jobs[0];
       const latestMr = session.mrVersions[0];
       const mrVersionStatus = latestMr?.status;
+      const status = deriveSessionStatus(latestJob, mrVersionStatus);
 
       return {
         id: session.id,
         url: session.url,
         mode: session.mode,
         createdAt: session.createdAt,
-        status: deriveSessionStatus(latestJob, mrVersionStatus),
-        ...(mrVersionStatus ? { mrVersionStatus } : {}),
+        status,
+        ...(mrVersionStatus && mrVersionStatus !== status
+          ? { mrVersionStatus }
+          : {}),
       };
     });
 
