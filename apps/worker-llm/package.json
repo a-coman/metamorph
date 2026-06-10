@@ -4,7 +4,6 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/main.ts consume",
     "consume": "tsx src/main.ts consume",
     "explore": "tsx src/main.ts explore",
     "db:generate": "prisma generate --schema=../api/prisma/schema.prisma"

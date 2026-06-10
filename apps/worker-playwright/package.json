@@ -4,7 +4,6 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/main.ts consume",
     "consume": "pnpm --filter @metamorph/inventory build:browser && tsx src/main.ts consume",
     "consume:run": "tsx src/main.ts consume",
     "discover": "pnpm --filter @metamorph/inventory build:browser && tsx src/main.ts discover",
