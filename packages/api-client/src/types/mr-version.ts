@@ -22,6 +22,7 @@ export type ExplorationCheckpointDto = {
   verdict: string;
   rationale: string | null;
   tracePath: string | null;
+  traceArtifactId: string | null;
   createdAt: Date;
 };
 
