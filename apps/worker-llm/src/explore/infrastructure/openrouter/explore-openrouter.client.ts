@@ -8,7 +8,7 @@ import {
   type MrIntent,
   type PageSnapshotInventory,
 } from '@metamorph/core';
-import { MR_VERTICAL_TRANSFORM_FAMILY } from '../../prompts/mr-vertical.config.js';
+import { MR_PLAN_OPTIONS } from '../../prompts/mr-vertical.config.js';
 import {
   buildExploreVerifySystemPrompt,
   buildExploreVerifyUserText,
@@ -74,7 +74,6 @@ export class ExploreOpenRouterClient {
 
   async mrPlan(input: {
     url: string;
-    inventory: PageSnapshotInventory;
     screenshotBase64: string;
   }): Promise<ExploreLlmResult<MrIntent>> {
     return this.call({
@@ -335,6 +334,37 @@ export class ExploreOpenRouterClient {
   }
 }
 
+const DEFAULT_TRANSFORM_FAMILY = MR_PLAN_OPTIONS.transformFamilies[0];
+const DEFAULT_RELATION_TYPE = MR_PLAN_OPTIONS.relationTypes[0];
+const DEFAULT_OBSERVATION_FIELDS = [...MR_PLAN_OPTIONS.observationFields];
+
+function isAllowedTransformFamily(value: unknown): boolean {
+  return (
+    typeof value === 'string' &&
+    (MR_PLAN_OPTIONS.transformFamilies as readonly string[]).includes(value)
+  );
+}
+
+function isAllowedRelationType(value: unknown): boolean {
+  return (
+    typeof value === 'string' &&
+    (MR_PLAN_OPTIONS.relationTypes as readonly string[]).includes(value)
+  );
+}
+
+function normalizeObservationFields(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return DEFAULT_OBSERVATION_FIELDS;
+  }
+
+  const allowed = new Set(MR_PLAN_OPTIONS.observationFields as readonly string[]);
+  const filtered = value.filter(
+    (field): field is string => typeof field === 'string' && allowed.has(field),
+  );
+
+  return filtered.length > 0 ? filtered : DEFAULT_OBSERVATION_FIELDS;
+}
+
 function normalizeMrPlanOutput(raw: unknown): unknown {
   if (!raw || typeof raw !== 'object') {
     return raw;
@@ -360,49 +390,54 @@ function normalizeMrPlanOutput(raw: unknown): unknown {
 
   if (typeof mrDefinition.transformation === 'string') {
     mrDefinition.transformation = {
-      transform_family: MR_VERTICAL_TRANSFORM_FAMILY,
+      transform_family: DEFAULT_TRANSFORM_FAMILY,
       description: mrDefinition.transformation,
     };
   }
 
   if (!mrDefinition.transformation || typeof mrDefinition.transformation !== 'object') {
     mrDefinition.transformation = {
-      transform_family: MR_VERTICAL_TRANSFORM_FAMILY,
+      transform_family: DEFAULT_TRANSFORM_FAMILY,
       description: 'Repeat the validated follow-up action.',
     };
   } else {
     const transformation = {
       ...(mrDefinition.transformation as Record<string, unknown>),
     };
-    transformation.transform_family = MR_VERTICAL_TRANSFORM_FAMILY;
+
+    if (!isAllowedTransformFamily(transformation.transform_family)) {
+      transformation.transform_family = DEFAULT_TRANSFORM_FAMILY;
+    }
+
     mrDefinition.transformation = transformation;
   }
 
   if (typeof mrDefinition.relation === 'string') {
     mrDefinition.relation = {
-      type: 'equal',
-      on: ['applied_query', 'results_url'],
+      type: DEFAULT_RELATION_TYPE,
+      on: DEFAULT_OBSERVATION_FIELDS,
       description: mrDefinition.relation,
     };
   }
 
   if (!mrDefinition.relation || typeof mrDefinition.relation !== 'object') {
     mrDefinition.relation = {
-      type: 'equal',
-      on: ['applied_query', 'results_url'],
+      type: DEFAULT_RELATION_TYPE,
+      on: DEFAULT_OBSERVATION_FIELDS,
       description: 'Observations remain equal after repeating the action.',
     };
   } else {
     const relation = { ...(mrDefinition.relation as Record<string, unknown>) };
-    if (!Array.isArray(relation.on) || relation.on.length === 0) {
-      relation.on = ['applied_query', 'results_url'];
+    relation.on = normalizeObservationFields(relation.on);
+
+    if (!isAllowedRelationType(relation.type)) {
+      relation.type = DEFAULT_RELATION_TYPE;
     }
-    if (typeof relation.type !== 'string') {
-      relation.type = 'equal';
-    }
+
     if (typeof relation.description !== 'string' || relation.description.length === 0) {
       relation.description = 'Observations remain equal after repeating the action.';
     }
+
     mrDefinition.relation = relation;
   }
 

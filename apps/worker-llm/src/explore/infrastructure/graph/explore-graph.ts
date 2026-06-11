@@ -180,7 +180,6 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       const screenshotBase64 = await loadRawBase64(state.initialSnapshotId);
       const planResult = await deps.openRouter.mrPlan({
         url: state.sessionUrl,
-        inventory: snapshot.inventory,
         screenshotBase64,
       });
 
