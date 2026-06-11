@@ -1,39 +1,58 @@
 import type { MrIntent } from '@metamorph/core';
 import type { ExplorePhase, ExploreSourceReference } from '../infrastructure/graph/explore-state.js';
+import { EXPLORE_VERIFY_OPTIONS } from './explore-verify.config.js';
+import {
+  buildCompletedSourceReferenceSection,
+  buildMrSummary,
+} from './plan-explore.prompt.js';
 
-export function buildExploreVerifySystemPrompt(phase: ExplorePhase): string {
-  const lines = [
-    'You verify exploration checkpoints for metamorphic testing using BEFORE and AFTER screenshots.',
-    'Return ONLY valid JSON: { "verdict": "ok"|"fail"|"goal_reached", "rationale": string }',
+const EXPLORE_VERIFY_EXAMPLE = {
+  verdict: 'ok',
+  rationale:
+    'Cookie banner was dismissed and navigation moved closer to the phase goal; target state not reached yet.',
+};
+
+function buildAllowedValuesSection(): string {
+  const { verdicts } = EXPLORE_VERIFY_OPTIONS;
+
+  return [
+    'Allowed values (pick ONLY from these):',
+    `- verdict: ${verdicts.join(' | ')}`,
+  ].join('\n');
+}
+
+export function buildExploreVerifySystemPrompt(): string {
+  return [
+    'You verify an exploration checkpoint for metamorphic testing.',
+    'You receive BEFORE and AFTER screenshots of a probe batch, plus context about the phase goal and MR.',
+    'Return ONLY valid JSON matching this shape (no markdown, no extra keys):',
+    '{',
+    '  "verdict": string,',
+    '  "rationale": string',
+    '}',
     '',
-    'Verdict rules (read carefully):',
-    '- goal_reached: the PHASE GOAL is fully satisfied in the AFTER state (screenshot + URL after).',
-    '  Use this when no further steps are needed for this phase.',
-    '  Example source (e-commerce): results page with search query in URL (e.g. /s?k=) and product grid visible.',
-    '  Example source (travel/listings): search results page with listing cards visible and destination/query reflected in URL (e.g. /s/, query params, or map+listings view).',
-    '  If AFTER already shows the search/listings results for the target query, return goal_reached — do not return ok.',
-    '- ok: the executed batch worked and moved toward the goal, but the PHASE GOAL is NOT fully met yet — more steps are needed.',
-    '  Do NOT use ok when the phase goal is already satisfied.',
-    '- fail: steps did not work, page did not advance, probe error, or state regressed.',
+    buildAllowedValuesSection(),
     '',
-    'IMPORTANT: If the after screenshot/URL already shows the phase goal is met, return goal_reached — not ok.',
-    'Compare the BEFORE and AFTER screenshots visually to judge progress.',
-  ];
-
-  if (phase === 'follow_up') {
-    lines.push(
-      '',
-      'follow_up verification:',
-      '- Partial progress toward the source end state (homepage → search → results) should be verdict=ok, not fail.',
-      '- Navigation steps that move toward the source end URL count as ok even if idempotence repeat is not done yet.',
-      '- goal_reached only when the filter/search action from source was repeated on the results page (idempotence step done).',
-      '- Do not return goal_reached until the repeat action was executed — reaching source end state alone is ok, not goal_reached.',
-      '- After the idempotence repeat, the AFTER URL must match the source end URL (same pathname and equivalent search params). If URL changed, verdict=fail or ok, not goal_reached.',
-      '- Compare URL/state against the source end URL when provided.',
-    );
-  }
-
-  return lines.join('\n');
+    'Verdict semantics:',
+    '- goal_reached: the AFTER screenshot and URL after probe show the current phase goal is fully satisfied; no further steps are needed for this phase.',
+    '- ok: the executed batch made meaningful progress toward the phase goal, but the phase goal is NOT fully satisfied yet.',
+    '- fail: the batch did not work, the page did not advance toward the goal, state regressed, or a probe error indicates execution failure.',
+    '',
+    'Rules:',
+    '- Every enum field must use exactly one of the allowed values above; do not invent new values.',
+    '- Judge primarily against the current phase goal in the user message, using the MR summary for metamorphic intent.',
+    '- Compare BEFORE and AFTER screenshots visually; use URL after probe as supporting evidence.',
+    '- If the phase goal is already satisfied in AFTER, return goal_reached — not ok.',
+    '- Do not return ok when the phase goal is already fully met in AFTER.',
+    '- Partial progress toward the phase goal is ok, not fail.',
+    '- When phase is follow_up, use the completed source phase actions reference only as context for what source achieved; judge follow_up against the follow_up phase goal.',
+    '- Do not require follow_up to mirror source step-by-step unless the follow_up phase goal explicitly requires it.',
+    '- Cookie banners, modals, or overlays dismissed during the batch count as progress if they unblock movement toward the goal.',
+    '- Return fail when AFTER shows an error page, login wall, captcha, or clearly wrong state with no progress.',
+    '',
+    'Example:',
+    JSON.stringify(EXPLORE_VERIFY_EXAMPLE, null, 2),
+  ].join('\n');
 }
 
 export function buildExploreVerifyUserText(input: {
@@ -51,32 +70,21 @@ export function buildExploreVerifyUserText(input: {
       ? input.mrIntent.exploration.source_phase_goal
       : input.mrIntent.exploration.follow_up_phase_goal;
 
-  const phaseValidatedSteps =
-    input.validatedSteps[input.phase as keyof typeof input.validatedSteps];
-
   const lines = [
-    `Session URL: ${input.url}`,
+    `Target URL: ${input.url}`,
     `URL after probe: ${input.urlAfter}`,
     `Phase: ${input.phase}`,
     `Phase goal: ${phaseGoal}`,
     '',
-    'Exploration phase goals:',
-    `- source: ${input.mrIntent.exploration.source_phase_goal}`,
-    `- follow_up: ${input.mrIntent.exploration.follow_up_phase_goal}`,
+    'MR summary:',
+    buildMrSummary(input.mrIntent),
     '',
     'Validated steps in this phase (before this batch):',
-    JSON.stringify(phaseValidatedSteps, null, 2),
+    JSON.stringify(input.validatedSteps[input.phase], null, 2),
   ];
 
   if (input.phase === 'follow_up' && input.sourceReference) {
-    lines.push(
-      '',
-      'Validated source steps (reference):',
-      JSON.stringify(input.sourceReference.steps, null, 2),
-    );
-    if (input.sourceReference.endUrl) {
-      lines.push(`Source end URL (target state): ${input.sourceReference.endUrl}`);
-    }
+    lines.push('', buildCompletedSourceReferenceSection(input.sourceReference));
   }
 
   lines.push(
@@ -86,13 +94,17 @@ export function buildExploreVerifyUserText(input: {
   );
 
   if (input.probeError) {
-    lines.push('', `Probe error: ${input.probeError}`);
+    lines.push('', `Probe note: ${input.probeError}`);
   }
 
   lines.push(
     '',
-    'Two screenshots are attached: BEFORE (first image) and AFTER (second image) the probe batch.',
-    'Does the AFTER state satisfy the phase goal? If yes → goal_reached. If partial progress → ok. If broken → fail.',
+    'Attached: two screenshots — BEFORE (first image) and AFTER (second image) the probe batch.',
+    '',
+    'Does AFTER satisfy the phase goal?',
+    '- Fully satisfied → goal_reached',
+    '- Partial progress → ok',
+    '- No progress / broken / regressed → fail',
   );
 
   return lines.join('\n');

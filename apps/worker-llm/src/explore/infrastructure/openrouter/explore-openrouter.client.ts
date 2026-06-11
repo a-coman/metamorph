@@ -129,7 +129,7 @@ export class ExploreOpenRouterClient {
     return this.call({
       purpose: 'explore_verify',
       promptVersion: EXPLORE_VERIFY_PROMPT_VERSION,
-      system: buildExploreVerifySystemPrompt(input.phase),
+      system: buildExploreVerifySystemPrompt(),
       userText: buildExploreVerifyUserText(input),
       screenshotsBase64: [input.screenshotBeforeBase64, input.screenshotAfterBase64],
       schema: ExploreVerifyOutputSchema,

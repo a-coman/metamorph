@@ -33,7 +33,7 @@ export function buildMrSummary(mrIntent: MrIntent): string {
   ].join('\n');
 }
 
-function buildCompletedSourceReferenceSection(
+export function buildCompletedSourceReferenceSection(
   sourceReference: ExploreSourceReference,
 ): string {
   const lines = [
