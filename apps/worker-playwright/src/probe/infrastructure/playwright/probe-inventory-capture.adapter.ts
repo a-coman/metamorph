@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   GOTO_WAIT_UNTIL,
+  LOAD_STATE_TIMEOUT_MS,
   NETWORK_IDLE_WAIT_UNTIL,
   POST_ACTION_SETTLE_MS,
   shouldStabilizeAfterAction,
@@ -13,6 +14,9 @@ import {
 } from '@metamorph/core';
 import {
   captureAnnotatedScreenshot,
+  DEFAULT_CAPTURE_VIEWPORT,
+  DEFAULT_MAX_CAPTURE_HEIGHT,
+  DEFAULT_MAX_ITEMS,
   loadBrowserScanScript,
   prepareCaptureViewport,
   type PageInventory,
@@ -36,7 +40,7 @@ export class ProbeInventoryCaptureAdapter {
     });
 
     const context = await browser.newContext({
-      viewport: { width: 1280, height: 720 },
+      viewport: DEFAULT_CAPTURE_VIEWPORT,
       locale: 'es-ES',
       extraHTTPHeaders: {
         'Accept-Language': 'es-ES,es;q=0.9',
@@ -131,7 +135,7 @@ export class ProbeInventoryCaptureAdapter {
 
     const { pageMetrics, viewport } = await prepareCaptureViewport(
       page,
-      4_000,
+      DEFAULT_MAX_CAPTURE_HEIGHT,
       500,
     );
 
@@ -143,7 +147,7 @@ export class ProbeInventoryCaptureAdapter {
         };
         return api.scanAndLabelPage(opts);
       },
-      { script: browserScript, opts: { maxItems: 200 } },
+      { script: browserScript, opts: { maxItems: DEFAULT_MAX_ITEMS } },
     )) as InventoryItem[];
 
     const screenshot = await captureAnnotatedScreenshot(page);
@@ -217,8 +221,12 @@ export class ProbeInventoryCaptureAdapter {
 }
 
 async function stabilizePage(page: Page): Promise<void> {
-  await page.waitForLoadState(GOTO_WAIT_UNTIL).catch(() => undefined);
-  await page.waitForLoadState(NETWORK_IDLE_WAIT_UNTIL).catch(() => undefined);
+  await page
+    .waitForLoadState(GOTO_WAIT_UNTIL, { timeout: LOAD_STATE_TIMEOUT_MS })
+    .catch(() => undefined);
+  await page
+    .waitForLoadState(NETWORK_IDLE_WAIT_UNTIL, { timeout: LOAD_STATE_TIMEOUT_MS })
+    .catch(() => undefined);
   await page.waitForTimeout(POST_ACTION_SETTLE_MS);
 }
 

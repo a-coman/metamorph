@@ -6,13 +6,12 @@ import type {
 } from '../../domain/types/inventory-item.types.js';
 import { PageInventoryBuilderPort } from '../../domain/repositories/page-inventory-builder.repository.port.js';
 import { loadBrowserScanScript } from './load-browser-scan-script.js';
+import { DEFAULT_MAX_CAPTURE_HEIGHT, DEFAULT_MAX_ITEMS } from './capture-defaults.js';
 import {
   captureAnnotatedScreenshot,
   captureRawScreenshot,
   prepareCaptureViewport,
 } from './prepare-viewport.js';
-
-const DEFAULT_MAX_ITEMS = 200;
 
 export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort {
   async buildFromPage(
@@ -23,7 +22,7 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
     const {
       waitAfterGotoMs = 2000,
       waitAfterViewportMs = 500,
-      maxCaptureHeight = 4_000,
+      maxCaptureHeight = DEFAULT_MAX_CAPTURE_HEIGHT,
       maxItems = DEFAULT_MAX_ITEMS,
       gotoWaitUntil = 'domcontentloaded',
     } = options;

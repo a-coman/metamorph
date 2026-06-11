@@ -1,7 +1,9 @@
 import type { Page } from 'playwright';
 import type { PageMetrics, ViewportSize } from '../../domain/types/inventory-item.types.js';
-
-const DEFAULT_MAX_CAPTURE_HEIGHT = 4_000;
+import {
+  DEFAULT_CAPTURE_VIEWPORT,
+  DEFAULT_MAX_CAPTURE_HEIGHT,
+} from './capture-defaults.js';
 
 export type PreparedViewport = {
   pageMetrics: PageMetrics;
@@ -29,11 +31,19 @@ export async function prepareCaptureViewport(
   waitAfterViewportMs = 500,
 ): Promise<PreparedViewport> {
   const pageMetrics = await readPageMetrics(page);
-  const viewportSize = page.viewportSize() ?? { width: 1280, height: 720 };
-  const captureHeight = Math.min(pageMetrics.height, maxCaptureHeight);
+  const viewportSize = page.viewportSize() ?? DEFAULT_CAPTURE_VIEWPORT;
+  const captureWidth = Math.min(
+    viewportSize.width || DEFAULT_CAPTURE_VIEWPORT.width,
+    DEFAULT_CAPTURE_VIEWPORT.width,
+  );
+  const captureHeight = Math.min(
+    pageMetrics.height,
+    maxCaptureHeight,
+    DEFAULT_CAPTURE_VIEWPORT.height,
+  );
 
   await page.setViewportSize({
-    width: viewportSize.width || 1280,
+    width: captureWidth,
     height: captureHeight,
   });
 
@@ -43,7 +53,7 @@ export async function prepareCaptureViewport(
   return {
     pageMetrics,
     viewport: {
-      width: viewportSize.width || 1280,
+      width: captureWidth,
       height: captureHeight,
     },
   };

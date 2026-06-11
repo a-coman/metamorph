@@ -15,6 +15,12 @@ export { PlaywrightInventoryBuilderAdapter } from './infrastructure/playwright/i
 export { scanAndLabelPage } from './infrastructure/playwright/inventory.browser.js';
 
 export {
+  DEFAULT_CAPTURE_VIEWPORT,
+  DEFAULT_MAX_CAPTURE_HEIGHT,
+  DEFAULT_MAX_ITEMS,
+} from './infrastructure/playwright/capture-defaults.js';
+
+export {
   captureAnnotatedScreenshot,
   prepareCaptureViewport,
   readPageMetrics,

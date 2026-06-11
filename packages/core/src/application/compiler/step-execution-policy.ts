@@ -30,6 +30,12 @@ export function renderFillCode(targetExpr: string, value: string): string {
 export const GOTO_WAIT_UNTIL = 'domcontentloaded' as const;
 export const NETWORK_IDLE_WAIT_UNTIL = 'networkidle' as const;
 
+/** Cap load-state waits — SPAs may never reach domcontentloaded/networkidle promptly. */
+export const LOAD_STATE_TIMEOUT_MS = 5000;
+
+/** @deprecated Use {@link LOAD_STATE_TIMEOUT_MS} */
+export const NETWORK_IDLE_TIMEOUT_MS = LOAD_STATE_TIMEOUT_MS;
+
 /** Minimum settle time after navigation actions so SPAs can paint results. */
 export const POST_ACTION_SETTLE_MS = 1000;
 
@@ -50,8 +56,8 @@ export function renderGotoCode(url: string): string {
 
 export function renderPostStepStabilizationCode(indent = '  '): string {
   return [
-    `${indent}await page.waitForLoadState('${GOTO_WAIT_UNTIL}').catch(() => undefined);`,
-    `${indent}await page.waitForLoadState('${NETWORK_IDLE_WAIT_UNTIL}').catch(() => undefined);`,
+    `${indent}await page.waitForLoadState('${GOTO_WAIT_UNTIL}', { timeout: ${LOAD_STATE_TIMEOUT_MS} }).catch(() => undefined);`,
+    `${indent}await page.waitForLoadState('${NETWORK_IDLE_WAIT_UNTIL}', { timeout: ${LOAD_STATE_TIMEOUT_MS} }).catch(() => undefined);`,
     `${indent}await page.waitForTimeout(${POST_ACTION_SETTLE_MS});`,
   ].join('\n');
 }
