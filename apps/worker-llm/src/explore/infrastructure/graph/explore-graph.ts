@@ -87,19 +87,6 @@ async function resolveSourceReference(
   };
 }
 
-function buildAbortProbeError(phase: ExploreGraphState['phase'], rationale: string): string {
-  if (phase === 'follow_up') {
-    return [
-      `Plan aborted: ${rationale}`,
-      'Re-plan: follow_up is an independent scenario from the homepage.',
-      'Use validated source steps to reach the same filtered results state, then repeat the filter action once.',
-      'Do not abort only because follow_up validated path is empty at the start.',
-    ].join(' ');
-  }
-
-  return `Plan aborted: ${rationale}`;
-}
-
 function buildEmptyPathBacktrackHint(
   phase: ExploreGraphState['phase'],
   probeError?: string,
@@ -261,11 +248,14 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
       if (planResult.output.action === 'abort') {
         const abortMessage = planResult.output.rationale;
+        logExploreGraphEvent(
+          `iter=${nextIteration} phase=${state.phase} plan→abort | ${abortMessage.slice(0, 120)}`,
+        );
 
         return {
           iteration: nextIteration,
-          probeError: buildAbortProbeError(state.phase, abortMessage),
-          planRecoveryAttempts: state.planRecoveryAttempts + 1,
+          failed: true,
+          failureReason: `Plan aborted: ${abortMessage}`,
         };
       }
 

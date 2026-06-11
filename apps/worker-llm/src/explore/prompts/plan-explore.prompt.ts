@@ -85,7 +85,9 @@ export function buildPlanExploreSystemPrompt(): string {
     '- Prefer fill + press Enter for search boxes over ambiguous clicks.',
     '- Goals must be achievable without login; avoid account walls, checkout, and captcha flows.',
     '- Return action=scenario_complete when the phase goal is already satisfied in the screenshot.',
-    '- Reserve action=abort for unrecoverable blockers only (captcha, hard auth wall).',
+    '- Return action=abort when the phase goal cannot be achieved on this page (impossible MR, unrecoverable auth/captcha, or no viable path after probe failures). This ends exploration immediately.',
+    '- Do NOT use abort for dismissible cookies or modals, or recoverable steps — plan append_steps to continue instead.',
+    '- After a probe failure, prefer append_steps with a different approach; use abort only when continuing is pointless.',
     'Example:',
     JSON.stringify(PLAN_EXPLORE_EXAMPLE, null, 2),
   ].join('\n');
