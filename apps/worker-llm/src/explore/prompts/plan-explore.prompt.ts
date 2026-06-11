@@ -1,62 +1,94 @@
 import type { MrIntent, PageSnapshotInventory } from '@metamorph/core';
 import type { ExplorePhase, ExploreSourceReference } from '../infrastructure/graph/explore-state.js';
 import { buildInventorySummary } from './inventory-summary.js';
+import { PLAN_EXPLORE_OPTIONS } from './plan-explore.config.js';
 
-const PLAN_STEP_EXAMPLE = JSON.stringify(
-  {
-    action: 'append_steps',
-    rationale: 'Navigate to search and apply filter.',
-    steps: [
-      { id: 1, action: 'goto', url: 'https://example.com' },
-      { id: 2, action: 'click', element_id: 'E01' },
-      { id: 3, action: 'waitFor', timeout_ms: 2000 },
-    ],
-  },
-  null,
-  2,
-);
+const PLAN_EXPLORE_EXAMPLE = {
+  action: 'append_steps',
+  rationale: 'Dismiss cookie banner and start navigation toward the phase goal.',
+  steps: [
+    { id: 1, action: 'click', element_id: 'E03' },
+    { id: 2, action: 'fill', element_id: 'E07', value: 'portatil' },
+    { id: 3, action: 'press', element_id: 'E07', key: 'Enter' },
+  ],
+};
 
-export function buildPlanExploreSystemPrompt(phase: ExplorePhase): string {
+function buildAllowedValuesSection(): string {
+  const { topLevelActions, stepActions, maxStepsPerBatch } = PLAN_EXPLORE_OPTIONS;
+
+  return [
+    'Allowed values (pick ONLY from these):',
+    `- action: ${topLevelActions.join(' | ')}`,
+    `- steps[].action: ${stepActions.join(' | ')}`,
+    `- steps: required when action=append_steps; omit otherwise; max ${maxStepsPerBatch} items per batch`,
+  ].join('\n');
+}
+
+export function buildMrSummary(mrIntent: MrIntent): string {
+  const { transformation, relation } = mrIntent.mr_definition;
+
+  return [
+    `- transformation (${transformation.transform_family}): ${transformation.description}`,
+    `- relation (${relation.type} on ${relation.on.join(', ')}): ${relation.description}`,
+  ].join('\n');
+}
+
+function buildCompletedSourceReferenceSection(
+  sourceReference: ExploreSourceReference,
+): string {
   const lines = [
-    'You plan incremental Playwright steps for metamorphic testing exploration.',
-    'Return ONLY valid JSON matching this example shape (use "action" on each step, NOT "type"):',
-    PLAN_STEP_EXAMPLE,
-    'Top-level fields: action ("append_steps"|"scenario_complete"|"abort"), steps? (array), rationale (string at top level).',
-    'Rules:',
-    '- Use ONLY element_id values from the CURRENT inventory snapshot.',
-    '- Propose at most 3 steps per batch.',
-    '- Each step MUST include "id" (positive integer, unique within the batch) and "action" (never "type").',
-    '- click/fill/selectOption MUST include element_id from the current inventory.',
-    '- If validated path in this phase is empty, the first step MUST be goto with the target URL (probe replay may prepend goto when missing — still plan toward the phase goal).',
-    '- Allowed step actions: goto, click, fill, selectOption, press, scroll, waitFor.',
-    '- When the screenshot shows a cookie consent banner, modal, or other overlay blocking the main UI, dismiss or accept it as the first step(s) in your batch using element_ids from the current inventory (before search, filter, or navigation toward the phase goal).',
-    '- If no blocking overlay is visible, proceed directly toward the phase goal.',
-    '- For search boxes: prefer fill + press Enter over multiple ambiguous clicks.',
-    '- fill is ONLY allowed on inventory items with tagName input/textarea/select OR role textbox/searchbox/combobox.',
-    '- For div/button destination triggers (travel sites like Airbnb): click the trigger + waitFor in one batch; fill/type in the NEXT batch on the revealed input or pick a suggestion, then click the search button.',
-    '- Do not repeat cookie-dismiss steps already present in the validated path for this phase.',
-    '- Avoid login modals, account walls, and checkout flows — use public search/browse only.',
-    '- When the phase goal is already met in the current screenshot/URL, return action=scenario_complete.',
-    '- Do not propose steps that repeat an action already in validated steps unless the phase goal requires it.',
-    '- Reserve action=abort for unrecoverable blockers only (captcha, hard auth wall).',
+    'Completed source phase actions reference:',
+    '- status: completed',
+    `- steps: ${JSON.stringify(sourceReference.steps, null, 2)}`,
+    `- end_url: ${sourceReference.endUrl ?? 'null'}`,
   ];
 
-  if (phase === 'follow_up') {
-    lines.push(
-      '',
-      'follow_up phase specifics:',
-      '- follow_up is an INDEPENDENT Playwright scenario replayed from the homepage (validated follow_up path starts empty).',
-      '- Phase reset: you are back on the homepage snapshot — dismiss cookie banner again if visible before searching.',
-      '- Use validated source steps as reference for which filter/search action to repeat.',
-      '- Build toward the same filtered results state as source (see source end URL), then repeat that filter/search action once.',
-      '- An empty follow_up validated path at the start is EXPECTED — do not abort for that reason alone.',
-      '- Never abort because the path is empty: start with goto (if needed) + dismiss overlay + replicate source navigation incrementally.',
-      '- Each probe batch replays from homepage (validated prefix + new steps) — plan incremental progress, not one giant batch.',
-      '- On the results/listings page: repeat the SAME search/submit button only — do not reopen destination/date pickers for the idempotence step.',
-    );
-  }
-
   return lines.join('\n');
+}
+
+export function buildPlanExploreSystemPrompt(): string {
+  return [
+    'You plan incremental Playwright steps for metamorphic testing exploration.',
+    'Return ONLY valid JSON matching this shape (no markdown, no extra keys):',
+    '{',
+    '  "action": string,',
+    '  "steps": [',
+    '    {',
+    '      "id": number,',
+    '      "action": string,',
+    '      "element_id": string,',
+    '      "value": string,',
+    '      "url": string,',
+    '      "key": string,',
+    '      "scroll_y": number,',
+    '      "timeout_ms": number',
+    '    }',
+    '  ],',
+    '  "rationale": string',
+    '}',
+    '',
+    buildAllowedValuesSection(),
+    '',
+    'Rules:',
+    '- Every enum field must use exactly one of the allowed values above; do not invent new values.',
+    '- Each step MUST include "id" (positive integer, unique within the batch) and "action" (never "type").',
+    '- Use ONLY element_id values from the current inventory in the user message.',
+    '- click, fill, and selectOption MUST include element_id.',
+    '- fill is ONLY allowed on inventory items marked fillable.',
+    '- Plan toward the current phase goal stated in the user message.',
+    '- Each phase is an independent Playwright scenario replayed from the homepage with a new browser context.',
+    '- Plan only toward the current phase goal; do not assume follow_up must copy or repeat source unless the follow_up phase goal explicitly requires it.',
+    '- When phase is follow_up, use the completed source phase actions reference as context for what source achieved; plan follow_up in concordance with the follow_up phase goal and MR summary.',
+    '- If the validated path in the current phase is empty, start with goto to the target URL when needed.',
+    '- When the screenshot shows a cookie banner, modal, or overlay blocking the main UI, dismiss it before progressing toward the phase goal.',
+    '- Do not repeat steps already present in the validated path unless the phase goal requires it.',
+    '- Prefer fill + press Enter for search boxes over ambiguous clicks.',
+    '- Goals must be achievable without login; avoid account walls, checkout, and captcha flows.',
+    '- Return action=scenario_complete when the phase goal is already satisfied in the screenshot.',
+    '- Reserve action=abort for unrecoverable blockers only (captcha, hard auth wall).',
+    'Example:',
+    JSON.stringify(PLAN_EXPLORE_EXAMPLE, null, 2),
+  ].join('\n');
 }
 
 export function buildPlanExploreUserText(input: {
@@ -78,41 +110,33 @@ export function buildPlanExploreUserText(input: {
     `Phase: ${input.phase}`,
     `Phase goal: ${phaseGoal}`,
     '',
-    'MR intent (full):',
-    JSON.stringify(input.mrIntent, null, 2),
-    '',
-    'Exploration phase goals:',
-    `- source: ${input.mrIntent.exploration.source_phase_goal}`,
-    `- follow_up: ${input.mrIntent.exploration.follow_up_phase_goal}`,
+    'MR summary:',
+    buildMrSummary(input.mrIntent),
     '',
     'Validated steps in this phase:',
     JSON.stringify(input.validatedSteps[input.phase], null, 2),
   ];
 
   if (input.phase === 'follow_up' && input.sourceReference) {
-    lines.push(
-      '',
-      'Validated source steps (reference — replicate end state and filter action):',
-      JSON.stringify(input.sourceReference.steps, null, 2),
-    );
-    if (input.sourceReference.endUrl) {
-      lines.push(
-        `Source end URL (target state to reach before repeating filter): ${input.sourceReference.endUrl}`,
-      );
-    }
+    lines.push('', buildCompletedSourceReferenceSection(input.sourceReference));
   }
 
   lines.push(
+    '',
+    'Attached: annotated screenshot — element_id labels on the image match the inventory below.',
     '',
     'Current inventory:',
     buildInventorySummary(input.inventory),
   );
 
   if (input.probeError) {
-    lines.push('', `Last probe error: ${input.probeError}`);
+    lines.push('', `Last probe/plan error: ${input.probeError}`);
   }
 
-  lines.push('', 'Propose the next 1-3 steps OR scenario_complete if goal reached.');
+  lines.push(
+    '',
+    'Propose the next 1-3 steps, scenario_complete if the phase goal is already met, or abort only for unrecoverable blockers.',
+  );
 
   return lines.join('\n');
 }

@@ -105,7 +105,7 @@ export class ExploreOpenRouterClient {
     return this.call({
       purpose: 'plan_explore',
       promptVersion: PLAN_EXPLORE_PROMPT_VERSION,
-      system: buildPlanExploreSystemPrompt(input.phase),
+      system: buildPlanExploreSystemPrompt(),
       userText: buildPlanExploreUserText(input),
       screenshotsBase64: [input.screenshotBase64],
       schema: ExplorePlanOutputSchema,
