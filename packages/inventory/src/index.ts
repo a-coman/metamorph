@@ -22,6 +22,7 @@ export {
 
 export {
   captureAnnotatedScreenshot,
+  captureRawScreenshot,
   prepareCaptureViewport,
   readPageMetrics,
 } from './infrastructure/playwright/prepare-viewport.js';

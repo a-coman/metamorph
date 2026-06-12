@@ -14,6 +14,7 @@ import {
   type SlotStep,
 } from '@metamorph/core';
 import {
+  captureRawScreenshot,
   DEFAULT_CAPTURE_VIEWPORT,
   DEFAULT_MAX_ITEMS,
   evaluateLocatorChain,
@@ -62,8 +63,36 @@ export class ProbeInventoryCaptureAdapter {
       await page.route(/\.(woff2?|ttf|otf|eot)(\?.*)?$/i, (route) => route.abort());
 
       try {
-        for (const step of steps) {
-          await this.executeStep(page, step, inventory);
+        let screenshotBeforeStep = await captureRawScreenshot(page);
+
+        for (let index = 0; index < steps.length; index++) {
+          const step = steps[index]!;
+          const urlBeforeFailure = page.url();
+          const beforeScreenshot = screenshotBeforeStep;
+
+          try {
+            await this.executeStep(page, step, inventory);
+            if (shouldStabilizeAfterAction(step.action)) {
+              await stabilizePage(page);
+            }
+            screenshotBeforeStep = await captureRawScreenshot(page);
+          } catch (stepError) {
+            traceZip = await this.exportTrace(context, jobId, tracingStarted);
+            const partialInventory = await this.tryScanCurrentPage(page);
+            const message =
+              stepError instanceof Error ? stepError.message : 'Unknown probe capture error';
+
+            throw new ProbeInventoryCaptureError(message, traceZip, {
+              cause: stepError,
+              partialInventory,
+              failureContext: {
+                failedStep: step,
+                failedStepIndex: index,
+                urlBeforeFailure,
+                screenshotBeforeFailure: beforeScreenshot,
+              },
+            });
+          }
         }
 
         await stabilizePage(page);
@@ -73,6 +102,10 @@ export class ProbeInventoryCaptureAdapter {
 
         return { inventory: pageInventory, traceZip };
       } catch (stepError) {
+        if (stepError instanceof ProbeInventoryCaptureError) {
+          throw stepError;
+        }
+
         traceZip = await this.exportTrace(context, jobId, tracingStarted);
         const partialInventory = await this.tryScanCurrentPage(page);
         const message =

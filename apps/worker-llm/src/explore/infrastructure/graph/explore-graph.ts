@@ -25,6 +25,7 @@ import {
   buildGenerationSlots,
   type ExploreGraphState,
   type ExploreSourceReference,
+  type ProbeFailureContext,
   type ProbeResumeValue,
 } from './explore-state.js';
 
@@ -59,6 +60,7 @@ const ExploreAnnotation = Annotation.Root({
   mrDefinition: Annotation<ExploreGraphState['mrDefinition']>,
   explorationGoals: Annotation<ExploreGraphState['explorationGoals']>,
   probeError: Annotation<string | undefined>,
+  probeFailureContext: Annotation<ProbeFailureContext | undefined>,
   probeStatus: Annotation<'ok' | 'failed' | undefined>,
   lastVerdict: Annotation<'ok' | 'fail' | 'goal_reached' | undefined>,
   failed: Annotation<boolean | undefined>,
@@ -261,6 +263,9 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     }
 
     const screenshotBase64 = await loadAnnotatedBase64(state.currentSnapshotId);
+    const failureScreenshotBase64 = state.probeFailureContext
+      ? await loadRawBase64(state.probeFailureContext.screenshotBeforeSnapshotId)
+      : undefined;
     const sourceReference = await resolveSourceReference(state, deps);
 
     try {
@@ -278,6 +283,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
             sourceReference,
             screenshotBase64,
             probeError: state.probeError,
+            probeFailureContext: state.probeFailureContext,
+            failureScreenshotBase64,
           }),
       );
 
@@ -302,6 +309,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           iteration: nextIteration,
           lastVerdict: 'goal_reached',
           probeError: undefined,
+          probeFailureContext: undefined,
           checkpointRecoveryAttempts: 0,
         };
       }
@@ -363,6 +371,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         pendingProbeSteps,
         iteration: nextIteration,
         probeError: undefined,
+        probeFailureContext: undefined,
         planRecoveryAttempts: 0,
         snapshotBeforeId: state.currentSnapshotId,
       };
@@ -446,12 +455,24 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       `iter=${state.iteration} phase=${state.phase} probe ${resumeValue.probe_status}${resumeValue.snapshot_id ? ` snapshot=${resumeValue.snapshot_id.slice(0, 8)}` : ''}${resumeValue.error ? ` err=${resumeValue.error.slice(0, 60)}` : ''}`,
     );
 
+    if (resumeValue.probe_status === 'failed') {
+      return {
+        pendingProbeJobId: undefined,
+        pendingProbeSteps: [],
+        lastExecutedSteps: executedSteps,
+        probeStatus: resumeValue.probe_status,
+        probeError: resumeValue.error,
+        probeFailureContext: resumeValue.failureContext,
+      };
+    }
+
     return {
       pendingProbeJobId: undefined,
       pendingProbeSteps: [],
       lastExecutedSteps: executedSteps,
       probeStatus: resumeValue.probe_status,
-      probeError: resumeValue.error,
+      probeError: undefined,
+      probeFailureContext: undefined,
       currentSnapshotId: resumeValue.snapshot_id ?? state.currentSnapshotId,
     };
   }

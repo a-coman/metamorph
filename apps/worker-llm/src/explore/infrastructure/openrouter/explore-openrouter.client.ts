@@ -21,7 +21,7 @@ import {
   buildPlanExploreSystemPrompt,
   buildPlanExploreUserText,
 } from '../../prompts/plan-explore.prompt.js';
-import type { ExplorePhase, ExploreSourceReference } from '../graph/explore-state.js';
+import type { ExplorePhase, ExploreSourceReference, ProbeFailureContext } from '../graph/explore-state.js';
 import { logExploreLlmExchange } from './explore-llm-logger.js';
 import {
   buildOpenRouterResponseFormat,
@@ -101,17 +101,27 @@ export class ExploreOpenRouterClient {
     sourceReference?: ExploreSourceReference;
     screenshotBase64: string;
     probeError?: string;
+    probeFailureContext?: ProbeFailureContext;
+    failureScreenshotBase64?: string;
   }): Promise<ExploreLlmResult<import('@metamorph/core').ExplorePlanOutput>> {
     const phaseSteps = input.validatedSteps[input.phase as keyof typeof input.validatedSteps];
     const nextStepId =
       (Array.isArray(phaseSteps) ? phaseSteps.length : 0) + 1;
 
+    const screenshotsBase64 = [input.screenshotBase64];
+    if (input.failureScreenshotBase64) {
+      screenshotsBase64.push(input.failureScreenshotBase64);
+    }
+
     return this.call({
       purpose: 'plan_explore',
       promptVersion: PLAN_EXPLORE_PROMPT_VERSION,
       system: buildPlanExploreSystemPrompt(),
-      userText: buildPlanExploreUserText(input),
-      screenshotsBase64: [input.screenshotBase64],
+      userText: buildPlanExploreUserText({
+        ...input,
+        batchSize: input.probeFailureContext?.failedBatchSize,
+      }),
+      screenshotsBase64,
       schema: ExplorePlanOutputSchema,
       schemaName: 'plan_explore',
       normalize: (raw) => normalizePlanOutput(raw, nextStepId),

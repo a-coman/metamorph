@@ -12,6 +12,15 @@ export type ExploreSourceReference = {
   endUrl?: string;
 };
 
+export type ProbeFailureContext = {
+  failedStep: SlotStep;
+  failedStepIndex: number;
+  failedBatchIndex?: number;
+  failedBatchSize?: number;
+  urlBeforeFailure: string;
+  screenshotBeforeSnapshotId: string;
+};
+
 export type ExploreGraphState = {
   sessionId: string;
   sessionUrl: string;
@@ -52,6 +61,7 @@ export type ProbeResumeValue = {
   snapshot_id: string | null;
   probe_status: 'ok' | 'failed';
   error?: string;
+  failureContext?: ProbeFailureContext;
 };
 
 export const DEFAULT_EXPLORE_STATE: Omit<

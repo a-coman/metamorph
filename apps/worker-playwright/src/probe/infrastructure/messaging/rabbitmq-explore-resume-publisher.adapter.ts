@@ -4,7 +4,10 @@ import {
   type LlmExploreResumeMessage,
 } from '@metamorph/contracts';
 import amqplib from 'amqplib';
-import { ExploreResumePublisherPort } from '../../application/ports/explore-resume-publisher.port.js';
+import {
+  ExploreResumePublisherPort,
+  type PublishedProbeFailureContext,
+} from '../../application/ports/explore-resume-publisher.port.js';
 
 export class RabbitMqExploreResumePublisherAdapter extends ExploreResumePublisherPort {
   private readonly exchange: string;
@@ -24,6 +27,7 @@ export class RabbitMqExploreResumePublisherAdapter extends ExploreResumePublishe
     snapshotId: string | null;
     probeStatus: 'ok' | 'failed';
     error?: string;
+    failureContext?: PublishedProbeFailureContext;
   }): Promise<void> {
     const connection = await amqplib.connect(this.url);
     const channel = await connection.createConfirmChannel();
@@ -39,6 +43,9 @@ export class RabbitMqExploreResumePublisherAdapter extends ExploreResumePublishe
           snapshot_id: input.snapshotId,
           probe_status: input.probeStatus,
           error: input.error,
+          ...(input.failureContext
+            ? { failure_context: input.failureContext }
+            : {}),
         },
       };
 

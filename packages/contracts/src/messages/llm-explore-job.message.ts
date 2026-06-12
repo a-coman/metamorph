@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import {
+  probeFailureContextSchema,
+} from '../schemas/slot-step.schema.js';
 
 export const llmExploreJobMessageSchema = z.object({
   job_id: z.uuid(),
@@ -22,6 +25,7 @@ export const llmExploreResumeMessageSchema = z.object({
     snapshot_id: z.uuid().nullable(),
     probe_status: z.enum(['ok', 'failed']),
     error: z.string().optional(),
+    failure_context: probeFailureContextSchema.optional(),
   }),
 });
 

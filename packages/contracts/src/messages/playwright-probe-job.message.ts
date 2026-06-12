@@ -1,28 +1,5 @@
 import { z } from 'zod';
-
-const slotStepSchema = z.object({
-  id: z.number().int().positive(),
-  action: z.enum([
-    'goto',
-    'click',
-    'fill',
-    'selectOption',
-    'press',
-    'scroll',
-    'waitFor',
-  ]),
-  element_id: z
-    .string()
-    .regex(/^E\d{2,}$/)
-    .optional(),
-  value: z.string().optional(),
-  url: z.string().optional(),
-  key: z.string().optional(),
-  scroll_y: z.number().optional(),
-  timeout_ms: z.number().int().positive().optional(),
-  resolved_locator: z.string().optional(),
-  resolved_selector: z.string().optional(),
-});
+import { slotStepSchema } from '../schemas/slot-step.schema.js';
 
 const probeJobPayloadSchema = z
   .object({

@@ -81,6 +81,22 @@ export class LlmExploreSubscriber {
               snapshot_id: parsed.data.payload.snapshot_id,
               probe_status: parsed.data.payload.probe_status,
               error: parsed.data.payload.error,
+              failureContext: parsed.data.payload.failure_context
+                ? {
+                    failedStep: parsed.data.payload.failure_context.failed_step,
+                    failedStepIndex:
+                      parsed.data.payload.failure_context.failed_step_index,
+                    failedBatchIndex:
+                      parsed.data.payload.failure_context.failed_batch_index,
+                    failedBatchSize:
+                      parsed.data.payload.failure_context.failed_batch_size,
+                    urlBeforeFailure:
+                      parsed.data.payload.failure_context.url_before_failure,
+                    screenshotBeforeSnapshotId:
+                      parsed.data.payload.failure_context
+                        .screenshot_before_snapshot_id,
+                  }
+                : undefined,
             });
 
       if (result.isRight()) {
