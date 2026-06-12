@@ -28,6 +28,13 @@ export {
 
 export { loadBrowserScanScript } from './infrastructure/playwright/load-browser-scan-script.js';
 
+export {
+  evaluateLocatorChain,
+  enrichInventoryMatchCounts,
+} from './infrastructure/playwright/enrich-inventory-match-counts.js';
+
+export { scanAndEnrichCurrentPage } from './infrastructure/playwright/scan-and-enrich-current-page.js';
+
 export { toPageSnapshotPayload } from './application/mappers/page-snapshot.mapper.js';
 
 export {

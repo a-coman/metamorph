@@ -20,6 +20,8 @@ export const InventoryItemSchema = z.object({
   name: z.string().nullable(),
   ariaLabel: z.string().nullable(),
   textPreview: z.string().nullable().optional(),
+  locatorMatchCount: z.number().int().nonnegative().optional(),
+  selectorMatchCount: z.number().int().nonnegative().optional(),
   boundingBox: z
     .object({
       x: z.number(),

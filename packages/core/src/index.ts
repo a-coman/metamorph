@@ -50,6 +50,14 @@ export {
 } from './application/compiler/probe-spec-compiler.js';
 
 export {
+  resolveInventoryItemTarget,
+  applyResolvedTargetToStep,
+  renderTargetExpression,
+  resolveStepTargetExpression,
+  type ResolvedInventoryTarget,
+} from './application/compiler/resolve-inventory-target.js';
+
+export {
   GOTO_WAIT_UNTIL,
   NETWORK_IDLE_WAIT_UNTIL,
   LOAD_STATE_TIMEOUT_MS,

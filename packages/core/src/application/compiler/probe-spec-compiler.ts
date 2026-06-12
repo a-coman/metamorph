@@ -2,6 +2,11 @@ import type { SlotStep } from '../../domain/schemas/generation-slots.schema.js';
 import type { InventoryItem, PageSnapshotInventory } from '../../domain/schemas/page-snapshot.schema.js';
 import { PlaybookCompileError } from './playbook-compiler.js';
 import {
+  applyResolvedTargetToStep,
+  resolveInventoryItemTarget,
+  resolveStepTargetExpression,
+} from './resolve-inventory-target.js';
+import {
   renderCompiledStepLines,
   renderFillCode,
   renderGotoCode,
@@ -33,11 +38,10 @@ export function resolveStepTargets(
       return step;
     }
 
-    if (item.locator) {
-      return { ...step, resolved_locator: item.locator, resolved_selector: undefined };
-    }
-
-    return { ...step, resolved_selector: item.selector, resolved_locator: undefined };
+    return applyResolvedTargetToStep(
+      step,
+      resolveInventoryItemTarget(item),
+    );
   });
 }
 
@@ -156,26 +160,5 @@ function resolveTarget(
   step: SlotStep,
   itemMap: Map<string, InventoryItem>,
 ): string {
-  if (step.resolved_locator) {
-    return `page.${step.resolved_locator}`;
-  }
-
-  if (step.resolved_selector) {
-    return `page.locator(${JSON.stringify(step.resolved_selector)})`;
-  }
-
-  if (!step.element_id) {
-    throw new PlaybookCompileError(`Step ${step.id}: ${step.action} requires element_id`);
-  }
-
-  const item = itemMap.get(step.element_id);
-  if (!item) {
-    throw new PlaybookCompileError(`element_id ${step.element_id} not found in inventory`);
-  }
-
-  if (item.locator) {
-    return `page.${item.locator}`;
-  }
-
-  return `page.locator(${JSON.stringify(item.selector)})`;
+  return resolveStepTargetExpression(step, itemMap);
 }

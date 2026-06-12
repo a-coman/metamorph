@@ -7,18 +7,17 @@ import {
   LOAD_STATE_TIMEOUT_MS,
   NETWORK_IDLE_WAIT_UNTIL,
   POST_ACTION_SETTLE_MS,
+  resolveInventoryItemTarget,
   shouldStabilizeAfterAction,
   type InventoryItem,
   type PageSnapshotInventory,
   type SlotStep,
 } from '@metamorph/core';
 import {
-  captureAnnotatedScreenshot,
   DEFAULT_CAPTURE_VIEWPORT,
-  DEFAULT_MAX_CAPTURE_HEIGHT,
   DEFAULT_MAX_ITEMS,
-  loadBrowserScanScript,
-  prepareCaptureViewport,
+  evaluateLocatorChain,
+  scanAndEnrichCurrentPage,
   type PageInventory,
 } from '@metamorph/inventory';
 import { ProbeInventoryCaptureError } from '../../domain/errors/probe-capture.errors.js';
@@ -131,36 +130,7 @@ export class ProbeInventoryCaptureAdapter {
   }
 
   private async scanCurrentPage(page: Page): Promise<PageInventory> {
-    await page.waitForTimeout(500);
-
-    const { pageMetrics, viewport } = await prepareCaptureViewport(
-      page,
-      DEFAULT_MAX_CAPTURE_HEIGHT,
-      500,
-    );
-
-    const browserScript = loadBrowserScanScript();
-    const items = (await page.evaluate(
-      ({ script, opts }) => {
-        const api = (0, eval)(`${script}\n; __metamorphInventory`) as {
-          scanAndLabelPage: (options: { maxItems: number }) => unknown[];
-        };
-        return api.scanAndLabelPage(opts);
-      },
-      { script: browserScript, opts: { maxItems: DEFAULT_MAX_ITEMS } },
-    )) as InventoryItem[];
-
-    const screenshot = await captureAnnotatedScreenshot(page);
-
-    return {
-      url: page.url(),
-      capturedAt: new Date().toISOString(),
-      pageMetrics,
-      viewport,
-      items,
-      screenshot,
-      labeledCount: items.filter((item) => item.labelShown).length,
-    };
+    return scanAndEnrichCurrentPage(page, { maxItems: DEFAULT_MAX_ITEMS });
   }
 
   private async executeStep(
@@ -233,11 +203,10 @@ async function stabilizePage(page: Page): Promise<void> {
 function resolveTarget(
   page: Page,
   step: SlotStep,
-  itemMap: Map<string, import('@metamorph/core').InventoryItem>,
+  itemMap: Map<string, InventoryItem>,
 ) {
   if (step.resolved_locator) {
-    const fn = new Function('page', `return page.${step.resolved_locator}`);
-    return fn(page) as ReturnType<Page['locator']>;
+    return evaluateLocatorChain(page, step.resolved_locator);
   }
 
   if (step.resolved_selector) {
@@ -253,10 +222,10 @@ function resolveTarget(
     throw new Error(`element_id ${step.element_id} not found in inventory`);
   }
 
-  if (item.locator) {
-    const fn = new Function('page', `return page.${item.locator}`);
-    return fn(page) as ReturnType<Page['locator']>;
+  const target = resolveInventoryItemTarget(item);
+  if (target.kind === 'locator') {
+    return evaluateLocatorChain(page, target.value);
   }
 
-  return page.locator(item.selector);
+  return page.locator(target.value);
 }

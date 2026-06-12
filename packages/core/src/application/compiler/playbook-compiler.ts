@@ -13,6 +13,7 @@ import {
   renderGotoCode,
 } from './step-execution-policy.js';
 import { withProbeGotoPrefix } from './probe-spec-compiler.js';
+import { resolveStepTargetExpression } from './resolve-inventory-target.js';
 
 export type CompilePlaybookResult = {
   playbookContent: string;
@@ -145,28 +146,7 @@ function resolveTarget(
   step: SlotStep,
   itemMap: Map<string, InventoryItem>,
 ): string {
-  if (step.resolved_locator) {
-    return `page.${step.resolved_locator}`;
-  }
-
-  if (step.resolved_selector) {
-    return `page.locator(${JSON.stringify(step.resolved_selector)})`;
-  }
-
-  if (!step.element_id) {
-    throw new PlaybookCompileError(`Step ${step.id}: ${step.action} requires element_id`);
-  }
-
-  const item = itemMap.get(step.element_id);
-  if (!item) {
-    throw new PlaybookCompileError(`element_id ${step.element_id} not found in inventory`);
-  }
-
-  if (item.locator) {
-    return `page.${item.locator}`;
-  }
-
-  return `page.locator(${JSON.stringify(item.selector)})`;
+  return resolveStepTargetExpression(step, itemMap);
 }
 
 export function validateInventoryElementIds(
