@@ -7,6 +7,10 @@ import { baseUrl } from '@/lib/api';
 
 export type SseConnectionState = 'connecting' | 'connected' | 'error' | 'closed';
 
+function closeEventSource(source: EventSource) {
+  source.close();
+}
+
 export function useSessionEvents(
   sessionId: string | null,
   onEvent: (event: SessionEvent) => void,
@@ -22,18 +26,41 @@ export function useSessionEvents(
 
     onConnectionChangeRef.current?.('connecting');
 
+    let receivedMessage = false;
+    let closedIntentionally = false;
+
     const source = subscribeSessionEvents(
       { baseUrl },
       sessionId,
-      (e) => onEventRef.current(e),
+      (e) => {
+        if (e.type === 'stream.end') {
+          closedIntentionally = true;
+          closeEventSource(source);
+          onConnectionChangeRef.current?.('closed');
+          return;
+        }
+
+        receivedMessage = true;
+        onEventRef.current(e);
+      },
       {
         onOpen: () => onConnectionChangeRef.current?.('connected'),
-        onError: () => onConnectionChangeRef.current?.('error'),
+        onError: () => {
+          if (closedIntentionally) return;
+          if (receivedMessage) {
+            closedIntentionally = true;
+            closeEventSource(source);
+            onConnectionChangeRef.current?.('closed');
+            return;
+          }
+          onConnectionChangeRef.current?.('error');
+        },
       },
     );
 
     return () => {
-      source.close();
+      closedIntentionally = true;
+      closeEventSource(source);
       onConnectionChangeRef.current?.('closed');
     };
   }, [sessionId]);
@@ -54,18 +81,41 @@ export function useMrVersionEvents(
 
     onConnectionChangeRef.current?.('connecting');
 
+    let receivedMessage = false;
+    let closedIntentionally = false;
+
     const source = subscribeMrVersionEvents(
       { baseUrl },
       mrVersionId,
-      (e) => onEventRef.current(e),
+      (e) => {
+        if (e.type === 'stream.end') {
+          closedIntentionally = true;
+          closeEventSource(source);
+          onConnectionChangeRef.current?.('closed');
+          return;
+        }
+
+        receivedMessage = true;
+        onEventRef.current(e);
+      },
       {
         onOpen: () => onConnectionChangeRef.current?.('connected'),
-        onError: () => onConnectionChangeRef.current?.('error'),
+        onError: () => {
+          if (closedIntentionally) return;
+          if (receivedMessage) {
+            closedIntentionally = true;
+            closeEventSource(source);
+            onConnectionChangeRef.current?.('closed');
+            return;
+          }
+          onConnectionChangeRef.current?.('error');
+        },
       },
     );
 
     return () => {
-      source.close();
+      closedIntentionally = true;
+      closeEventSource(source);
       onConnectionChangeRef.current?.('closed');
     };
   }, [mrVersionId]);

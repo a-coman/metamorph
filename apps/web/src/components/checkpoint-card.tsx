@@ -105,7 +105,7 @@ export function CheckpointScreenshot({ snapshotId }: { snapshotId: string }) {
   );
 }
 
-function CheckpointSteps({ steps }: { steps: SlotStepLike[] }) {
+export function CheckpointSteps({ steps }: { steps: SlotStepLike[] }) {
   return (
     <div className="space-y-1 p-2.5 rounded-lg bg-muted/30 max-h-32 overflow-y-auto">
       <span className="text-xs font-medium text-muted-foreground">Steps executed:</span>
@@ -170,7 +170,7 @@ export function CheckpointCard({
         )}
       >
         {variant === 'feed' && (
-          <div className="p-1.5 rounded-md shrink-0 bg-primary/10 text-primary">
+          <div className="p-1.5 rounded-md shrink-0 bg-emerald-100 text-emerald-600">
             <Play className="size-3.5" />
           </div>
         )}

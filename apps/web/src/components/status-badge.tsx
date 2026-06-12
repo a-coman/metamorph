@@ -39,12 +39,17 @@ const STATUS_MAP: Record<string, StatusConfig> = {
 
   // Run verdicts
   pass: { label: 'Pass', type: 'success', icon: CheckCircle },
-  fail: { label: 'Fail', type: 'error', icon: XCircle },
+  fail: { label: 'Failed', type: 'error', icon: XCircle },
   pending: { label: 'Pending', type: 'neutral', icon: Clock },
 
-  // Checkpoint verdicts
-  ok: { label: 'OK', type: 'success', icon: CheckCircle },
+  // Activity outcomes
+  ok: { label: 'Ok', type: 'success', icon: CheckCircle },
   goal_reached: { label: 'Goal', type: 'info', icon: Target },
+
+  // Plan explore actions
+  append_steps: { label: 'Append Steps', type: 'info', icon: Play },
+  scenario_complete: { label: 'Scenario Complete', type: 'success', icon: CheckCircle },
+  abort: { label: 'Abort', type: 'error', icon: XCircle },
 };
 
 const TYPE_STYLES: Record<StatusType, string> = {

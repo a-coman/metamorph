@@ -63,10 +63,12 @@ export class ExplorationPrismaRepository {
     stepsJson: unknown;
     verdict: string;
     rationale?: string;
+    llmCallId?: string;
   }): Promise<void> {
     await prisma.explorationCheckpoint.create({
       data: {
         mrVersionId: input.mrVersionId,
+        llmCallId: input.llmCallId,
         phase: input.phase,
         sequence: input.sequence,
         snapshotId: input.snapshotId,
@@ -115,7 +117,6 @@ export class ExplorationPrismaRepository {
     mrDefinition: MrDefinition;
     generationSlots: GenerationSlots;
     compiled: CompilePlaybookResult;
-    llmAudit: ExploreLlmAudit;
     exploreJobId: string;
   }): Promise<void> {
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -156,36 +157,51 @@ export class ExplorationPrismaRepository {
         },
       });
 
-      await tx.llmCall.create({
-        data: {
-          jobId: input.exploreJobId,
-          mrVersionId: input.mrVersionId,
-          purpose: input.llmAudit.purpose,
-          model: input.llmAudit.model,
-          promptVersion: input.llmAudit.promptVersion,
-          tokensIn: input.llmAudit.tokensIn,
-          tokensOut: input.llmAudit.tokensOut,
-          latencyMs: input.llmAudit.latencyMs,
-        },
-      });
     });
   }
 
-  async recordLlmCall(input: {
+  async beginLlmCall(input: {
     exploreJobId: string;
     mrVersionId: string;
-    audit: ExploreLlmAudit;
-  }): Promise<void> {
-    await prisma.llmCall.create({
+    purpose: string;
+    model: string;
+    promptVersion: string;
+  }): Promise<string> {
+    const row = await prisma.llmCall.create({
       data: {
         jobId: input.exploreJobId,
         mrVersionId: input.mrVersionId,
-        purpose: input.audit.purpose,
-        model: input.audit.model,
-        promptVersion: input.audit.promptVersion,
+        purpose: input.purpose,
+        model: input.model,
+        promptVersion: input.promptVersion,
+      },
+      select: { id: true },
+    });
+
+    return row.id;
+  }
+
+  async completeLlmCall(input: {
+    id: string;
+    audit: ExploreLlmAudit;
+    responseJson: unknown;
+  }): Promise<void> {
+    await prisma.llmCall.update({
+      where: { id: input.id },
+      data: {
         tokensIn: input.audit.tokensIn,
         tokensOut: input.audit.tokensOut,
         latencyMs: input.audit.latencyMs,
+        responseJson: input.responseJson as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async failLlmCall(input: { id: string; error: string }): Promise<void> {
+    await prisma.llmCall.update({
+      where: { id: input.id },
+      data: {
+        responseJson: { error: input.error } as Prisma.InputJsonValue,
       },
     });
   }

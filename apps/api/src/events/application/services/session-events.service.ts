@@ -16,6 +16,29 @@ const MR_TERMINAL_STATUSES = new Set<string>([
   MrVersionStatus.violation_pending_triage,
 ]);
 
+type ProbeJobPayload = {
+  phase?: string;
+  mode?: 'incremental' | 'smoke_replay';
+  validated_prefix?: unknown[];
+  probe_steps?: unknown[];
+};
+
+function resolveProbeMode(
+  payload: Record<string, unknown> | null,
+): ProbeStatusDto['mode'] {
+  const mode = (payload as ProbeJobPayload | null)?.mode;
+  return mode === 'smoke_replay' ? 'smoke_replay' : 'incremental';
+}
+
+function resolveProbeExecutedSteps(
+  payload: Record<string, unknown> | null,
+): unknown[] {
+  const typed = payload as ProbeJobPayload | null;
+  const prefix = Array.isArray(typed?.validated_prefix) ? typed.validated_prefix : [];
+  const batch = Array.isArray(typed?.probe_steps) ? typed.probe_steps : [];
+  return [...prefix, ...batch];
+}
+
 @Injectable()
 export class SessionEventsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,7 +48,7 @@ export class SessionEventsService {
       const startedAt = Date.now();
       let lastJobState = new Map<string, string>();
       let lastMrStatus = new Map<string, string>();
-      let seenLlmCallIds = new Set<string>();
+      let lastLlmState = new Map<string, string>();
       let lastProbeState = new Map<string, string>();
       let seenScreenshotIds = new Set<string>();
       let seenMrIds = new Set<string>();
@@ -54,10 +77,10 @@ export class SessionEventsService {
                     tokensIn: true,
                     tokensOut: true,
                     latencyMs: true,
+                    responseJson: true,
                     createdAt: true,
                   },
                   orderBy: { createdAt: 'asc' },
-                  take: 20,
                 },
               },
               orderBy: { createdAt: 'asc' },
@@ -76,6 +99,7 @@ export class SessionEventsService {
             pageSnapshots: {
               select: {
                 id: true,
+                jobId: true,
                 url: true,
                 createdAt: true,
                 annotatedScreenshotId: true,
@@ -99,6 +123,17 @@ export class SessionEventsService {
         const jobState = new Map<string, string>();
         const mrState = new Map<string, string>();
         const probeState = new Map<string, string>();
+        const llmState = new Map<string, string>();
+        const probeJobIds = new Set(
+          session.jobs
+            .filter((job) => job.type === JobType.probe)
+            .map((job) => job.id),
+        );
+        const snapshotByJobId = new Map(
+          session.pageSnapshots
+            .filter((snapshot) => snapshot.jobId !== null)
+            .map((snapshot) => [snapshot.jobId as string, snapshot]),
+        );
 
         for (const job of session.jobs) {
           const key = `${job.type}:${job.status}`;
@@ -121,14 +156,20 @@ export class SessionEventsService {
             const prevProbe = lastProbeState.get(job.id);
             if (prevProbe !== probeKey) {
               const payload = job.payload as Record<string, unknown> | null;
+              const executedSteps = resolveProbeExecutedSteps(payload);
+              const outputSnapshot = snapshotByJobId.get(job.id);
+              const outputSnapshotId = outputSnapshot?.id ?? null;
               const probeUpdatedAt = job.finishedAt ?? job.startedAt ?? job.createdAt;
               const probe: ProbeStatusDto = {
                 jobId: job.id,
                 status: this.mapJobStatus(job.status),
+                mode: resolveProbeMode(payload),
                 phase: (payload?.phase as string) ?? null,
-                stepCount: Array.isArray(payload?.probeSteps) ? payload.probeSteps.length : null,
+                stepCount: executedSteps.length > 0 ? executedSteps.length : null,
+                executedSteps: executedSteps.length > 0 ? executedSteps : null,
                 error: job.errorMessage,
-                snapshotId: null,
+                snapshotId: outputSnapshotId,
+                outputSnapshotId,
                 updatedAt: probeUpdatedAt,
               };
               timestampedEvents.push({
@@ -139,22 +180,15 @@ export class SessionEventsService {
           }
 
           for (const llmCall of job.llmCalls) {
-            if (!seenLlmCallIds.has(llmCall.id)) {
-              const llmCallDto: LlmCallDto = {
-                id: llmCall.id,
-                purpose: llmCall.purpose,
-                model: llmCall.model,
-                promptVersion: llmCall.promptVersion,
-                tokensIn: llmCall.tokensIn,
-                tokensOut: llmCall.tokensOut,
-                latencyMs: llmCall.latencyMs,
-                createdAt: llmCall.createdAt,
-              };
+            const llmKey = this.llmStateKey(llmCall);
+            llmState.set(llmCall.id, llmKey);
+            const prevLlm = lastLlmState.get(llmCall.id);
+            if (prevLlm !== llmKey) {
+              const llmCallDto = this.mapLlmCallDto(llmCall);
               timestampedEvents.push({
-                event: { type: 'llm.call', llmCall: llmCallDto },
-                timestamp: llmCall.createdAt,
+                event: { type: 'llm.status', llmCall: llmCallDto },
+                timestamp: llmCallDto.updatedAt,
               });
-              seenLlmCallIds.add(llmCall.id);
             }
           }
         }
@@ -193,10 +227,13 @@ export class SessionEventsService {
         for (const snapshot of session.pageSnapshots) {
           if (!seenScreenshotIds.has(snapshot.id)) {
             const artifactId = snapshot.annotatedScreenshotId ?? snapshot.rawScreenshotId;
-            if (artifactId) {
+            const isProbeOutput =
+              snapshot.jobId !== null && probeJobIds.has(snapshot.jobId);
+            if (artifactId && !isProbeOutput) {
               const screenshot: ScreenshotDto = {
                 id: snapshot.id,
                 snapshotId: snapshot.id,
+                jobId: snapshot.jobId,
                 artifactId,
                 url: snapshot.url,
                 createdAt: snapshot.createdAt,
@@ -216,6 +253,7 @@ export class SessionEventsService {
         lastJobState = jobState;
         lastMrStatus = mrState;
         lastProbeState = probeState;
+        lastLlmState = llmState;
         initialized = true;
 
         const latestMr = session.mrVersions[0];
@@ -239,6 +277,7 @@ export class SessionEventsService {
           result.terminal ||
           Date.now() - startedAt >= STREAM_TIMEOUT_MS
         ) {
+          subscriber.next({ data: { type: 'stream.end' } });
           subscriber.complete();
           clearInterval(timer);
           return true;
@@ -270,6 +309,66 @@ export class SessionEventsService {
         if (timer) clearInterval(timer);
       };
     });
+  }
+
+  private llmStateKey(llmCall: {
+    responseJson: unknown;
+    tokensIn: number | null;
+    tokensOut: number | null;
+    latencyMs: number | null;
+  }): string {
+    return [
+      this.mapLlmCallStatus(llmCall.responseJson),
+      llmCall.tokensIn,
+      llmCall.tokensOut,
+      llmCall.latencyMs,
+      llmCall.responseJson === null ? 'null' : 'set',
+    ].join(':');
+  }
+
+  private mapLlmCallStatus(responseJson: unknown): LlmCallDto['status'] {
+    if (responseJson === null || responseJson === undefined) {
+      return 'running';
+    }
+
+    if (
+      typeof responseJson === 'object' &&
+      responseJson !== null &&
+      'error' in responseJson &&
+      typeof (responseJson as { error?: unknown }).error === 'string'
+    ) {
+      return 'failed';
+    }
+
+    return 'done';
+  }
+
+  private mapLlmCallDto(llmCall: {
+    id: string;
+    purpose: string;
+    model: string;
+    promptVersion: string;
+    tokensIn: number | null;
+    tokensOut: number | null;
+    latencyMs: number | null;
+    responseJson: unknown;
+    createdAt: Date;
+  }): LlmCallDto {
+    const status = this.mapLlmCallStatus(llmCall.responseJson);
+
+    return {
+      id: llmCall.id,
+      purpose: llmCall.purpose,
+      model: llmCall.model,
+      promptVersion: llmCall.promptVersion,
+      status,
+      tokensIn: llmCall.tokensIn,
+      tokensOut: llmCall.tokensOut,
+      latencyMs: llmCall.latencyMs,
+      responseJson: llmCall.responseJson ?? null,
+      createdAt: llmCall.createdAt,
+      updatedAt: llmCall.createdAt,
+    };
   }
 
   private mapJobStatus(status: JobStatus): ProbeStatusDto['status'] {

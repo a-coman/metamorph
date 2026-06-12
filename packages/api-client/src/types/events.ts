@@ -23,24 +23,39 @@ export type LlmCallDto = {
   purpose: string;
   model: string;
   promptVersion: string;
+  status: 'running' | 'done' | 'failed';
   tokensIn: number | null;
   tokensOut: number | null;
   latencyMs: number | null;
+  responseJson: unknown | null;
   createdAt: Date;
+  updatedAt: Date;
 };
 
+/** @deprecated Use llm.status — kept for replay compatibility */
 export type SessionLlmCallEvent = {
   type: 'llm.call';
   llmCall: LlmCallDto;
 };
 
+export type SessionLlmStatusEvent = {
+  type: 'llm.status';
+  llmCall: LlmCallDto;
+};
+
+export type ProbeJobMode = 'incremental' | 'smoke_replay';
+
 export type ProbeStatusDto = {
   jobId: string;
   status: 'queued' | 'running' | 'done' | 'failed';
+  mode: ProbeJobMode;
   phase: string | null;
   stepCount: number | null;
+  executedSteps: unknown[] | null;
   error: string | null;
+  /** @deprecated Use outputSnapshotId */
   snapshotId: string | null;
+  outputSnapshotId: string | null;
   updatedAt: Date;
 };
 
@@ -52,6 +67,7 @@ export type SessionProbeStatusEvent = {
 export type ScreenshotDto = {
   id: string;
   snapshotId: string;
+  jobId: string | null;
   artifactId: string;
   url: string | null;
   createdAt: Date;
@@ -62,13 +78,19 @@ export type SessionScreenshotEvent = {
   screenshot: ScreenshotDto;
 };
 
+export type SessionStreamEndEvent = {
+  type: 'stream.end';
+};
+
 export type SessionEvent =
   | SessionJobUpdatedEvent
   | SessionMrCreatedEvent
   | SessionMrStatusChangedEvent
   | SessionLlmCallEvent
+  | SessionLlmStatusEvent
   | SessionProbeStatusEvent
-  | SessionScreenshotEvent;
+  | SessionScreenshotEvent
+  | SessionStreamEndEvent;
 
 export type MrCheckpointCreatedEvent = {
   type: 'checkpoint.created';
@@ -85,7 +107,12 @@ export type MrRunUpdatedEvent = {
   run: RunSummaryDto;
 };
 
+export type MrStreamEndEvent = {
+  type: 'stream.end';
+};
+
 export type MrVersionEvent =
   | MrCheckpointCreatedEvent
   | MrStatusChangedEvent
-  | MrRunUpdatedEvent;
+  | MrRunUpdatedEvent
+  | MrStreamEndEvent;

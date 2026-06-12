@@ -69,6 +69,7 @@ export class MrVersionEventsService {
                 stepsJson: true,
                 verdict: true,
                 rationale: true,
+                llmCallId: true,
                 createdAt: true,
               },
               orderBy: { sequence: 'asc' },
@@ -114,6 +115,7 @@ export class MrVersionEventsService {
                 type: 'checkpoint.created',
                 checkpoint: {
                   ...checkpoint,
+                  llmCallId: checkpoint.llmCallId ?? null,
                   tracePath: traceInfo?.path ?? null,
                   traceArtifactId: traceInfo?.artifactId ?? null,
                 },
@@ -163,6 +165,7 @@ export class MrVersionEventsService {
         }
 
         if (result.terminal || Date.now() - startedAt >= STREAM_TIMEOUT_MS) {
+          subscriber.next({ data: { type: 'stream.end' } });
           subscriber.complete();
           return true;
         }

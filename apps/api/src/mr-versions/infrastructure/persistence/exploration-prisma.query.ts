@@ -63,6 +63,7 @@ export class ExplorationPrismaQuery extends ExplorationQueryPort {
           stepsJson: row.stepsJson,
           verdict: row.verdict,
           rationale: row.rationale,
+          llmCallId: row.llmCallId,
           tracePath: trace?.path ?? null,
           traceArtifactId: trace?.artifactId ?? null,
           createdAt: row.createdAt,

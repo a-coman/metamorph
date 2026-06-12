@@ -212,6 +212,7 @@ model MrVersion {
 model ExplorationCheckpoint {
   id          String   @id @default(uuid()) @db.Uuid
   mrVersionId String   @map("mr_version_id") @db.Uuid
+  llmCallId   String?  @map("llm_call_id") @db.Uuid
   phase       String
   sequence    Int
   snapshotId  String   @map("snapshot_id") @db.Uuid
@@ -221,6 +222,7 @@ model ExplorationCheckpoint {
   createdAt   DateTime @default(now()) @map("created_at")
 
   mrVersion MrVersion    @relation(fields: [mrVersionId], references: [id], onDelete: Cascade)
+  llmCall   LlmCall?     @relation(fields: [llmCallId], references: [id], onDelete: SetNull)
   snapshot  PageSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
 
   @@index([mrVersionId])
@@ -352,11 +354,13 @@ model LlmCall {
   tokensIn      Int?     @map("tokens_in")
   tokensOut     Int?     @map("tokens_out")
   latencyMs     Int?     @map("latency_ms")
+  responseJson  Json?    @map("response_json")
   createdAt     DateTime @default(now()) @map("created_at")
 
-  job       Job?       @relation(fields: [jobId], references: [id], onDelete: SetNull)
-  run       Run?       @relation(fields: [runId], references: [id], onDelete: SetNull)
-  mrVersion MrVersion? @relation(fields: [mrVersionId], references: [id], onDelete: SetNull)
+  job                     Job?                     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  run                     Run?                     @relation(fields: [runId], references: [id], onDelete: SetNull)
+  mrVersion               MrVersion?               @relation(fields: [mrVersionId], references: [id], onDelete: SetNull)
+  explorationCheckpoints  ExplorationCheckpoint[]
 
   @@index([jobId])
   @@map("llm_calls")

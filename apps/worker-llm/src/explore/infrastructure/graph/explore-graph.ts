@@ -1,9 +1,12 @@
 import { Annotation, END, START, StateGraph, interrupt } from '@langchain/langgraph';
 import {
   compilePlaybook,
+  EXPLORE_VERIFY_PROMPT_VERSION,
   extractHostFromUrl,
   isFillableInventoryItem,
+  MR_PLAN_PROMPT_VERSION,
   parseObservationCatalogFields,
+  PLAN_EXPLORE_PROMPT_VERSION,
   resolveStepTargets,
   validateInventoryElementIds,
   type MrIntent,
@@ -11,7 +14,10 @@ import {
 } from '@metamorph/core';
 import { S3ArtifactReaderAdapter } from '../../../shared/infrastructure/minio/s3-artifact-reader.adapter.js';
 import { ProbeJobPublisher } from '../messaging/probe-job.publisher.js';
-import { ExploreOpenRouterClient } from '../openrouter/explore-openrouter.client.js';
+import {
+  ExploreOpenRouterClient,
+  type ExploreLlmResult,
+} from '../openrouter/explore-openrouter.client.js';
 import { logExploreGraphEvent } from '../openrouter/explore-llm-logger.js';
 import { ExplorationPrismaRepository } from '../persistence/exploration-prisma.repository.js';
 import { ExploreSnapshotRepository } from '../persistence/explore-snapshot.repository.js';
@@ -66,6 +72,35 @@ const ExploreAnnotation = Annotation.Root({
 });
 
 type State = typeof ExploreAnnotation.State;
+
+async function runTrackedLlmCall<T>(
+  deps: ExploreGraphDeps,
+  state: Pick<State, 'exploreJobId' | 'mrVersionId'>,
+  meta: { purpose: string; promptVersion: string },
+  call: () => Promise<ExploreLlmResult<T>>,
+): Promise<{ output: T; llmCallId: string }> {
+  const llmCallId = await deps.explorationRepo.beginLlmCall({
+    exploreJobId: state.exploreJobId,
+    mrVersionId: state.mrVersionId,
+    purpose: meta.purpose,
+    model: deps.openRouter.getModel(),
+    promptVersion: meta.promptVersion,
+  });
+
+  try {
+    const result = await call();
+    await deps.explorationRepo.completeLlmCall({
+      id: llmCallId,
+      audit: result.audit,
+      responseJson: result.output,
+    });
+    return { output: result.output, llmCallId };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'LLM error';
+    await deps.explorationRepo.failLlmCall({ id: llmCallId, error: message });
+    throw error;
+  }
+}
 
 async function resolveSourceReference(
   state: State,
@@ -165,27 +200,27 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
     try {
       const screenshotBase64 = await loadRawBase64(state.initialSnapshotId);
-      const planResult = await deps.openRouter.mrPlan({
-        url: state.sessionUrl,
-        screenshotBase64,
-      });
-
-      await deps.explorationRepo.recordLlmCall({
-        exploreJobId: state.exploreJobId,
-        mrVersionId: state.mrVersionId,
-        audit: planResult.audit,
-      });
+      const { output: mrPlanOutput } = await runTrackedLlmCall(
+        deps,
+        state,
+        { purpose: 'mr_plan', promptVersion: MR_PLAN_PROMPT_VERSION },
+        () =>
+          deps.openRouter.mrPlan({
+            url: state.sessionUrl,
+            screenshotBase64,
+          }),
+      );
 
       await deps.explorationRepo.saveExplorationGoals(
         state.mrVersionId,
-        planResult.output.exploration,
+        mrPlanOutput.exploration,
       );
 
       logExploreGraphEvent('mr_plan complete');
 
       return {
-        mrDefinition: planResult.output.mr_definition,
-        explorationGoals: planResult.output.exploration,
+        mrDefinition: mrPlanOutput.mr_definition,
+        explorationGoals: mrPlanOutput.exploration,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'mr_plan LLM error';
@@ -229,25 +264,25 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     const sourceReference = await resolveSourceReference(state, deps);
 
     try {
-      const planResult = await deps.openRouter.planNext({
-        url: state.sessionUrl,
-        phase: state.phase,
-        mrIntent,
-        inventory: snapshot.inventory,
-        validatedSteps: state.validatedSteps,
-        sourceReference,
-        screenshotBase64,
-        probeError: state.probeError,
-      });
+      const { output: planOutput } = await runTrackedLlmCall(
+        deps,
+        state,
+        { purpose: 'plan_explore', promptVersion: PLAN_EXPLORE_PROMPT_VERSION },
+        () =>
+          deps.openRouter.planNext({
+            url: state.sessionUrl,
+            phase: state.phase,
+            mrIntent,
+            inventory: snapshot.inventory,
+            validatedSteps: state.validatedSteps,
+            sourceReference,
+            screenshotBase64,
+            probeError: state.probeError,
+          }),
+      );
 
-      await deps.explorationRepo.recordLlmCall({
-        exploreJobId: state.exploreJobId,
-        mrVersionId: state.mrVersionId,
-        audit: planResult.audit,
-      });
-
-      if (planResult.output.action === 'abort') {
-        const abortMessage = planResult.output.rationale;
+      if (planOutput.action === 'abort') {
+        const abortMessage = planOutput.rationale;
         logExploreGraphEvent(
           `iter=${nextIteration} phase=${state.phase} plan→abort | ${abortMessage.slice(0, 120)}`,
         );
@@ -259,7 +294,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         };
       }
 
-      if (planResult.output.action === 'scenario_complete') {
+      if (planOutput.action === 'scenario_complete') {
         logExploreGraphEvent(
           `iter=${nextIteration} phase=${state.phase} plan→scenario_complete (no probe)`,
         );
@@ -271,7 +306,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         };
       }
 
-      const steps = planResult.output.steps ?? [];
+      const steps = planOutput.steps ?? [];
       const observationFields = parseObservationCatalogFields(
         state.mrDefinition!.relation.on,
       );
@@ -468,20 +503,26 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       `iter=${state.iteration} phase=${state.phase} verify→llm (before=${beforeId.slice(0, 8)} after=${afterId.slice(0, 8)})`,
     );
 
-    let verifyResult: Awaited<ReturnType<ExploreOpenRouterClient['verifyCheckpoint']>>;
+    let verifyResult: { output: Awaited<ReturnType<ExploreOpenRouterClient['verifyCheckpoint']>>['output']; llmCallId: string };
     try {
-      verifyResult = await deps.openRouter.verifyCheckpoint({
-        url: state.sessionUrl,
-        urlAfter: after.url,
-        phase: state.phase,
-        mrIntent,
-        validatedSteps: state.validatedSteps,
-        sourceReference,
-        executedSteps: state.lastExecutedSteps,
-        screenshotBeforeBase64: screenshotBefore,
-        screenshotAfterBase64: screenshotAfter,
-        probeError: state.probeError,
-      });
+      verifyResult = await runTrackedLlmCall(
+        deps,
+        state,
+        { purpose: 'explore_verify', promptVersion: EXPLORE_VERIFY_PROMPT_VERSION },
+        () =>
+          deps.openRouter.verifyCheckpoint({
+            url: state.sessionUrl,
+            urlAfter: after.url,
+            phase: state.phase,
+            mrIntent,
+            validatedSteps: state.validatedSteps,
+            sourceReference,
+            executedSteps: state.lastExecutedSteps,
+            screenshotBeforeBase64: screenshotBefore,
+            screenshotAfterBase64: screenshotAfter,
+            probeError: state.probeError,
+          }),
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'verify LLM error';
       logExploreGraphEvent(
@@ -494,15 +535,12 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       };
     }
 
-    await deps.explorationRepo.recordLlmCall({
-      exploreJobId: state.exploreJobId,
-      mrVersionId: state.mrVersionId,
-      audit: verifyResult.audit,
-    });
+    const llmCallId = verifyResult.llmCallId;
 
     checkpointSequence += 1;
     await deps.explorationRepo.saveCheckpoint({
       mrVersionId: state.mrVersionId,
+      llmCallId,
       phase: state.phase,
       sequence: state.checkpointSequence + 1,
       snapshotId: afterId,
@@ -790,35 +828,53 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     }
 
     const generationSlots = buildGenerationSlots(state);
-
-    const compiled = compilePlaybook(
-      generationSlots,
-      state.mrDefinition,
-      snapshot.inventory,
-      { sessionUrl: state.sessionUrl },
-    );
-
-    const mrDefinitionId = await deps.explorationRepo.findMrDefinitionId(state.mrVersionId);
-    if (!mrDefinitionId) {
-      return { failed: true, failureReason: 'MR definition not found' };
-    }
-
-    await deps.explorationRepo.saveDraft({
-      mrVersionId: state.mrVersionId,
-      mrDefinitionId,
-      mrDefinition: state.mrDefinition,
-      generationSlots,
-      compiled,
-      llmAudit: {
-        purpose: 'compile_draft',
-        model: process.env.OPENROUTER_MODEL ?? 'openai/gpt-4o',
-        promptVersion: 'compile-v1',
-        tokensIn: null,
-        tokensOut: null,
-        latencyMs: 0,
-      },
+    const llmCallId = await deps.explorationRepo.beginLlmCall({
       exploreJobId: state.exploreJobId,
+      mrVersionId: state.mrVersionId,
+      purpose: 'compile_draft',
+      model: deps.openRouter.getModel(),
+      promptVersion: 'compile-v1',
     });
+
+    try {
+      const compiled = compilePlaybook(
+        generationSlots,
+        state.mrDefinition,
+        snapshot.inventory,
+        { sessionUrl: state.sessionUrl },
+      );
+
+      const mrDefinitionId = await deps.explorationRepo.findMrDefinitionId(state.mrVersionId);
+      if (!mrDefinitionId) {
+        throw new Error('MR definition not found');
+      }
+
+      await deps.explorationRepo.saveDraft({
+        mrVersionId: state.mrVersionId,
+        mrDefinitionId,
+        mrDefinition: state.mrDefinition,
+        generationSlots,
+        compiled,
+        exploreJobId: state.exploreJobId,
+      });
+
+      await deps.explorationRepo.completeLlmCall({
+        id: llmCallId,
+        audit: {
+          purpose: 'compile_draft',
+          model: deps.openRouter.getModel(),
+          promptVersion: 'compile-v1',
+          tokensIn: null,
+          tokensOut: null,
+          latencyMs: 0,
+        },
+        responseJson: { compiled: true },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'compile draft failed';
+      await deps.explorationRepo.failLlmCall({ id: llmCallId, error: message });
+      return { failed: true, failureReason: message };
+    }
 
     return {};
   }

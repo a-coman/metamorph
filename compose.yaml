@@ -88,7 +88,6 @@ services:
       dockerfile: apps/worker-playwright/Dockerfile
     container_name: metamorph-worker-playwright
     init: true
-    ipc: host
     working_dir: /app
     depends_on:
       postgres:
@@ -150,7 +149,6 @@ services:
     container_name: metamorph-inventory-capture
     profiles: ["workers"]
     init: true
-    ipc: host
     working_dir: /app
     environment:
       PLAYWRIGHT_HEADLESS: "true"

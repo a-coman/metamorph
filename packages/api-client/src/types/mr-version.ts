@@ -21,6 +21,7 @@ export type ExplorationCheckpointDto = {
   stepsJson: unknown;
   verdict: string;
   rationale: string | null;
+  llmCallId: string | null;
   tracePath: string | null;
   traceArtifactId: string | null;
   createdAt: Date;

@@ -72,6 +72,10 @@ export class ExploreOpenRouterClient {
     this.model = model;
   }
 
+  getModel(): string {
+    return this.model;
+  }
+
   async mrPlan(input: {
     url: string;
     screenshotBase64: string;

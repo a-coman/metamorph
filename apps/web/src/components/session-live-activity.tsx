@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
+import { Fragment, useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
-  Brain,
+  Sparkles,
   Camera,
-  CheckCircle,
   ChevronDown,
   ChevronUp,
   Crosshair,
+  FileCode,
+  Flame,
   Loader2,
   AlertTriangle,
-  XCircle,
-  Sparkles,
+  Activity,
   Clock,
   Zap,
   Eye,
@@ -20,13 +20,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { CheckpointCard } from '@/components/checkpoint-card';
+import { CheckpointCard, CheckpointScreenshot, CheckpointSteps } from '@/components/checkpoint-card';
+import { LlmResponsePanel } from '@/components/llm-response-panel';
+import { StatusBadge } from '@/components/status-badge';
+import { resolveLlmCallStatus, resolveProbeBadgeStatus } from '@/lib/activity-status';
+import { useSubscribeMrVersionEvents } from '@/hooks/mr-version-events-context';
 import {
   useSubscribeSessionEvents,
   useSessionEventsConnection,
 } from '@/hooks/session-events-context';
-import { useMrVersionEvents } from '@/hooks/use-sse';
 import { api } from '@/lib/api';
+import type { SlotStepLike } from '@/lib/format-slot-step';
 import type {
   SessionEvent,
   MrVersionEvent,
@@ -37,23 +41,66 @@ import type {
 } from '@metamorph/api-client';
 
 interface SessionLiveActivityProps {
-  mrVersionId?: string | null;
   isActive: boolean;
 }
 
-type ActivityItem =
-  | { type: 'llm'; data: LlmCallDto }
-  | { type: 'probe'; data: ProbeStatusDto }
-  | { type: 'screenshot'; data: ScreenshotDto }
-  | { type: 'checkpoint'; data: ExplorationCheckpointDto };
+type ActivityGroup =
+  | {
+    type: 'llm';
+    id: string;
+    llm: LlmCallDto;
+    checkpoint?: ExplorationCheckpointDto;
+    sortAt: number;
+  }
+  | {
+    type: 'probe';
+    id: string;
+    probe: ProbeStatusDto;
+    sortAt: number;
+  }
+  | {
+    type: 'session_capture';
+    id: string;
+    screenshot: ScreenshotDto;
+    sortAt: number;
+  }
+  | {
+    type: 'checkpoint_orphan';
+    id: string;
+    checkpoint: ExplorationCheckpointDto;
+    sortAt: number;
+  }
+  | {
+    type: 'compile';
+    id: string;
+    record: LlmCallDto;
+    sortAt: number;
+  };
+
+type RawActivityState = {
+  llmCalls: Map<string, LlmCallDto>;
+  probes: Map<string, ProbeStatusDto>;
+  screenshots: Map<string, ScreenshotDto>;
+  checkpoints: Map<string, ExplorationCheckpointDto>;
+};
 
 const LLM_PURPOSE_CONFIG: Record<string, { label: string; description: string }> = {
-  mr_plan: { label: 'MR Planning', description: 'Analyzing page to define test strategy' },
+  mr_plan: { label: 'Planning MR', description: 'Analyzing page to define test strategy' },
   explore_plan: { label: 'Planning Steps', description: 'Planning next exploration steps' },
   plan_explore: { label: 'Planning Steps', description: 'Planning next exploration steps' },
   explore_verify: { label: 'Verifying Checkpoint', description: 'Evaluating step execution results' },
-  compile_draft: { label: 'Compiling Playbook', description: 'Generating test playbook' },
+  compile_draft: {
+    label: 'Compiling Playbook',
+    description: 'Building Playwright playbook from validated steps',
+  },
 };
+
+const LLM_PURPOSES = new Set([
+  'mr_plan',
+  'explore_plan',
+  'plan_explore',
+  'explore_verify',
+]);
 
 function formatPurpose(purpose: string): { label: string; description: string } {
   return LLM_PURPOSE_CONFIG[purpose] ?? {
@@ -90,9 +137,298 @@ function ActivityTimestamp({ value }: { value: Date | string }) {
   );
 }
 
-function LlmCallCard({ llmCall, isNew }: { llmCall: LlmCallDto; isNew: boolean }) {
+function buildActivityGroups(state: RawActivityState): ActivityGroup[] {
+  const checkpointByLlmId = new Map<string, ExplorationCheckpointDto>();
+  const attachedCheckpointIds = new Set<string>();
+
+  for (const checkpoint of state.checkpoints.values()) {
+    if (checkpoint.llmCallId) {
+      checkpointByLlmId.set(checkpoint.llmCallId, checkpoint);
+    }
+  }
+
+  const groups: ActivityGroup[] = [];
+
+  for (const llm of state.llmCalls.values()) {
+    if (llm.purpose === 'compile_draft') {
+      groups.push({
+        type: 'compile',
+        id: `compile-${llm.id}`,
+        record: llm,
+        sortAt: new Date(llm.createdAt).getTime(),
+      });
+      continue;
+    }
+
+    const checkpoint = checkpointByLlmId.get(llm.id);
+    if (checkpoint) {
+      attachedCheckpointIds.add(checkpoint.id);
+    }
+    groups.push({
+      type: 'llm',
+      id: `llm-${llm.id}`,
+      llm,
+      checkpoint,
+      sortAt: new Date(llm.createdAt).getTime(),
+    });
+  }
+
+  for (const probe of state.probes.values()) {
+    groups.push({
+      type: 'probe',
+      id: `probe-${probe.jobId}`,
+      probe,
+      sortAt: new Date(probe.updatedAt).getTime(),
+    });
+  }
+
+  for (const screenshot of state.screenshots.values()) {
+    groups.push({
+      type: 'session_capture',
+      id: `screenshot-${screenshot.id}`,
+      screenshot,
+      sortAt: new Date(screenshot.createdAt).getTime(),
+    });
+  }
+
+  for (const checkpoint of state.checkpoints.values()) {
+    if (attachedCheckpointIds.has(checkpoint.id)) continue;
+    groups.push({
+      type: 'checkpoint_orphan',
+      id: `checkpoint-${checkpoint.id}`,
+      checkpoint,
+      sortAt: new Date(checkpoint.createdAt).getTime(),
+    });
+  }
+
+  groups.sort((a, b) => a.sortAt - b.sortAt);
+  return groups;
+}
+
+type ExplorationPhase = 'source' | 'follow_up';
+
+type ActivityFeedItem =
+  | { kind: 'group'; group: ActivityGroup }
+  | { kind: 'phase_divider'; phase: ExplorationPhase };
+
+function normalizeExplorationPhase(value: string | null | undefined): ExplorationPhase | null {
+  if (value === 'follow_up') return 'follow_up';
+  if (value === 'source') return 'source';
+  return null;
+}
+
+function getExplicitPhase(group: ActivityGroup): ExplorationPhase | null {
+  switch (group.type) {
+    case 'checkpoint_orphan':
+      return normalizeExplorationPhase(group.checkpoint.phase);
+    case 'llm':
+      return group.checkpoint
+        ? normalizeExplorationPhase(group.checkpoint.phase)
+        : null;
+    case 'probe':
+      return normalizeExplorationPhase(group.probe.phase);
+    default:
+      return null;
+  }
+}
+
+function isMrPlanLlm(group: ActivityGroup): boolean {
+  return group.type === 'llm' && group.llm.purpose === 'mr_plan';
+}
+
+function isExplorePlanLlm(group: ActivityGroup): boolean {
+  return (
+    group.type === 'llm' &&
+    (group.llm.purpose === 'plan_explore' || group.llm.purpose === 'explore_plan')
+  );
+}
+
+function isSourceSmokeComplete(group: ActivityGroup): boolean {
+  return (
+    group.type === 'probe' &&
+    group.probe.mode === 'smoke_replay' &&
+    group.probe.phase === 'source' &&
+    group.probe.status === 'done'
+  );
+}
+
+function buildActivityFeed(groups: ActivityGroup[]): ActivityFeedItem[] {
+  if (groups.length === 0) return [];
+
+  const items: ActivityFeedItem[] = [];
+  let currentPhase: ExplorationPhase | null = null;
+  let sourceDividerInserted = false;
+  let followUpDividerInserted = false;
+  let pendingFollowUpStart = false;
+
+  for (const group of groups) {
+    const explicitPhase = getExplicitPhase(group);
+
+    if (
+      !followUpDividerInserted &&
+      explicitPhase === 'follow_up' &&
+      currentPhase === 'source'
+    ) {
+      items.push({ kind: 'phase_divider', phase: 'follow_up' });
+      followUpDividerInserted = true;
+      pendingFollowUpStart = false;
+    } else if (
+      !followUpDividerInserted &&
+      pendingFollowUpStart &&
+      isExplorePlanLlm(group)
+    ) {
+      items.push({ kind: 'phase_divider', phase: 'follow_up' });
+      followUpDividerInserted = true;
+      pendingFollowUpStart = false;
+      currentPhase = 'follow_up';
+    }
+
+    if (explicitPhase === 'follow_up') {
+      currentPhase = 'follow_up';
+    } else if (explicitPhase === 'source' && currentPhase === null) {
+      currentPhase = 'source';
+    }
+
+    if (isSourceSmokeComplete(group)) {
+      pendingFollowUpStart = true;
+    }
+
+    items.push({ kind: 'group', group });
+
+    if (!sourceDividerInserted && isMrPlanLlm(group)) {
+      items.push({ kind: 'phase_divider', phase: 'source' });
+      sourceDividerInserted = true;
+      if (currentPhase === null) currentPhase = 'source';
+    }
+  }
+
+  return items;
+}
+
+const PHASE_DIVIDER_CONFIG: Record<ExplorationPhase, { step: string; label: string }> = {
+  source: { step: '1', label: 'Source' },
+  follow_up: { step: '2', label: 'Follow-up' },
+};
+
+function ActivityPhaseDivider({ phase }: { phase: ExplorationPhase }) {
+  const { step, label } = PHASE_DIVIDER_CONFIG[phase];
+
+  return (
+    <div
+      className="flex items-center gap-3 py-2"
+      role="separator"
+      aria-label={`${label} phase`}
+    >
+      <div className="flex-1 h-px bg-border" />
+      <div className="flex items-center gap-1.5 shrink-0 px-1">
+        <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center shrink-0">
+          {step}
+        </span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      </div>
+      <div className="flex-1 h-px bg-border" />
+    </div>
+  );
+}
+
+function renderActivityGroup(group: ActivityGroup, isNew: boolean) {
+  switch (group.type) {
+    case 'llm':
+      return (
+        <LlmCallCard
+          llmCall={group.llm}
+          checkpoint={group.checkpoint}
+          isNew={isNew}
+        />
+      );
+    case 'compile':
+      return (
+        <CompileDraftCard
+          record={group.record}
+          isNew={isNew}
+        />
+      );
+    case 'probe':
+      return (
+        <ProbeCycleCard
+          probe={group.probe}
+          isNew={isNew}
+        />
+      );
+    case 'session_capture':
+      return (
+        <SessionCaptureCard
+          screenshot={group.screenshot}
+          isNew={isNew}
+        />
+      );
+    case 'checkpoint_orphan':
+      return (
+        <CheckpointCard
+          checkpoint={group.checkpoint}
+          isNew={isNew}
+          variant="feed"
+        />
+      );
+  }
+}
+
+function CompileDraftCard({ record, isNew }: { record: LlmCallDto; isNew: boolean }) {
+  const { label, description } = formatPurpose(record.purpose);
+  const status = resolveLlmCallStatus(record);
+
+  return (
+    <div
+      className={cn(
+        'interactive-card rounded-lg border bg-card shadow-sm',
+        isNew ? 'border-primary/50 shadow-lg shadow-primary/5 animate-fade-in' : 'border-border',
+      )}
+    >
+      <div className="flex items-start gap-3 px-3 py-2.5">
+        <div className="p-1.5 rounded-md bg-slate-100 text-slate-600 shrink-0">
+          <FileCode className="size-3.5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-foreground">{label}</span>
+            <StatusBadge status={status} />
+            <ActivityTimestamp value={record.createdAt} />
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LlmPurposeIcon({ purpose }: { purpose: string }) {
+  const isVerify = purpose === 'explore_verify';
+  return (
+    <div
+      className={cn(
+        'p-1.5 rounded-md shrink-0',
+        isVerify ? 'bg-primary/10 text-primary' : 'bg-purple-100 text-purple-600',
+      )}
+    >
+      <Sparkles className="size-3.5" />
+    </div>
+  );
+}
+
+function LlmCallCard({
+  llmCall,
+  checkpoint,
+  isNew,
+}: {
+  llmCall: LlmCallDto;
+  checkpoint?: ExplorationCheckpointDto;
+  isNew: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const { label, description } = formatPurpose(llmCall.purpose);
+  const status = resolveLlmCallStatus(llmCall, checkpoint);
+  const showModelBadge = LLM_PURPOSES.has(llmCall.purpose);
+  const canExpand = llmCall.status === 'done' && llmCall.responseJson !== null;
 
   return (
     <div
@@ -103,29 +439,41 @@ function LlmCallCard({ llmCall, isNew }: { llmCall: LlmCallDto; isNew: boolean }
     >
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-start gap-3 px-3 py-2.5 text-left cursor-pointer"
+        onClick={() => canExpand && setExpanded((v) => !v)}
+        disabled={!canExpand}
+        className={cn(
+          'w-full flex items-start gap-3 px-3 py-2.5 text-left',
+          canExpand ? 'cursor-pointer' : 'cursor-default',
+        )}
       >
-        <div className="p-1.5 rounded-md bg-purple-100 text-purple-600 shrink-0">
-          <Brain className="size-3.5" />
-        </div>
+        <LlmPurposeIcon purpose={llmCall.purpose} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-foreground">{label}</span>
-            <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-              {llmCall.model.split('/').pop()}
-            </span>
+            <StatusBadge status={status} />
+            {showModelBadge && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                {llmCall.model.split('/').pop()}
+              </span>
+            )}
             <ActivityTimestamp value={llmCall.createdAt} />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
-        <div className="shrink-0 text-muted-foreground">
-          {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-        </div>
+        {canExpand && (
+          <div className="shrink-0 text-muted-foreground">
+            {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+          </div>
+        )}
       </button>
 
-      {expanded && (
-        <div className="px-3 pb-3 pt-0">
+      {expanded && canExpand && (
+        <div className="px-3 pb-3 pt-0 space-y-3">
+          <LlmResponsePanel
+            purpose={llmCall.purpose}
+            responseJson={llmCall.responseJson}
+            checkpoint={checkpoint}
+          />
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground bg-muted/30 rounded-md px-2.5 py-2">
             {llmCall.tokensIn !== null && (
               <span className="flex items-center gap-1">
@@ -139,7 +487,7 @@ function LlmCallCard({ llmCall, isNew }: { llmCall: LlmCallDto; isNew: boolean }
                 {llmCall.tokensOut.toLocaleString()} out
               </span>
             )}
-            {llmCall.latencyMs !== null && (
+            {llmCall.latencyMs !== null && llmCall.latencyMs > 0 && (
               <span className="flex items-center gap-1">
                 <Clock className="size-3" />
                 {(llmCall.latencyMs / 1000).toFixed(1)}s
@@ -155,54 +503,102 @@ function LlmCallCard({ llmCall, isNew }: { llmCall: LlmCallDto; isNew: boolean }
   );
 }
 
-function ProbeStatusCard({ probe, isNew }: { probe: ProbeStatusDto; isNew: boolean }) {
-  const statusConfig: Record<string, { icon: typeof Loader2; color: string; bgColor: string }> = {
-    queued: { icon: Clock, color: 'text-muted-foreground', bgColor: 'bg-muted' },
-    running: { icon: Loader2, color: 'text-primary', bgColor: 'bg-primary/10' },
-    done: { icon: CheckCircle, color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
-    failed: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
-  };
+function isSmokeProbe(probe: ProbeStatusDto): boolean {
+  return probe.mode === 'smoke_replay';
+}
 
-  const config = statusConfig[probe.status] ?? statusConfig.queued;
-  const Icon = config.icon;
+function probeActivityLabel(probe: ProbeStatusDto): string {
+  return isSmokeProbe(probe) ? 'Smoke replay' : 'Probe';
+}
+
+function ProbeCycleCard({ probe, isNew }: { probe: ProbeStatusDto; isNew: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const smoke = isSmokeProbe(probe);
+  const steps = (probe.executedSteps ?? []) as SlotStepLike[];
+  const outputSnapshotId = probe.outputSnapshotId ?? probe.snapshotId;
+  const canExpand = steps.length > 0 || outputSnapshotId !== null;
 
   return (
     <div
       className={cn(
-        'interactive-card rounded-lg border bg-card shadow-sm transition-all duration-300',
+        'interactive-card rounded-lg border bg-card shadow-sm overflow-hidden transition-all duration-300',
         isNew ? 'border-primary/50 shadow-lg shadow-primary/5 animate-fade-in' : 'border-border',
       )}
     >
-      <div className="flex items-start gap-3 px-3 py-2.5">
-        <div className={cn('p-1.5 rounded-md shrink-0', config.bgColor, config.color)}>
-          <Crosshair className="size-3.5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-foreground">
-              Probe {probe.phase && <span className="text-muted-foreground">({probe.phase})</span>}
-            </span>
-            <span className={cn('flex items-center gap-1 text-xs font-medium', config.color)}>
-              <Icon className={cn('size-3', probe.status === 'running' && 'animate-spin')} />
-              {probe.status}
-            </span>
-            <ActivityTimestamp value={probe.updatedAt} />
+      {canExpand ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full flex items-start gap-3 px-3 py-2.5 text-left cursor-pointer"
+        >
+          <ProbeCycleHeader probe={probe} />
+          <div className="shrink-0 text-muted-foreground">
+            {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
           </div>
-          {probe.stepCount !== null && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Executing {probe.stepCount} step{probe.stepCount !== 1 ? 's' : ''}
-            </p>
-          )}
-          {probe.error && (
-            <p className="text-xs text-red-600 mt-1 line-clamp-2">{probe.error}</p>
+        </button>
+      ) : (
+        <div className="flex items-start gap-3 px-3 py-2.5">
+          <ProbeCycleHeader probe={probe} />
+        </div>
+      )}
+
+      {expanded && canExpand && (
+        <div className="px-3 pb-3 pt-0 space-y-3">
+          {steps.length > 0 && <CheckpointSteps steps={steps} />}
+          {outputSnapshotId && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5 px-0.5">
+                {smoke ? 'Screenshot after smoke replay' : 'Screenshot after probe'}
+              </p>
+              <CheckpointScreenshot snapshotId={outputSnapshotId} />
+            </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function ScreenshotCard({ screenshot, isNew }: { screenshot: ScreenshotDto; isNew: boolean }) {
+function ProbeCycleHeader({ probe }: { probe: ProbeStatusDto }) {
+  const smoke = isSmokeProbe(probe);
+  const ProbeKindIcon = smoke ? Flame : Crosshair;
+  const status = resolveProbeBadgeStatus(probe);
+
+  return (
+    <>
+      <div className="p-1.5 rounded-md shrink-0 bg-amber-100 text-amber-600">
+        <ProbeKindIcon className="size-3.5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-foreground">
+            {probeActivityLabel(probe)}
+          </span>
+          <StatusBadge status={status} />
+          <ActivityTimestamp value={probe.updatedAt} />
+        </div>
+        {probe.stepCount !== null && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {smoke
+              ? `Replaying ${probe.stepCount} step${probe.stepCount !== 1 ? 's' : ''} from homepage`
+              : `Executing ${probe.stepCount} step${probe.stepCount !== 1 ? 's' : ''}`}
+          </p>
+        )}
+        {probe.error && (
+          <p className="text-xs text-red-600 mt-1 line-clamp-2">{probe.error}</p>
+        )}
+      </div>
+    </>
+  );
+}
+
+function SessionCaptureCard({
+  screenshot,
+  isNew,
+}: {
+  screenshot: ScreenshotDto;
+  isNew: boolean;
+}) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -233,7 +629,7 @@ function ScreenshotCard({ screenshot, isNew }: { screenshot: ScreenshotDto; isNe
     >
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50">
         <Camera className="size-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground">Screenshot captured</span>
+        <span className="text-xs font-medium text-muted-foreground">Session capture</span>
         <ActivityTimestamp value={screenshot.createdAt} />
         {screenshot.url && (
           <span className="text-xs text-muted-foreground/50 truncate ml-auto max-w-[150px]">
@@ -255,32 +651,47 @@ function ScreenshotCard({ screenshot, isNew }: { screenshot: ScreenshotDto; isNe
   );
 }
 
-export function SessionLiveActivity({ mrVersionId, isActive }: SessionLiveActivityProps) {
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
+function createEmptyRawState(): RawActivityState {
+  return {
+    llmCalls: new Map(),
+    probes: new Map(),
+    screenshots: new Map(),
+    checkpoints: new Map(),
+  };
+}
+
+function normalizeLlmCall(llmCall: LlmCallDto): LlmCallDto {
+  return {
+    ...llmCall,
+    status:
+      llmCall.status ??
+      (llmCall.responseJson !== null && llmCall.responseJson !== undefined ? 'done' : 'running'),
+    updatedAt: llmCall.updatedAt ?? llmCall.createdAt,
+  };
+}
+
+function llmCallsEqual(a: LlmCallDto, b: LlmCallDto): boolean {
+  return (
+    a.status === b.status &&
+    a.tokensIn === b.tokensIn &&
+    a.tokensOut === b.tokensOut &&
+    a.latencyMs === b.latencyMs &&
+    JSON.stringify(a.responseJson) === JSON.stringify(b.responseJson)
+  );
+}
+
+export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
+  const [rawState, setRawState] = useState<RawActivityState>(createEmptyRawState);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const connectionState = useSessionEventsConnection();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const liveUpdatesEnabledRef = useRef(false);
+  const hasScrolledInitiallyRef = useRef(false);
+  const liveStreamingRef = useRef(false);
 
-  const getKey = useCallback((a: ActivityItem): string => {
-    switch (a.type) {
-      case 'llm': return `llm-${a.data.id}`;
-      case 'probe': return `probe-${a.data.jobId}-${a.data.status}`;
-      case 'screenshot': return `screenshot-${a.data.id}`;
-      case 'checkpoint': return `checkpoint-${a.data.id}`;
-    }
-  }, []);
-
-  const getTimestamp = useCallback((a: ActivityItem): number => {
-    switch (a.type) {
-      case 'llm': return new Date(a.data.createdAt).getTime();
-      case 'probe': return new Date(a.data.updatedAt).getTime();
-      case 'screenshot': return new Date(a.data.createdAt).getTime();
-      case 'checkpoint': return new Date(a.data.createdAt).getTime();
-    }
-  }, []);
+  const activityGroups = useMemo(() => buildActivityGroups(rawState), [rawState]);
+  const activityFeed = useMemo(() => buildActivityFeed(activityGroups), [activityGroups]);
 
   const scrollToBottom = useCallback((smooth: boolean) => {
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
@@ -295,49 +706,30 @@ export function SessionLiveActivity({ mrVersionId, isActive }: SessionLiveActivi
   }, []);
 
   const scheduleScroll = useCallback((smooth: boolean) => {
+    if (!liveStreamingRef.current) return;
+
     if (scrollDebounceRef.current) {
       clearTimeout(scrollDebounceRef.current);
     }
 
     scrollDebounceRef.current = setTimeout(() => {
-      scrollToBottom(smooth);
+      if (liveStreamingRef.current) {
+        scrollToBottom(smooth);
+      }
     }, 100);
   }, [scrollToBottom]);
 
-  // Pin to bottom before paint while replaying historical events from SSE.
-  useLayoutEffect(() => {
-    if (activities.length === 0 || liveUpdatesEnabledRef.current) return;
-    scrollToBottom(false);
-  }, [activities, scrollToBottom]);
-
   useEffect(() => {
-    if (connectionState !== 'connected') {
-      liveUpdatesEnabledRef.current = false;
-      return;
-    }
+    liveStreamingRef.current = isActive && connectionState === 'connected';
+  }, [isActive, connectionState]);
 
-    const timer = setTimeout(() => {
-      liveUpdatesEnabledRef.current = true;
-    }, 1200);
+  useLayoutEffect(() => {
+    if (activityGroups.length === 0 || hasScrolledInitiallyRef.current) return;
+    hasScrolledInitiallyRef.current = true;
+    scrollToBottom(false);
+  }, [activityGroups.length, scrollToBottom]);
 
-    return () => clearTimeout(timer);
-  }, [connectionState]);
-
-  const addActivity = useCallback((newActivity: ActivityItem, activityId: string) => {
-    let added = false;
-
-    setActivities((prev) => {
-      const existingKeys = new Set(prev.map(getKey));
-      const newKey = getKey(newActivity);
-      if (existingKeys.has(newKey)) return prev;
-      added = true;
-      const updated = [...prev, newActivity];
-      updated.sort((a, b) => getTimestamp(a) - getTimestamp(b));
-      return updated.slice(-50);
-    });
-
-    if (!added) return;
-
+  const markNew = useCallback((activityId: string) => {
     setNewIds((prev) => new Set([...prev, activityId]));
     setTimeout(() => {
       setNewIds((prev) => {
@@ -346,58 +738,92 @@ export function SessionLiveActivity({ mrVersionId, isActive }: SessionLiveActivi
         return next;
       });
     }, 3000);
+  }, []);
 
-    if (liveUpdatesEnabledRef.current) {
-      scheduleScroll(true);
-    }
-  }, [getKey, getTimestamp, scheduleScroll]);
+  const ingestEvent = useCallback((activityId: string, updater: (prev: RawActivityState) => RawActivityState) => {
+    let added = false;
+    setRawState((prev) => {
+      const next = updater(prev);
+      if (next === prev) return prev;
+      added = true;
+      return next;
+    });
+
+    if (!added) return;
+
+    markNew(activityId);
+    scheduleScroll(true);
+  }, [markNew, scheduleScroll]);
 
   const handleSessionEvent = useCallback((event: SessionEvent) => {
-    let newActivity: ActivityItem | null = null;
-    let activityId: string | null = null;
-
-    if (event.type === 'llm.call') {
-      newActivity = { type: 'llm', data: event.llmCall };
-      activityId = event.llmCall.id;
-    } else if (event.type === 'probe.status') {
-      newActivity = { type: 'probe', data: event.probe };
-      activityId = `probe-${event.probe.jobId}-${event.probe.status}`;
-    } else if (event.type === 'screenshot.captured') {
-      newActivity = { type: 'screenshot', data: event.screenshot };
-      activityId = event.screenshot.id;
+    if (event.type === 'llm.status' || event.type === 'llm.call') {
+      const llmCall = normalizeLlmCall(event.llmCall);
+      const id = `llm-${llmCall.id}`;
+      ingestEvent(id, (prev) => {
+        const existing = prev.llmCalls.get(llmCall.id);
+        if (existing && llmCallsEqual(existing, llmCall)) {
+          return prev;
+        }
+        const llmCalls = new Map(prev.llmCalls);
+        llmCalls.set(llmCall.id, llmCall);
+        return { ...prev, llmCalls };
+      });
+      return;
     }
 
-    if (newActivity && activityId) {
-      addActivity(newActivity, activityId);
+    if (event.type === 'probe.status') {
+      const id = `probe-${event.probe.jobId}`;
+      ingestEvent(id, (prev) => {
+        const existing = prev.probes.get(event.probe.jobId);
+        if (
+          existing?.status === event.probe.status &&
+          new Date(existing.updatedAt).getTime() ===
+          new Date(event.probe.updatedAt).getTime()
+        ) {
+          return prev;
+        }
+        const probes = new Map(prev.probes);
+        probes.set(event.probe.jobId, event.probe);
+        return { ...prev, probes };
+      });
+      return;
     }
-  }, [addActivity]);
+
+    if (event.type === 'screenshot.captured') {
+      const id = `screenshot-${event.screenshot.id}`;
+      ingestEvent(id, (prev) => {
+        if (prev.screenshots.has(event.screenshot.id)) return prev;
+        const screenshots = new Map(prev.screenshots);
+        screenshots.set(event.screenshot.id, event.screenshot);
+        return { ...prev, screenshots };
+      });
+    }
+  }, [ingestEvent]);
 
   const handleMrVersionEvent = useCallback((event: MrVersionEvent) => {
-    if (event.type === 'checkpoint.created') {
-      const checkpoint = event.checkpoint;
-      addActivity(
-        { type: 'checkpoint', data: checkpoint },
-        `checkpoint-${checkpoint.id}`,
-      );
-    }
-  }, [addActivity]);
+    if (event.type !== 'checkpoint.created') return;
+
+    const id = `checkpoint-${event.checkpoint.id}`;
+    ingestEvent(id, (prev) => {
+      if (prev.checkpoints.has(event.checkpoint.id)) return prev;
+      const checkpoints = new Map(prev.checkpoints);
+      checkpoints.set(event.checkpoint.id, event.checkpoint);
+      return { ...prev, checkpoints };
+    });
+  }, [ingestEvent]);
 
   useSubscribeSessionEvents(handleSessionEvent);
-  useMrVersionEvents(mrVersionId ?? null, handleMrVersionEvent);
+  useSubscribeMrVersionEvents(handleMrVersionEvent);
 
-  const getActivityId = (activity: ActivityItem): string => {
-    return getKey(activity);
-  };
-
-  const showConnecting = connectionState === 'connecting' && activities.length === 0;
-  const showError = connectionState === 'error' && activities.length === 0;
+  const showConnecting = connectionState === 'connecting' && activityGroups.length === 0;
+  const showError = connectionState === 'error' && activityGroups.length === 0;
 
   if (showConnecting) {
     return (
       <Card className="border-border bg-card">
         <CardHeader className="pb-0">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <Sparkles className="size-4 text-muted-foreground" />
+            <Activity className="size-4 text-muted-foreground" />
             Live Activity
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
               <Loader2 className="size-3 animate-spin" />
@@ -423,7 +849,7 @@ export function SessionLiveActivity({ mrVersionId, isActive }: SessionLiveActivi
       <Card className="border-border bg-card">
         <CardHeader className="pb-0">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <Sparkles className="size-4 text-muted-foreground" />
+            <Activity className="size-4 text-muted-foreground" />
             Live Activity
             <span className="flex items-center gap-1.5 text-xs text-red-500 ml-auto">
               Connection error
@@ -447,22 +873,22 @@ export function SessionLiveActivity({ mrVersionId, isActive }: SessionLiveActivi
     <Card className="border-border bg-card">
       <CardHeader className="pb-0">
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-          <Sparkles className="size-4 text-muted-foreground" />
+          <Activity className="size-4 text-muted-foreground" />
           Live Activity
           {isActive ? (
             <span className="flex items-center gap-1.5 text-xs text-primary font-medium ml-auto">
               <span className="size-2 rounded-full bg-primary animate-pulse" />
               Streaming
             </span>
-          ) : activities.length > 0 ? (
+          ) : activityGroups.length > 0 ? (
             <span className="text-xs text-muted-foreground ml-auto">
-              {activities.length} events
+              {activityGroups.length} events
             </span>
           ) : null}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {activities.length === 0 ? (
+        {activityGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="p-3 rounded-full bg-muted mb-3">
               <Eye className="size-5 text-muted-foreground" />
@@ -473,27 +899,23 @@ export function SessionLiveActivity({ mrVersionId, isActive }: SessionLiveActivi
         ) : (
           <div ref={scrollAreaRef}>
             <ScrollArea className="h-[620px]">
-              <div className="space-y-2 pr-4">
-                {activities.map((activity) => {
-                  const id = getActivityId(activity);
-                  const isNew = newIds.has(id);
-                  switch (activity.type) {
-                    case 'llm':
-                      return <LlmCallCard key={id} llmCall={activity.data} isNew={isNew} />;
-                    case 'probe':
-                      return <ProbeStatusCard key={id} probe={activity.data} isNew={isNew} />;
-                    case 'screenshot':
-                      return <ScreenshotCard key={id} screenshot={activity.data} isNew={isNew} />;
-                    case 'checkpoint':
-                      return (
-                        <CheckpointCard
-                          key={id}
-                          checkpoint={activity.data}
-                          isNew={isNew}
-                          variant="feed"
-                        />
-                      );
+              <div className="space-y-2 pr-4 pt-1 pb-1">
+                {activityFeed.map((item, index) => {
+                  if (item.kind === 'phase_divider') {
+                    return (
+                      <ActivityPhaseDivider
+                        key={`phase-divider-${item.phase}-${index}`}
+                        phase={item.phase}
+                      />
+                    );
                   }
+
+                  const { group } = item;
+                  return (
+                    <Fragment key={group.id}>
+                      {renderActivityGroup(group, newIds.has(group.id))}
+                    </Fragment>
+                  );
                 })}
               </div>
               <div ref={bottomRef} />
@@ -510,7 +932,7 @@ export function SessionLiveActivitySkeleton() {
     <Card className="border-border bg-card">
       <CardHeader className="pb-0">
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-          <Sparkles className="size-4 text-muted-foreground" />
+          <Activity className="size-4 text-muted-foreground" />
           Live Activity
         </CardTitle>
       </CardHeader>

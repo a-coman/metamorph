@@ -21,6 +21,8 @@ type SessionEventsContextValue = {
 
 const SessionEventsContext = createContext<SessionEventsContextValue | null>(null);
 
+const MAX_BUFFERED_EVENTS = 100;
+
 export function SessionEventsProvider({
   sessionId,
   children,
@@ -29,10 +31,16 @@ export function SessionEventsProvider({
   children: ReactNode;
 }) {
   const subscribersRef = useRef(new Set<SessionEventHandler>());
+  const bufferRef = useRef<SessionEvent[]>([]);
   const [connectionState, setConnectionState] =
     useState<SseConnectionState>('connecting');
 
   const broadcast = useCallback((event: SessionEvent) => {
+    bufferRef.current.push(event);
+    if (bufferRef.current.length > MAX_BUFFERED_EVENTS) {
+      bufferRef.current.shift();
+    }
+
     for (const handler of subscribersRef.current) {
       handler(event);
     }
@@ -40,10 +48,17 @@ export function SessionEventsProvider({
 
   const subscribe = useCallback((handler: SessionEventHandler) => {
     subscribersRef.current.add(handler);
+    for (const event of bufferRef.current) {
+      handler(event);
+    }
     return () => {
       subscribersRef.current.delete(handler);
     };
   }, []);
+
+  useEffect(() => {
+    bufferRef.current = [];
+  }, [sessionId]);
 
   useSessionEvents(sessionId, broadcast, {
     onConnectionChange: setConnectionState,
