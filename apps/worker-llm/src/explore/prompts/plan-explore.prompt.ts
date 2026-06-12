@@ -1,15 +1,16 @@
-import type { MrIntent, PageSnapshotInventory } from '@metamorph/core';
+import type { MrIntent, PageSnapshotInventory, SlotStep } from '@metamorph/core';
 import type { ExplorePhase, ExploreSourceReference } from '../infrastructure/graph/explore-state.js';
 import { buildInventorySummary } from './inventory-summary.js';
 import { PLAN_EXPLORE_OPTIONS } from './plan-explore.config.js';
 
 const PLAN_EXPLORE_EXAMPLE = {
   action: 'append_steps',
-  rationale: 'Dismiss cookie banner and start navigation toward the phase goal.',
+  rationale:
+    'Cookie banner blocks the page. Click its accept/dismiss control from Current inventory, fill the searchbox from Current inventory, then press Enter.',
   steps: [
-    { id: 1, action: 'click', element_id: 'E03' },
-    { id: 2, action: 'fill', element_id: 'E07', value: 'portatil' },
-    { id: 3, action: 'press', element_id: 'E07', key: 'Enter' },
+    { id: 1, action: 'click', element_id: 'E42' },
+    { id: 2, action: 'fill', element_id: 'E01', value: 'portatil' },
+    { id: 3, action: 'press', element_id: 'E01', key: 'Enter' },
   ],
 };
 
@@ -33,17 +34,44 @@ export function buildMrSummary(mrIntent: MrIntent): string {
   ].join('\n');
 }
 
+export function summarizeStepsForReference(steps: SlotStep[]): string[] {
+  return steps.map((step, index) => {
+    const prefix = `${index + 1}.`;
+
+    switch (step.action) {
+      case 'goto':
+        return `${prefix} goto ${step.url ?? '(url missing)'}`;
+      case 'click':
+        return `${prefix} click`;
+      case 'fill':
+        return `${prefix} fill${step.value !== undefined ? ` → ${JSON.stringify(step.value)}` : ''}`;
+      case 'selectOption':
+        return `${prefix} selectOption${step.value !== undefined ? ` → ${JSON.stringify(step.value)}` : ''}`;
+      case 'press':
+        return `${prefix} press ${step.key ?? 'Enter'}`;
+      case 'scroll':
+        return `${prefix} scroll`;
+      case 'waitFor':
+        return `${prefix} waitFor`;
+      default:
+        return `${prefix} ${step.action}`;
+    }
+  });
+}
+
 export function buildCompletedSourceReferenceSection(
   sourceReference: ExploreSourceReference,
 ): string {
-  const lines = [
-    'Completed source phase actions reference:',
-    '- status: completed',
-    `- steps: ${JSON.stringify(sourceReference.steps, null, 2)}`,
-    `- end_url: ${sourceReference.endUrl ?? 'null'}`,
-  ];
+  const actionLines = summarizeStepsForReference(sourceReference.steps);
 
-  return lines.join('\n');
+  return [
+    'Completed source phase (reference only — do NOT reuse element_ids or locators from source):',
+    '- status: completed',
+    `- end_url: ${sourceReference.endUrl ?? 'null'}`,
+    '- action_sequence:',
+    ...actionLines.map((line) => `  ${line}`),
+    '- note: Map each action to a matching item in Current inventory; element_ids are reassigned every snapshot.',
+  ].join('\n');
 }
 
 export function buildPlanExploreSystemPrompt(): string {
@@ -72,13 +100,14 @@ export function buildPlanExploreSystemPrompt(): string {
     'Rules:',
     '- Every enum field must use exactly one of the allowed values above; do not invent new values.',
     '- Each step MUST include "id" (positive integer, unique within the batch) and "action" (never "type").',
-    '- Use ONLY element_id values from the current inventory in the user message.',
+    '- Use ONLY element_id values from the Current inventory in the user message.',
+    '- element_ids in examples and source reference are NOT valid targets; never copy them — pick from Current inventory for the attached screenshot.',
     '- click, fill, and selectOption MUST include element_id.',
     '- fill is ONLY allowed on inventory items marked fillable.',
     '- Plan toward the current phase goal stated in the user message.',
     '- Each phase is an independent Playwright scenario replayed from the homepage with a new browser context.',
     '- Plan only toward the current phase goal; do not assume follow_up must copy or repeat source unless the follow_up phase goal explicitly requires it.',
-    '- When phase is follow_up, use the completed source phase actions reference as context for what source achieved; plan follow_up in concordance with the follow_up phase goal and MR summary.',
+    '- When phase is follow_up, use the source action_sequence and end_url as semantic context for what source achieved; plan follow_up in concordance with the follow_up phase goal and MR summary.',
     '- If the validated path in the current phase is empty, start with goto to the target URL when needed.',
     '- When the screenshot shows a cookie banner, modal, or overlay blocking the main UI, dismiss it before progressing toward the phase goal.',
     '- Do not repeat steps already present in the validated path unless the phase goal requires it.',

@@ -15,4 +15,4 @@ export const ExplorePlanOutputSchema = z.object({
 
 export type ExplorePlanOutput = z.infer<typeof ExplorePlanOutputSchema>;
 
-export const PLAN_EXPLORE_PROMPT_VERSION = 'plan-explore-v6';
+export const PLAN_EXPLORE_PROMPT_VERSION = 'plan-explore-v7';
