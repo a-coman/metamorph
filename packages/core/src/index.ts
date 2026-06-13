@@ -66,7 +66,9 @@ export {
   shouldStabilizeAfterAction,
   FINAL_PAGE_STABILIZATION_CODE,
   isFillableInventoryItem,
+  isComboboxInventoryItem,
   renderFillCode,
+  renderComboboxFillCode,
 } from './application/compiler/step-execution-policy.js';
 
 export {

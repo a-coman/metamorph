@@ -13,6 +13,16 @@ export function isFillableInventoryItem(item: InventoryItem): boolean {
   return role !== undefined && FILLABLE_ROLES.has(role);
 }
 
+export function isComboboxInventoryItem(item: InventoryItem): boolean {
+  const tag = item.tagName.toLowerCase();
+  if (tag === 'select') {
+    return true;
+  }
+
+  const role = item.role?.toLowerCase();
+  return role === 'combobox' || role === 'searchbox';
+}
+
 /** Playwright fill with click+type fallback for custom combobox / div triggers (e.g. Airbnb). */
 export function renderFillCode(targetExpr: string, value: string): string {
   const encoded = JSON.stringify(value);
@@ -24,6 +34,38 @@ export function renderFillCode(targetExpr: string, value: string): string {
       await __fillTarget.click();
       await page.keyboard.type(${encoded});
     }
+  })()`;
+}
+
+/** Fill combobox/searchbox targets and select a matching autocomplete suggestion when present. */
+export function renderComboboxFillCode(targetExpr: string, value: string): string {
+  const encoded = JSON.stringify(value);
+  const pattern = JSON.stringify(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return `await (async () => {
+    const __fillTarget = ${targetExpr};
+    try {
+      await __fillTarget.fill(${encoded});
+    } catch {
+      await __fillTarget.click();
+      await page.keyboard.type(${encoded});
+    }
+    await page.waitForTimeout(400);
+    const __namePattern = new RegExp(${pattern}, 'i');
+    const __optionCandidates = [
+      page.getByRole('option', { name: __namePattern }).first(),
+      page.locator('[role="listbox"] [role="option"]').filter({ hasText: __namePattern }).first(),
+      page.locator('[role="option"]').filter({ hasText: __namePattern }).first(),
+    ];
+    for (const __option of __optionCandidates) {
+      const __visible = await __option.isVisible({ timeout: 2500 }).catch(() => false);
+      if (__visible) {
+        await __option.click();
+        return;
+      }
+    }
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(200);
+    await page.keyboard.press('Enter');
   })()`;
 }
 

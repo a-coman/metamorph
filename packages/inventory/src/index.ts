@@ -18,6 +18,8 @@ export {
   DEFAULT_CAPTURE_VIEWPORT,
   DEFAULT_MAX_CAPTURE_HEIGHT,
   DEFAULT_MAX_ITEMS,
+  DEFAULT_BROWSER_LOCALE,
+  buildBrowserContextOptions,
 } from './infrastructure/playwright/capture-defaults.js';
 
 export {
@@ -30,6 +32,8 @@ export {
 export { loadBrowserScanScript } from './infrastructure/playwright/load-browser-scan-script.js';
 
 export { evaluateLocatorChain } from './infrastructure/playwright/evaluate-locator-chain.js';
+
+export { fillWithAutocomplete } from './infrastructure/playwright/fill-with-autocomplete.js';
 
 export { scanAndEnrichCurrentPage } from './infrastructure/playwright/scan-and-enrich-current-page.js';
 

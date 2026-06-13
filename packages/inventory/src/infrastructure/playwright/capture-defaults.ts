@@ -11,3 +11,16 @@ export const DEFAULT_MAX_CAPTURE_HEIGHT = DEFAULT_CAPTURE_VIEWPORT.height;
 
 /** Max interactive elements labeled and sent to the LLM per snapshot. */
 export const DEFAULT_MAX_ITEMS = 100;
+
+/** Browser locale for probes and inventory capture. Override with PLAYWRIGHT_LOCALE. */
+export const DEFAULT_BROWSER_LOCALE = process.env.PLAYWRIGHT_LOCALE ?? 'en-US';
+
+export function buildBrowserContextOptions() {
+  return {
+    viewport: DEFAULT_CAPTURE_VIEWPORT,
+    locale: DEFAULT_BROWSER_LOCALE,
+    extraHTTPHeaders: {
+      'Accept-Language': `${DEFAULT_BROWSER_LOCALE},en;q=0.9`,
+    },
+  };
+}

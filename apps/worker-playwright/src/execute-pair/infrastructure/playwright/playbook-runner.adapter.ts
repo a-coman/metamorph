@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { DEFAULT_BROWSER_LOCALE } from '@metamorph/inventory';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,11 +38,11 @@ module.exports = {
   use: {
     trace: 'on',
     headless: ${process.env.PLAYWRIGHT_HEADLESS !== 'false'},
-    locale: 'es-ES',
+    locale: ${JSON.stringify(DEFAULT_BROWSER_LOCALE)},
     actionTimeout: 60000,
     navigationTimeout: 60000,
     extraHTTPHeaders: {
-      'Accept-Language': 'es-ES,es;q=0.9',
+      'Accept-Language': ${JSON.stringify(`${DEFAULT_BROWSER_LOCALE},en;q=0.9`)},
     },
   },
 };

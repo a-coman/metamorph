@@ -684,13 +684,27 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         `iter=${state.iteration} phase=${state.phase} commit fail → backtrack | path=${current.length} steps`,
       );
 
+      const revertedSnapshotId =
+        current.length === 0
+          ? state.initialSnapshotId
+          : (state.snapshotBeforeId ?? state.initialSnapshotId);
+
+      const validatedSteps = {
+        ...state.validatedSteps,
+        [phase]: current,
+      };
+
+      await deps.explorationRepo.updateGenerationSlots(
+        state.mrVersionId,
+        buildGenerationSlots({ ...state, validatedSteps }),
+      );
+
       return {
-        validatedSteps: {
-          ...state.validatedSteps,
-          [phase]: current,
-        },
+        validatedSteps,
         lastExecutedSteps: [],
         recoveryAttempts: state.recoveryAttempts + 1,
+        currentSnapshotId: revertedSnapshotId,
+        snapshotBeforeId: undefined,
         ...(backtrackHint ? { probeError: backtrackHint } : {}),
       };
     }

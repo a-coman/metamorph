@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   GOTO_WAIT_UNTIL,
+  isComboboxInventoryItem,
   LOAD_STATE_TIMEOUT_MS,
   NETWORK_IDLE_WAIT_UNTIL,
   POST_ACTION_SETTLE_MS,
@@ -14,10 +15,11 @@ import {
   type SlotStep,
 } from '@metamorph/core';
 import {
+  buildBrowserContextOptions,
   captureRawScreenshot,
-  DEFAULT_CAPTURE_VIEWPORT,
   DEFAULT_MAX_ITEMS,
   evaluateLocatorChain,
+  fillWithAutocomplete,
   scanAndEnrichCurrentPage,
   type PageInventory,
 } from '@metamorph/inventory';
@@ -39,13 +41,7 @@ export class ProbeInventoryCaptureAdapter {
       args: ['--disable-dev-shm-usage'],
     });
 
-    const context = await browser.newContext({
-      viewport: DEFAULT_CAPTURE_VIEWPORT,
-      locale: 'es-ES',
-      extraHTTPHeaders: {
-        'Accept-Language': 'es-ES,es;q=0.9',
-      },
-    });
+    const context = await browser.newContext(buildBrowserContextOptions());
 
     let tracingStarted = false;
     let traceZip: Buffer | null = null;
@@ -188,11 +184,17 @@ export class ProbeInventoryCaptureAdapter {
       case 'fill': {
         const fillLocator = resolveTarget(page, step, itemMap);
         const fillValue = step.value ?? '';
-        try {
-          await fillLocator.fill(fillValue);
-        } catch {
-          await fillLocator.click();
-          await page.keyboard.type(fillValue);
+        const item = step.element_id ? itemMap.get(step.element_id) : undefined;
+
+        if (item && isComboboxInventoryItem(item)) {
+          await fillWithAutocomplete(page, fillLocator, fillValue);
+        } else {
+          try {
+            await fillLocator.fill(fillValue);
+          } catch {
+            await fillLocator.click();
+            await page.keyboard.type(fillValue);
+          }
         }
         break;
       }

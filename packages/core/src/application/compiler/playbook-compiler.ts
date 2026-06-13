@@ -10,6 +10,8 @@ import {
 import {
   renderCompiledStepLines,
   renderFillCode,
+  renderComboboxFillCode,
+  isComboboxInventoryItem,
   renderGotoCode,
 } from './step-execution-policy.js';
 import { withProbeGotoPrefix } from './probe-spec-compiler.js';
@@ -120,7 +122,10 @@ function renderStepCode(
 
     case 'fill': {
       const target = resolveTarget(step, itemMap);
-      return renderFillCode(target, step.value ?? '');
+      const item = step.element_id ? itemMap.get(step.element_id) : undefined;
+      return item && isComboboxInventoryItem(item)
+        ? renderComboboxFillCode(target, step.value ?? '')
+        : renderFillCode(target, step.value ?? '');
     }
 
     case 'selectOption': {
