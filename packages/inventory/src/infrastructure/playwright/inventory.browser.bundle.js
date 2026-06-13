@@ -89,6 +89,98 @@ var __metamorphInventory = (() => {
       }
       return true;
     };
+    const getAccessibleName = (el) => {
+      const ariaLabel = (el.getAttribute("aria-label") || "").trim();
+      const title = (el.getAttribute("title") || "").trim();
+      const text = (el.textContent || "").trim().replace(/\s+/g, " ");
+      return ariaLabel || title || text;
+    };
+    const getImplicitRole = (el) => {
+      const tagName = el.tagName.toLowerCase();
+      if (tagName === "a" && el.hasAttribute("href")) return "link";
+      if (tagName === "button") return "button";
+      if (tagName === "input") {
+        const type = (el.getAttribute("type") || "text").toLowerCase();
+        if (type === "search") return "searchbox";
+        if (type === "checkbox") return "checkbox";
+        return "textbox";
+      }
+      if (tagName === "select") return "combobox";
+      if (tagName === "textarea") return "textbox";
+      return null;
+    };
+    const getElementRole = (el) => el.getAttribute("role") || getImplicitRole(el);
+    const accessibleNameMatches = (candidateName, queryName) => {
+      const normalizedCandidate = candidateName.trim().toLowerCase();
+      const normalizedQuery = queryName.trim().toLowerCase();
+      return normalizedCandidate.includes(normalizedQuery);
+    };
+    const elementMatchesRoleAndName = (el, role, name) => getElementRole(el) === role && accessibleNameMatches(getAccessibleName(el), name);
+    const countSelectorMatches = (selector) => {
+      try {
+        return document.querySelectorAll(selector).length;
+      } catch {
+        return void 0;
+      }
+    };
+    const countByRoleAndName = (role, name) => {
+      const candidates = document.querySelectorAll(
+        "[role], button, a[href], input, select, textarea"
+      );
+      let count = 0;
+      for (const el of candidates) {
+        if (elementMatchesRoleAndName(el, role, name)) {
+          count += 1;
+        }
+      }
+      return count;
+    };
+    const countByLabel = (label) => {
+      const candidates = document.querySelectorAll(
+        "button, input, select, textarea"
+      );
+      let count = 0;
+      for (const el of candidates) {
+        const ariaLabel = (el.getAttribute("aria-label") || "").trim();
+        if (ariaLabel && accessibleNameMatches(ariaLabel, label)) {
+          count += 1;
+        }
+      }
+      return count;
+    };
+    const countLocatorMatches = (locator) => {
+      const testIdMatch = /^getByTestId\((.+)\)$/.exec(locator);
+      if (testIdMatch) {
+        try {
+          const testId = JSON.parse(testIdMatch[1]);
+          return document.querySelectorAll(
+            `[data-testid="${escapeCssString(testId)}"]`
+          ).length;
+        } catch {
+          return void 0;
+        }
+      }
+      const roleMatch = /^getByRole\((.+), \{ name: (.+) \}\)$/.exec(locator);
+      if (roleMatch) {
+        try {
+          const role = JSON.parse(roleMatch[1]);
+          const name = JSON.parse(roleMatch[2]);
+          return countByRoleAndName(role, name);
+        } catch {
+          return void 0;
+        }
+      }
+      const labelMatch = /^getByLabel\((.+)\)$/.exec(locator);
+      if (labelMatch) {
+        try {
+          const label = JSON.parse(labelMatch[1]);
+          return countByLabel(label);
+        } catch {
+          return void 0;
+        }
+      }
+      return void 0;
+    };
     const buildPreferredLocator = (el) => {
       const tagName = el.tagName.toLowerCase();
       const testId = el.getAttribute("data-testid");
@@ -96,10 +188,8 @@ var __metamorphInventory = (() => {
         return `getByTestId(${JSON.stringify(testId)})`;
       }
       const role = el.getAttribute("role");
+      const accessibleName = getAccessibleName(el);
       const ariaLabel = (el.getAttribute("aria-label") || "").trim();
-      const title = (el.getAttribute("title") || "").trim();
-      const text = (el.textContent || "").trim().replace(/\s+/g, " ");
-      const accessibleName = ariaLabel || title || text;
       if (role && accessibleName) {
         return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(accessibleName)} })`;
       }
@@ -346,6 +436,18 @@ var __metamorphInventory = (() => {
       return true;
     });
     const chosen = filteredCandidates.slice(0, maxItems);
+    const chosenWithCounts = chosen.map(({ el, selector, locator, score }) => {
+      const selectorMatchCount = countSelectorMatches(selector);
+      const locatorMatchCount = locator ? countLocatorMatches(locator) : void 0;
+      return {
+        el,
+        selector,
+        locator,
+        score,
+        selectorMatchCount,
+        locatorMatchCount
+      };
+    });
     const shortIdFor = (index) => `E${String(index + 1).padStart(2, "0")}`;
     const placedRects = [];
     const labeledElementRects = [];
@@ -431,79 +533,83 @@ var __metamorphInventory = (() => {
     overlayRoot.style.pointerEvents = "none";
     overlayRoot.style.zIndex = "2147483645";
     document.body.appendChild(overlayRoot);
-    return chosen.map(({ el, selector, locator, score }, index) => {
-      const shortId = shortIdFor(index);
-      const rect = el.getBoundingClientRect();
-      const pageRect = {
-        left: rect.left + window.scrollX,
-        top: rect.top + window.scrollY,
-        right: rect.right + window.scrollX,
-        bottom: rect.bottom + window.scrollY,
-        width: rect.width,
-        height: rect.height
-      };
-      const shouldHideByElementOverlap = isOverlappingImportantElement(pageRect);
-      const position = shouldHideByElementOverlap ? null : placeLabel(pageRect) ?? {
-        left: Math.max(2, pageRect.left + 4),
-        top: Math.max(2, pageRect.top + 4),
-        right: Math.max(2, pageRect.left + 38),
-        bottom: Math.max(2, pageRect.top + 20)
-      };
-      const theme = labelThemes[index % labelThemes.length];
-      if (position && !shouldHideByElementOverlap) {
-        labeledElementRects.push(pageRect);
-        const highlight = document.createElement("div");
-        highlight.className = highlightClassName;
-        highlight.style.position = "absolute";
-        highlight.style.left = `${Math.max(0, pageRect.left)}px`;
-        highlight.style.top = `${Math.max(0, pageRect.top)}px`;
-        highlight.style.width = `${Math.max(2, pageRect.width)}px`;
-        highlight.style.height = `${Math.max(2, pageRect.height)}px`;
-        highlight.style.border = `2px solid ${theme.border}`;
-        highlight.style.boxSizing = "border-box";
-        highlight.style.pointerEvents = "none";
-        highlight.style.zIndex = "2147483646";
-        overlayRoot.appendChild(highlight);
-        const label = document.createElement("div");
-        label.className = overlayClassName;
-        label.textContent = shortId;
-        label.style.position = "absolute";
-        label.style.padding = "2px 4px";
-        label.style.borderRadius = "3px";
-        label.style.background = theme.background;
-        label.style.border = `1px solid ${theme.border}`;
-        label.style.boxShadow = `0 1px 2px rgba(15, 23, 42, 0.35), 0 0 0 1px ${theme.border}`;
-        label.style.color = "#fff";
-        label.style.font = "11px/1.1 monospace";
-        label.style.whiteSpace = "nowrap";
-        label.style.pointerEvents = "none";
-        label.style.zIndex = "2147483647";
-        label.style.left = `${position.left}px`;
-        label.style.top = `${position.top}px`;
-        overlayRoot.appendChild(label);
-      }
-      const textPreview = (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 80);
-      return {
-        index,
-        shortId,
-        locator,
-        selector,
-        score,
-        labelShown: Boolean(position && !shouldHideByElementOverlap),
-        tagName: el.tagName.toLowerCase(),
-        id: el.id || null,
-        role: el.getAttribute("role"),
-        name: el.getAttribute("name"),
-        ariaLabel: el.getAttribute("aria-label"),
-        textPreview: textPreview || null,
-        boundingBox: {
-          x: pageRect.left,
-          y: pageRect.top,
-          width: pageRect.width,
-          height: pageRect.height
+    return chosenWithCounts.map(
+      ({ el, selector, locator, score, selectorMatchCount, locatorMatchCount }, index) => {
+        const shortId = shortIdFor(index);
+        const rect = el.getBoundingClientRect();
+        const pageRect = {
+          left: rect.left + window.scrollX,
+          top: rect.top + window.scrollY,
+          right: rect.right + window.scrollX,
+          bottom: rect.bottom + window.scrollY,
+          width: rect.width,
+          height: rect.height
+        };
+        const shouldHideByElementOverlap = isOverlappingImportantElement(pageRect);
+        const position = shouldHideByElementOverlap ? null : placeLabel(pageRect) ?? {
+          left: Math.max(2, pageRect.left + 4),
+          top: Math.max(2, pageRect.top + 4),
+          right: Math.max(2, pageRect.left + 38),
+          bottom: Math.max(2, pageRect.top + 20)
+        };
+        const theme = labelThemes[index % labelThemes.length];
+        if (position && !shouldHideByElementOverlap) {
+          labeledElementRects.push(pageRect);
+          const highlight = document.createElement("div");
+          highlight.className = highlightClassName;
+          highlight.style.position = "absolute";
+          highlight.style.left = `${Math.max(0, pageRect.left)}px`;
+          highlight.style.top = `${Math.max(0, pageRect.top)}px`;
+          highlight.style.width = `${Math.max(2, pageRect.width)}px`;
+          highlight.style.height = `${Math.max(2, pageRect.height)}px`;
+          highlight.style.border = `2px solid ${theme.border}`;
+          highlight.style.boxSizing = "border-box";
+          highlight.style.pointerEvents = "none";
+          highlight.style.zIndex = "2147483646";
+          overlayRoot.appendChild(highlight);
+          const label = document.createElement("div");
+          label.className = overlayClassName;
+          label.textContent = shortId;
+          label.style.position = "absolute";
+          label.style.padding = "2px 4px";
+          label.style.borderRadius = "3px";
+          label.style.background = theme.background;
+          label.style.border = `1px solid ${theme.border}`;
+          label.style.boxShadow = `0 1px 2px rgba(15, 23, 42, 0.35), 0 0 0 1px ${theme.border}`;
+          label.style.color = "#fff";
+          label.style.font = "11px/1.1 monospace";
+          label.style.whiteSpace = "nowrap";
+          label.style.pointerEvents = "none";
+          label.style.zIndex = "2147483647";
+          label.style.left = `${position.left}px`;
+          label.style.top = `${position.top}px`;
+          overlayRoot.appendChild(label);
         }
-      };
-    });
+        const textPreview = (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 80);
+        return {
+          index,
+          shortId,
+          locator,
+          selector,
+          score,
+          labelShown: Boolean(position && !shouldHideByElementOverlap),
+          tagName: el.tagName.toLowerCase(),
+          id: el.id || null,
+          role: el.getAttribute("role"),
+          name: el.getAttribute("name"),
+          ariaLabel: el.getAttribute("aria-label"),
+          textPreview: textPreview || null,
+          ...selectorMatchCount !== void 0 ? { selectorMatchCount } : {},
+          ...locatorMatchCount !== void 0 ? { locatorMatchCount } : {},
+          boundingBox: {
+            x: pageRect.left,
+            y: pageRect.top,
+            width: pageRect.width,
+            height: pageRect.height
+          }
+        };
+      }
+    );
   }
   return __toCommonJS(inventory_browser_exports);
 })();

@@ -12,7 +12,6 @@ import {
   captureRawScreenshot,
   prepareCaptureViewport,
 } from './prepare-viewport.js';
-import { enrichInventoryMatchCounts } from './enrich-inventory-match-counts.js';
 
 export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort {
   async buildFromPage(
@@ -52,7 +51,6 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
       { script: browserScript, opts: { maxItems } },
     )) as InventoryItem[];
 
-    const enrichedItems = await enrichInventoryMatchCounts(page, items);
     const screenshot = await captureAnnotatedScreenshot(page);
 
     const inventory: PageInventory = {
@@ -60,10 +58,10 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
       capturedAt: new Date().toISOString(),
       pageMetrics,
       viewport,
-      items: enrichedItems,
+      items,
       rawScreenshot,
       screenshot,
-      labeledCount: enrichedItems.filter((item) => item.labelShown).length,
+      labeledCount: items.filter((item) => item.labelShown).length,
     };
 
     return inventory;

@@ -1,7 +1,6 @@
 import type { Page } from 'playwright';
 import type { InventoryItem } from '@metamorph/core';
 import { DEFAULT_MAX_CAPTURE_HEIGHT, DEFAULT_MAX_ITEMS } from './capture-defaults.js';
-import { enrichInventoryMatchCounts } from './enrich-inventory-match-counts.js';
 import { loadBrowserScanScript } from './load-browser-scan-script.js';
 import { captureAnnotatedScreenshot, prepareCaptureViewport } from './prepare-viewport.js';
 
@@ -41,7 +40,6 @@ export async function scanAndEnrichCurrentPage(
     { script: browserScript, opts: { maxItems } },
   )) as InventoryItem[];
 
-  const items = await enrichInventoryMatchCounts(page, scannedItems);
   const screenshot = await captureAnnotatedScreenshot(page);
 
   return {
@@ -49,8 +47,8 @@ export async function scanAndEnrichCurrentPage(
     capturedAt: new Date().toISOString(),
     pageMetrics,
     viewport,
-    items,
+    items: scannedItems,
     screenshot,
-    labeledCount: items.filter((item) => item.labelShown).length,
+    labeledCount: scannedItems.filter((item) => item.labelShown).length,
   };
 }

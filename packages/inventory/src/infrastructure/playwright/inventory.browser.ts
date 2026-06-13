@@ -115,6 +115,120 @@ export function scanAndLabelPage(
     return true;
   };
 
+  const getAccessibleName = (el: Element) => {
+    const ariaLabel = (el.getAttribute('aria-label') || '').trim();
+    const title = (el.getAttribute('title') || '').trim();
+    const text = (el.textContent || '').trim().replace(/\s+/g, ' ');
+    return ariaLabel || title || text;
+  };
+
+  const getImplicitRole = (el: Element): string | null => {
+    const tagName = el.tagName.toLowerCase();
+    if (tagName === 'a' && el.hasAttribute('href')) return 'link';
+    if (tagName === 'button') return 'button';
+    if (tagName === 'input') {
+      const type = (el.getAttribute('type') || 'text').toLowerCase();
+      if (type === 'search') return 'searchbox';
+      if (type === 'checkbox') return 'checkbox';
+      return 'textbox';
+    }
+    if (tagName === 'select') return 'combobox';
+    if (tagName === 'textarea') return 'textbox';
+    return null;
+  };
+
+  const getElementRole = (el: Element): string | null =>
+    el.getAttribute('role') || getImplicitRole(el);
+
+  const accessibleNameMatches = (
+    candidateName: string,
+    queryName: string,
+  ): boolean => {
+    const normalizedCandidate = candidateName.trim().toLowerCase();
+    const normalizedQuery = queryName.trim().toLowerCase();
+    return normalizedCandidate.includes(normalizedQuery);
+  };
+
+  const elementMatchesRoleAndName = (
+    el: Element,
+    role: string,
+    name: string,
+  ): boolean =>
+    getElementRole(el) === role &&
+    accessibleNameMatches(getAccessibleName(el), name);
+
+  const countSelectorMatches = (selector: string): number | undefined => {
+    try {
+      return document.querySelectorAll(selector).length;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const countByRoleAndName = (role: string, name: string): number => {
+    const candidates = document.querySelectorAll(
+      '[role], button, a[href], input, select, textarea',
+    );
+    let count = 0;
+    for (const el of candidates) {
+      if (elementMatchesRoleAndName(el, role, name)) {
+        count += 1;
+      }
+    }
+    return count;
+  };
+
+  const countByLabel = (label: string): number => {
+    const candidates = document.querySelectorAll(
+      'button, input, select, textarea',
+    );
+    let count = 0;
+    for (const el of candidates) {
+      const ariaLabel = (el.getAttribute('aria-label') || '').trim();
+      if (ariaLabel && accessibleNameMatches(ariaLabel, label)) {
+        count += 1;
+      }
+    }
+    return count;
+  };
+
+  const countLocatorMatches = (locator: string): number | undefined => {
+    const testIdMatch = /^getByTestId\((.+)\)$/.exec(locator);
+    if (testIdMatch) {
+      try {
+        const testId = JSON.parse(testIdMatch[1]!) as string;
+        return document.querySelectorAll(
+          `[data-testid="${escapeCssString(testId)}"]`,
+        ).length;
+      } catch {
+        return undefined;
+      }
+    }
+
+    const roleMatch = /^getByRole\((.+), \{ name: (.+) \}\)$/.exec(locator);
+    if (roleMatch) {
+      try {
+        const role = JSON.parse(roleMatch[1]!) as string;
+        const name = JSON.parse(roleMatch[2]!) as string;
+        return countByRoleAndName(role, name);
+      } catch {
+        return undefined;
+      }
+    }
+
+    const labelMatch = /^getByLabel\((.+)\)$/.exec(locator);
+    if (labelMatch) {
+      try {
+        const label = JSON.parse(labelMatch[1]!) as string;
+        return countByLabel(label);
+      } catch {
+        return undefined;
+      }
+    }
+
+    return undefined;
+  };
+
   const buildPreferredLocator = (el: Element): string | null => {
     const tagName = el.tagName.toLowerCase();
     const testId = el.getAttribute('data-testid');
@@ -123,10 +237,8 @@ export function scanAndLabelPage(
     }
 
     const role = el.getAttribute('role');
+    const accessibleName = getAccessibleName(el);
     const ariaLabel = (el.getAttribute('aria-label') || '').trim();
-    const title = (el.getAttribute('title') || '').trim();
-    const text = (el.textContent || '').trim().replace(/\s+/g, ' ');
-    const accessibleName = ariaLabel || title || text;
 
     if (role && accessibleName) {
       return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(accessibleName)} })`;
@@ -454,6 +566,19 @@ export function scanAndLabelPage(
   });
 
   const chosen = filteredCandidates.slice(0, maxItems);
+  const chosenWithCounts = chosen.map(({ el, selector, locator, score }) => {
+    const selectorMatchCount = countSelectorMatches(selector);
+    const locatorMatchCount = locator ? countLocatorMatches(locator) : undefined;
+
+    return {
+      el,
+      selector,
+      locator,
+      score,
+      selectorMatchCount,
+      locatorMatchCount,
+    };
+  });
   const shortIdFor = (index: number) => `E${String(index + 1).padStart(2, '0')}`;
   const placedRects: Array<{
     left: number;
@@ -580,7 +705,8 @@ export function scanAndLabelPage(
   overlayRoot.style.zIndex = '2147483645';
   document.body.appendChild(overlayRoot);
 
-  return chosen.map(({ el, selector, locator, score }, index) => {
+  return chosenWithCounts.map(
+    ({ el, selector, locator, score, selectorMatchCount, locatorMatchCount }, index) => {
     const shortId = shortIdFor(index);
     const rect = el.getBoundingClientRect();
     const pageRect = {
@@ -654,6 +780,8 @@ export function scanAndLabelPage(
       name: el.getAttribute('name'),
       ariaLabel: el.getAttribute('aria-label'),
       textPreview: textPreview || null,
+      ...(selectorMatchCount !== undefined ? { selectorMatchCount } : {}),
+      ...(locatorMatchCount !== undefined ? { locatorMatchCount } : {}),
       boundingBox: {
         x: pageRect.left,
         y: pageRect.top,
@@ -661,5 +789,6 @@ export function scanAndLabelPage(
         height: pageRect.height,
       },
     };
-  });
+  },
+  );
 }

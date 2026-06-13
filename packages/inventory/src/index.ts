@@ -29,10 +29,7 @@ export {
 
 export { loadBrowserScanScript } from './infrastructure/playwright/load-browser-scan-script.js';
 
-export {
-  evaluateLocatorChain,
-  enrichInventoryMatchCounts,
-} from './infrastructure/playwright/enrich-inventory-match-counts.js';
+export { evaluateLocatorChain } from './infrastructure/playwright/evaluate-locator-chain.js';
 
 export { scanAndEnrichCurrentPage } from './infrastructure/playwright/scan-and-enrich-current-page.js';
 
