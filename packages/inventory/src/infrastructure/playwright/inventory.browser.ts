@@ -54,6 +54,35 @@ export function scanAndLabelPage(
     hasPointerCursor(el) &&
     (!el.parentElement || !hasPointerCursor(el.parentElement));
 
+  const calendarScopeSelector = [
+    "[role='dialog']",
+    "[role='grid']",
+    "[aria-modal='true']",
+    "[id*='calendar' i]",
+    "[id*='datepicker' i]",
+    "[data-testid*='calendar' i]",
+    "[data-testid*='datepicker' i]",
+  ].join(', ');
+
+  const headerNavChromeSelector =
+    'header, nav, [role="navigation"], [id*="nav" i], [class*="nav" i]';
+
+  const isInCalendarScope = (el: Element) =>
+    Boolean(el.closest(calendarScopeSelector));
+
+  const isHeaderNavChrome = (el: Element) => {
+    if (!el.closest(headerNavChromeSelector)) return false;
+    const tagName = el.tagName.toLowerCase();
+    const role = el.getAttribute('role') || '';
+    if (['a', 'button', 'input', 'select', 'textarea'].includes(tagName)) {
+      return true;
+    }
+    if (['link', 'menuitem', 'tab', 'button'].includes(role)) {
+      return true;
+    }
+    return false;
+  };
+
   const isVisibleEnough = (el: Element) => {
     const rect = el.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return false;
@@ -103,12 +132,7 @@ export function scanAndLabelPage(
       }
     }
 
-    const inTopNav = Boolean(
-      el.closest(
-        'header, nav, [role="navigation"], [id*="nav" i], [class*="nav" i]',
-      ),
-    );
-    if (inTopNav && rect.top > 120) {
+    if (rect.top > 120 && isHeaderNavChrome(el)) {
       return false;
     }
 
@@ -283,6 +307,11 @@ export function scanAndLabelPage(
       );
     }
 
+    const dataDate = el.getAttribute('data-date');
+    if (dataDate) {
+      candidates.push(`[data-date="${escapeCssString(dataDate)}"]`);
+    }
+
     const role = el.getAttribute('role');
     if (
       role &&
@@ -295,6 +324,7 @@ export function scanAndLabelPage(
         'checkbox',
         'menuitem',
         'tab',
+        'gridcell',
       ].includes(role)
     ) {
       candidates.push(`${tagName}[role="${escapeCssString(role)}"]`);
@@ -395,8 +425,13 @@ export function scanAndLabelPage(
         'checkbox',
         'menuitem',
         'tab',
+        'gridcell',
       ].includes(role)
     ) {
+      return true;
+    }
+
+    if (el.getAttribute('data-date')) {
       return true;
     }
 
@@ -421,22 +456,24 @@ export function scanAndLabelPage(
     const role = el.getAttribute('role') || '';
     const rect = el.getBoundingClientRect();
     const text = (el.textContent || '').trim().replace(/\s+/g, ' ');
-    const inTopNav = Boolean(
-      el.closest(
-        'header, nav, [role="navigation"], [id*="nav" i], [class*="nav" i]',
-      ),
-    );
+    const inTopNav = Boolean(el.closest(headerNavChromeSelector));
     const inCookieLayer = Boolean(
       el.closest(
         "[role='dialog'], [aria-modal='true'], [id*='consent' i], [class*='cookie' i], [class*='consent' i]",
       ),
     );
+    const inCalendarScope = isInCalendarScope(el);
 
     let score = 0;
     if (el.getAttribute('data-testid')) score += 120;
     if (el.id) score += 100;
     if (el.getAttribute('name')) score += 70;
     if (el.getAttribute('aria-label')) score += 70;
+    if (el.getAttribute('data-date')) score += 55;
+    if (role === 'gridcell') score += 45;
+    if (inCalendarScope && (el.getAttribute('data-date') || role === 'gridcell')) {
+      score += 100;
+    }
     if (['button', 'input', 'select', 'textarea'].includes(tagName)) score += 60;
     if (isTopmostPointerElement(el)) score += 55;
     if (el.getAttribute('role')) score += 40;
@@ -469,6 +506,8 @@ export function scanAndLabelPage(
     "[role='tab']",
     "[role='combobox']",
     "[role='searchbox']",
+    "[role='gridcell']",
+    "[data-date]",
     "[data-testid]",
     "[aria-label]",
     "[onclick]:not([onclick=''])",
@@ -524,8 +563,12 @@ export function scanAndLabelPage(
         'checkbox',
         'menuitem',
         'tab',
+        'gridcell',
       ].includes(role)
     ) {
+      return true;
+    }
+    if (candidate.el.getAttribute('data-date')) {
       return true;
     }
     return isTopmostPointerElement(candidate.el);

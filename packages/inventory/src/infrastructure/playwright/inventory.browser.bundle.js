@@ -49,6 +49,29 @@ var __metamorphInventory = (() => {
     };
     const hasPointerCursor = (el) => window.getComputedStyle(el).cursor === "pointer";
     const isTopmostPointerElement = (el) => hasPointerCursor(el) && (!el.parentElement || !hasPointerCursor(el.parentElement));
+    const calendarScopeSelector = [
+      "[role='dialog']",
+      "[role='grid']",
+      "[aria-modal='true']",
+      "[id*='calendar' i]",
+      "[id*='datepicker' i]",
+      "[data-testid*='calendar' i]",
+      "[data-testid*='datepicker' i]"
+    ].join(", ");
+    const headerNavChromeSelector = 'header, nav, [role="navigation"], [id*="nav" i], [class*="nav" i]';
+    const isInCalendarScope = (el) => Boolean(el.closest(calendarScopeSelector));
+    const isHeaderNavChrome = (el) => {
+      if (!el.closest(headerNavChromeSelector)) return false;
+      const tagName = el.tagName.toLowerCase();
+      const role = el.getAttribute("role") || "";
+      if (["a", "button", "input", "select", "textarea"].includes(tagName)) {
+        return true;
+      }
+      if (["link", "menuitem", "tab", "button"].includes(role)) {
+        return true;
+      }
+      return false;
+    };
     const isVisibleEnough = (el) => {
       const rect = el.getBoundingClientRect();
       if (rect.width < 10 || rect.height < 10) return false;
@@ -79,12 +102,7 @@ var __metamorphInventory = (() => {
           }
         }
       }
-      const inTopNav = Boolean(
-        el.closest(
-          'header, nav, [role="navigation"], [id*="nav" i], [class*="nav" i]'
-        )
-      );
-      if (inTopNav && rect.top > 120) {
+      if (rect.top > 120 && isHeaderNavChrome(el)) {
         return false;
       }
       return true;
@@ -221,6 +239,10 @@ var __metamorphInventory = (() => {
           `${tagName}[aria-label="${escapeCssString(ariaLabel)}"]`
         );
       }
+      const dataDate = el.getAttribute("data-date");
+      if (dataDate) {
+        candidates.push(`[data-date="${escapeCssString(dataDate)}"]`);
+      }
       const role = el.getAttribute("role");
       if (role && [
         "button",
@@ -230,7 +252,8 @@ var __metamorphInventory = (() => {
         "searchbox",
         "checkbox",
         "menuitem",
-        "tab"
+        "tab",
+        "gridcell"
       ].includes(role)) {
         candidates.push(`${tagName}[role="${escapeCssString(role)}"]`);
       }
@@ -307,8 +330,12 @@ var __metamorphInventory = (() => {
         "searchbox",
         "checkbox",
         "menuitem",
-        "tab"
+        "tab",
+        "gridcell"
       ].includes(role)) {
+        return true;
+      }
+      if (el.getAttribute("data-date")) {
         return true;
       }
       if (tagName === "a") {
@@ -329,21 +356,23 @@ var __metamorphInventory = (() => {
       const role = el.getAttribute("role") || "";
       const rect = el.getBoundingClientRect();
       const text = (el.textContent || "").trim().replace(/\s+/g, " ");
-      const inTopNav = Boolean(
-        el.closest(
-          'header, nav, [role="navigation"], [id*="nav" i], [class*="nav" i]'
-        )
-      );
+      const inTopNav = Boolean(el.closest(headerNavChromeSelector));
       const inCookieLayer = Boolean(
         el.closest(
           "[role='dialog'], [aria-modal='true'], [id*='consent' i], [class*='cookie' i], [class*='consent' i]"
         )
       );
+      const inCalendarScope = isInCalendarScope(el);
       let score = 0;
       if (el.getAttribute("data-testid")) score += 120;
       if (el.id) score += 100;
       if (el.getAttribute("name")) score += 70;
       if (el.getAttribute("aria-label")) score += 70;
+      if (el.getAttribute("data-date")) score += 55;
+      if (role === "gridcell") score += 45;
+      if (inCalendarScope && (el.getAttribute("data-date") || role === "gridcell")) {
+        score += 100;
+      }
       if (["button", "input", "select", "textarea"].includes(tagName)) score += 60;
       if (isTopmostPointerElement(el)) score += 55;
       if (el.getAttribute("role")) score += 40;
@@ -374,6 +403,8 @@ var __metamorphInventory = (() => {
       "[role='tab']",
       "[role='combobox']",
       "[role='searchbox']",
+      "[role='gridcell']",
+      "[data-date]",
       "[data-testid]",
       "[aria-label]",
       "[onclick]:not([onclick=''])"
@@ -411,8 +442,12 @@ var __metamorphInventory = (() => {
         "searchbox",
         "checkbox",
         "menuitem",
-        "tab"
+        "tab",
+        "gridcell"
       ].includes(role)) {
+        return true;
+      }
+      if (candidate.el.getAttribute("data-date")) {
         return true;
       }
       return isTopmostPointerElement(candidate.el);
