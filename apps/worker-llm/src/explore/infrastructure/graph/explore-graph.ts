@@ -55,9 +55,13 @@ const ExploreAnnotation = Annotation.Root({
   currentSnapshotId: Annotation<string>,
   validatedSteps: Annotation<ExploreGraphState['validatedSteps']>,
   batchLog: Annotation<ExploreGraphState['batchLog']>,
-  pendingProbeSteps: Annotation<SlotStep[]>,
+  pendingProbeSteps: Annotation<SlotStep[]>({
+    reducer: (_, update) => update,
+    default: () => [],
+  }),
   lastExecutedSteps: Annotation<SlotStep[]>,
   pendingProbeJobId: Annotation<string | undefined>,
+  lastPlanLlmCallId: Annotation<string | undefined>,
   iteration: Annotation<number>,
   maxIterations: Annotation<number>,
   recoveryAttempts: Annotation<number>,
@@ -149,17 +153,24 @@ function withPlanRejection(
   steps: SlotStep[],
   error: string,
   iteration: number,
+  planLlmCallId?: string,
 ): Partial<State> {
   return {
     iteration,
     probeError: error,
     planRecoveryAttempts: state.planRecoveryAttempts + 1,
+    pendingProbeSteps: [],
+    ...(planLlmCallId ? { lastPlanLlmCallId: planLlmCallId } : {}),
     batchLog: appendBatchRecord(state.batchLog ?? EMPTY_BATCH_LOG, state.phase, {
       steps,
       outcome: 'plan_rejected',
       error,
     }),
   };
+}
+
+function afterAssessCheckpoint(update: Partial<State>): Partial<State> {
+  return { ...update, pendingProbeSteps: [] };
 }
 
 function withBatchFinalized(
@@ -314,7 +325,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     const sourceReference = await resolveSourceReference(state, deps);
 
     try {
-      const { output: planOutput } = await runTrackedLlmCall(
+      const { output: planOutput, llmCallId: planLlmCallId } = await runTrackedLlmCall(
         deps,
         state,
         { purpose: 'plan_explore', promptVersion: PLAN_EXPLORE_PROMPT_VERSION },
@@ -345,6 +356,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           iteration: nextIteration,
           failed: true,
           failureReason: `Plan aborted: ${abortMessage}`,
+          lastPlanLlmCallId: planLlmCallId,
         };
       }
 
@@ -358,6 +370,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           probeError: undefined,
           probeFailureContext: undefined,
           checkpointRecoveryAttempts: 0,
+          lastPlanLlmCallId: planLlmCallId,
         };
       }
 
@@ -380,6 +393,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           steps,
           `Unknown element_ids: ${missingIds.join(', ')}`,
           nextIteration,
+          planLlmCallId,
         );
       }
 
@@ -399,6 +413,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           `fill not allowed on ${ids} (not input/textarea/combobox). ` +
             'For travel/combobox UIs: batch 1 = click destination trigger + waitFor; batch 2 = fill the revealed input or pick a suggestion, then click search.',
           nextIteration,
+          planLlmCallId,
         );
       }
 
@@ -408,6 +423,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           steps,
           'Plan returned append_steps with no executable steps',
           nextIteration,
+          planLlmCallId,
         );
       }
 
@@ -422,6 +438,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         probeError: undefined,
         probeFailureContext: undefined,
         planRecoveryAttempts: 0,
+        lastPlanLlmCallId: planLlmCallId,
         snapshotBeforeId: state.currentSnapshotId,
         batchLog: appendBatchRecord(state.batchLog ?? EMPTY_BATCH_LOG, state.phase, {
           steps: pendingProbeSteps,
@@ -459,6 +476,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       validatedPrefix: state.validatedSteps[state.phase],
       probeSteps: state.pendingProbeSteps,
       resumeUrl: state.sessionUrl,
+      planLlmCallId: state.lastPlanLlmCallId,
+      cycleIteration: state.iteration,
     });
 
     logExploreGraphEvent(
@@ -507,7 +526,6 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     if (resumeValue.probe_status === 'failed') {
       return {
         pendingProbeJobId: undefined,
-        pendingProbeSteps: [],
         lastExecutedSteps: executedSteps,
         probeStatus: resumeValue.probe_status,
         probeError: resumeValue.error,
@@ -517,7 +535,6 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
     return {
       pendingProbeJobId: undefined,
-      pendingProbeSteps: [],
       lastExecutedSteps: executedSteps,
       probeStatus: resumeValue.probe_status,
       probeError: undefined,
@@ -535,10 +552,10 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       logExploreGraphEvent(
         `iter=${state.iteration} phase=${state.phase} verify skipped (probe failed)`,
       );
-      return {
+      return afterAssessCheckpoint({
         lastVerdict: 'fail',
         checkpointRecoveryAttempts: state.checkpointRecoveryAttempts + 1,
-      };
+      });
     }
 
     const beforeId = state.snapshotBeforeId ?? state.currentSnapshotId;
@@ -546,20 +563,20 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
     const mrIntent = buildMrIntent(state);
     if (!mrIntent) {
-      return {
+      return afterAssessCheckpoint({
         lastVerdict: 'fail',
         checkpointRecoveryAttempts: state.checkpointRecoveryAttempts + 1,
         probeError: 'MR intent missing for verification',
-      };
+      });
     }
 
     const after = await deps.snapshotRepo.findById(afterId);
     if (!after) {
-      return {
+      return afterAssessCheckpoint({
         lastVerdict: 'fail',
         checkpointRecoveryAttempts: state.checkpointRecoveryAttempts + 1,
         probeError: 'Missing after snapshot for verification',
-      };
+      });
     }
 
     const [screenshotBefore, screenshotAfter] = await Promise.all([
@@ -598,11 +615,11 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       logExploreGraphEvent(
         `iter=${state.iteration} phase=${state.phase} verify→error ${message.slice(0, 120)}`,
       );
-      return {
+      return afterAssessCheckpoint({
         lastVerdict: 'fail',
         checkpointRecoveryAttempts: state.checkpointRecoveryAttempts + 1,
         probeError: `Checkpoint verification failed: ${message}`,
-      };
+      });
     }
 
     const llmCallId = verifyResult.llmCallId;
@@ -623,14 +640,14 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       `iter=${state.iteration} phase=${state.phase} verify→${verifyResult.output.verdict} checkpoint=${state.checkpointSequence + 1}`,
     );
 
-    return {
+    return afterAssessCheckpoint({
       lastVerdict: verifyResult.output.verdict,
       checkpointSequence: state.checkpointSequence + 1,
       probeError:
         verifyResult.output.verdict === 'fail'
           ? `Checkpoint failed: ${verifyResult.output.rationale}`
           : undefined,
-    };
+    });
   }
 
   async function commitOrBacktrackNode(state: State): Promise<Partial<State>> {
@@ -801,6 +818,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       inventorySnapshotId: state.initialSnapshotId,
       resumeUrl: state.sessionUrl,
       replaySteps: phaseSteps,
+      planLlmCallId: state.lastPlanLlmCallId,
+      cycleIteration: state.iteration,
     });
 
     logExploreGraphEvent(

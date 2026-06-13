@@ -5,16 +5,37 @@ import type {
   ProbeStatusDto,
 } from '@metamorph/api-client';
 
+export type TerminalExploreJobStatus = 'done' | 'failed';
+
+export type ActivityStatusContext = {
+  terminalExploreJobs?: Map<string, TerminalExploreJobStatus>;
+};
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
 }
 
+function isExploreJobTerminal(
+  jobId: string | null | undefined,
+  ctx?: ActivityStatusContext,
+): boolean {
+  if (!jobId || !ctx?.terminalExploreJobs) return false;
+  return ctx.terminalExploreJobs.has(jobId);
+}
+
 export function resolveLlmCallStatus(
   llmCall: LlmCallDto,
   checkpoint?: ExplorationCheckpointDto,
+  ctx?: ActivityStatusContext,
 ): string {
+  if (
+    llmCall.status === 'running' &&
+    isExploreJobTerminal(llmCall.jobId, ctx)
+  ) {
+    return 'stale';
+  }
   if (llmCall.status === 'running') return 'running';
   if (llmCall.status === 'failed') return 'failed';
 
@@ -43,7 +64,16 @@ export function resolveLlmCallStatus(
   return 'pass';
 }
 
-export function resolveProbeBadgeStatus(probe: ProbeStatusDto): string {
+export function resolveProbeBadgeStatus(
+  probe: ProbeStatusDto,
+  ctx?: ActivityStatusContext,
+): string {
+  if (
+    (probe.status === 'queued' || probe.status === 'running') &&
+    isExploreJobTerminal(probe.exploreJobId, ctx)
+  ) {
+    return 'stale';
+  }
   if (probe.status === 'done') return 'pass';
   if (probe.status === 'failed') return 'failed';
   if (probe.status === 'queued' || probe.status === 'running') return 'running';

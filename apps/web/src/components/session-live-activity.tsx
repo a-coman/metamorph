@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
+import { Fragment, useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react';
 import {
   Sparkles,
   Camera,
@@ -23,7 +23,23 @@ import { cn } from '@/lib/utils';
 import { CheckpointCard, CheckpointScreenshot, CheckpointSteps } from '@/components/checkpoint-card';
 import { LlmResponsePanel } from '@/components/llm-response-panel';
 import { StatusBadge } from '@/components/status-badge';
-import { resolveLlmCallStatus, resolveProbeBadgeStatus } from '@/lib/activity-status';
+import {
+  resolveLlmCallStatus,
+  resolveProbeBadgeStatus,
+  type ActivityStatusContext,
+  type TerminalExploreJobStatus,
+} from '@/lib/activity-status';
+import {
+  buildCycleFeed,
+  buildExplorationCycles,
+  type ExplorationCycle,
+  type ExplorationPhase,
+  type StandaloneActivity,
+} from '@/lib/exploration-cycles';
+import {
+  activityDisplayAtLlm,
+  activityDisplayAtProbe,
+} from '@/lib/activity-feed';
 import { useSubscribeMrVersionEvents } from '@/hooks/mr-version-events-context';
 import {
   useSubscribeSessionEvents,
@@ -43,39 +59,6 @@ import type {
 interface SessionLiveActivityProps {
   isActive: boolean;
 }
-
-type ActivityGroup =
-  | {
-    type: 'llm';
-    id: string;
-    llm: LlmCallDto;
-    checkpoint?: ExplorationCheckpointDto;
-    sortAt: number;
-  }
-  | {
-    type: 'probe';
-    id: string;
-    probe: ProbeStatusDto;
-    sortAt: number;
-  }
-  | {
-    type: 'session_capture';
-    id: string;
-    screenshot: ScreenshotDto;
-    sortAt: number;
-  }
-  | {
-    type: 'checkpoint_orphan';
-    id: string;
-    checkpoint: ExplorationCheckpointDto;
-    sortAt: number;
-  }
-  | {
-    type: 'compile';
-    id: string;
-    record: LlmCallDto;
-    sortAt: number;
-  };
 
 type RawActivityState = {
   llmCalls: Map<string, LlmCallDto>;
@@ -137,174 +120,6 @@ function ActivityTimestamp({ value }: { value: Date | string }) {
   );
 }
 
-function buildActivityGroups(state: RawActivityState): ActivityGroup[] {
-  const checkpointByLlmId = new Map<string, ExplorationCheckpointDto>();
-  const attachedCheckpointIds = new Set<string>();
-
-  for (const checkpoint of state.checkpoints.values()) {
-    if (checkpoint.llmCallId) {
-      checkpointByLlmId.set(checkpoint.llmCallId, checkpoint);
-    }
-  }
-
-  const groups: ActivityGroup[] = [];
-
-  for (const llm of state.llmCalls.values()) {
-    if (llm.purpose === 'compile_draft') {
-      groups.push({
-        type: 'compile',
-        id: `compile-${llm.id}`,
-        record: llm,
-        sortAt: new Date(llm.createdAt).getTime(),
-      });
-      continue;
-    }
-
-    const checkpoint = checkpointByLlmId.get(llm.id);
-    if (checkpoint) {
-      attachedCheckpointIds.add(checkpoint.id);
-    }
-    groups.push({
-      type: 'llm',
-      id: `llm-${llm.id}`,
-      llm,
-      checkpoint,
-      sortAt: new Date(llm.createdAt).getTime(),
-    });
-  }
-
-  for (const probe of state.probes.values()) {
-    groups.push({
-      type: 'probe',
-      id: `probe-${probe.jobId}`,
-      probe,
-      sortAt: new Date(probe.updatedAt).getTime(),
-    });
-  }
-
-  for (const screenshot of state.screenshots.values()) {
-    groups.push({
-      type: 'session_capture',
-      id: `screenshot-${screenshot.id}`,
-      screenshot,
-      sortAt: new Date(screenshot.createdAt).getTime(),
-    });
-  }
-
-  for (const checkpoint of state.checkpoints.values()) {
-    if (attachedCheckpointIds.has(checkpoint.id)) continue;
-    groups.push({
-      type: 'checkpoint_orphan',
-      id: `checkpoint-${checkpoint.id}`,
-      checkpoint,
-      sortAt: new Date(checkpoint.createdAt).getTime(),
-    });
-  }
-
-  groups.sort((a, b) => a.sortAt - b.sortAt);
-  return groups;
-}
-
-type ExplorationPhase = 'source' | 'follow_up';
-
-type ActivityFeedItem =
-  | { kind: 'group'; group: ActivityGroup }
-  | { kind: 'phase_divider'; phase: ExplorationPhase };
-
-function normalizeExplorationPhase(value: string | null | undefined): ExplorationPhase | null {
-  if (value === 'follow_up') return 'follow_up';
-  if (value === 'source') return 'source';
-  return null;
-}
-
-function getExplicitPhase(group: ActivityGroup): ExplorationPhase | null {
-  switch (group.type) {
-    case 'checkpoint_orphan':
-      return normalizeExplorationPhase(group.checkpoint.phase);
-    case 'llm':
-      return group.checkpoint
-        ? normalizeExplorationPhase(group.checkpoint.phase)
-        : null;
-    case 'probe':
-      return normalizeExplorationPhase(group.probe.phase);
-    default:
-      return null;
-  }
-}
-
-function isMrPlanLlm(group: ActivityGroup): boolean {
-  return group.type === 'llm' && group.llm.purpose === 'mr_plan';
-}
-
-function isExplorePlanLlm(group: ActivityGroup): boolean {
-  return (
-    group.type === 'llm' &&
-    (group.llm.purpose === 'plan_explore' || group.llm.purpose === 'explore_plan')
-  );
-}
-
-function isSourceSmokeComplete(group: ActivityGroup): boolean {
-  return (
-    group.type === 'probe' &&
-    group.probe.mode === 'smoke_replay' &&
-    group.probe.phase === 'source' &&
-    group.probe.status === 'done'
-  );
-}
-
-function buildActivityFeed(groups: ActivityGroup[]): ActivityFeedItem[] {
-  if (groups.length === 0) return [];
-
-  const items: ActivityFeedItem[] = [];
-  let currentPhase: ExplorationPhase | null = null;
-  let sourceDividerInserted = false;
-  let followUpDividerInserted = false;
-  let pendingFollowUpStart = false;
-
-  for (const group of groups) {
-    const explicitPhase = getExplicitPhase(group);
-
-    if (
-      !followUpDividerInserted &&
-      explicitPhase === 'follow_up' &&
-      currentPhase === 'source'
-    ) {
-      items.push({ kind: 'phase_divider', phase: 'follow_up' });
-      followUpDividerInserted = true;
-      pendingFollowUpStart = false;
-    } else if (
-      !followUpDividerInserted &&
-      pendingFollowUpStart &&
-      isExplorePlanLlm(group)
-    ) {
-      items.push({ kind: 'phase_divider', phase: 'follow_up' });
-      followUpDividerInserted = true;
-      pendingFollowUpStart = false;
-      currentPhase = 'follow_up';
-    }
-
-    if (explicitPhase === 'follow_up') {
-      currentPhase = 'follow_up';
-    } else if (explicitPhase === 'source' && currentPhase === null) {
-      currentPhase = 'source';
-    }
-
-    if (isSourceSmokeComplete(group)) {
-      pendingFollowUpStart = true;
-    }
-
-    items.push({ kind: 'group', group });
-
-    if (!sourceDividerInserted && isMrPlanLlm(group)) {
-      items.push({ kind: 'phase_divider', phase: 'source' });
-      sourceDividerInserted = true;
-      if (currentPhase === null) currentPhase = 'source';
-    }
-  }
-
-  return items;
-}
-
 const PHASE_DIVIDER_CONFIG: Record<ExplorationPhase, { step: string; label: string }> = {
   source: { step: '1', label: 'Source' },
   follow_up: { step: '2', label: 'Follow-up' },
@@ -331,41 +146,94 @@ function ActivityPhaseDivider({ phase }: { phase: ExplorationPhase }) {
   );
 }
 
-function renderActivityGroup(group: ActivityGroup, isNew: boolean) {
-  switch (group.type) {
+function CycleSeparator({ cycle }: { cycle: ExplorationCycle }) {
+  const iter = cycle.probe?.cycleIteration;
+
+  return (
+    <div className="flex items-center gap-2 py-1" aria-hidden>
+      <div className="flex-1 h-px bg-border/60" />
+      {iter != null && (
+        <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+          iter {iter}
+        </span>
+      )}
+      <div className="flex-1 h-px bg-border/60" />
+    </div>
+  );
+}
+
+function VerifySkippedCard({
+  reason,
+  isNew,
+  id,
+}: {
+  reason: 'probe_failed' | 'graph_interrupted';
+  isNew: boolean;
+  id: string;
+}) {
+  const label =
+    reason === 'probe_failed'
+      ? 'Verify skipped (probe failed)'
+      : 'Verify skipped (exploration interrupted)';
+
+  return (
+    <div
+      id={id}
+      className={cn(
+        'interactive-card rounded-lg border bg-card shadow-sm px-3 py-2.5',
+        isNew ? 'border-primary/50 shadow-lg shadow-primary/5 animate-fade-in' : 'border-border',
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="p-1.5 rounded-md shrink-0 bg-muted text-muted-foreground">
+          <Sparkles className="size-3.5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-foreground">Verifying Checkpoint</span>
+            <StatusBadge status="skipped" />
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function renderStandalone(
+  item: StandaloneActivity,
+  isNew: boolean,
+  statusContext: ActivityStatusContext,
+) {
+  switch (item.type) {
     case 'llm':
       return (
         <LlmCallCard
-          llmCall={group.llm}
-          checkpoint={group.checkpoint}
+          llmCall={item.llm}
+          checkpoint={item.checkpoint}
           isNew={isNew}
+          statusContext={statusContext}
         />
       );
     case 'compile':
       return (
         <CompileDraftCard
-          record={group.record}
+          record={item.record}
           isNew={isNew}
-        />
-      );
-    case 'probe':
-      return (
-        <ProbeCycleCard
-          probe={group.probe}
-          isNew={isNew}
+          statusContext={statusContext}
         />
       );
     case 'session_capture':
       return (
         <SessionCaptureCard
-          screenshot={group.screenshot}
+          screenshot={item.screenshot}
           isNew={isNew}
         />
       );
     case 'checkpoint_orphan':
       return (
         <CheckpointCard
-          checkpoint={group.checkpoint}
+          checkpoint={item.checkpoint}
           isNew={isNew}
           variant="feed"
         />
@@ -373,9 +241,77 @@ function renderActivityGroup(group: ActivityGroup, isNew: boolean) {
   }
 }
 
-function CompileDraftCard({ record, isNew }: { record: LlmCallDto; isNew: boolean }) {
+function renderExplorationCycle(
+  cycle: ExplorationCycle,
+  isNewFor: (id: string) => boolean,
+  statusContext: ActivityStatusContext,
+) {
+  const cards: ReactNode[] = [];
+
+  if (cycle.plan && cycle.kind !== 'smoke') {
+    cards.push(
+      <LlmCallCard
+        key={`llm-${cycle.plan.id}`}
+        llmCall={cycle.plan}
+        isNew={isNewFor(`llm-${cycle.plan.id}`)}
+        statusContext={statusContext}
+      />,
+    );
+  }
+
+  if (cycle.probe) {
+    cards.push(
+      <ProbeCycleCard
+        key={`probe-${cycle.probe.jobId}`}
+        probe={cycle.probe}
+        isNew={isNewFor(`probe-${cycle.probe.jobId}`)}
+        statusContext={statusContext}
+      />,
+    );
+  }
+
+  if (cycle.verify) {
+    cards.push(
+      <LlmCallCard
+        key={`llm-${cycle.verify.id}`}
+        llmCall={cycle.verify}
+        checkpoint={cycle.checkpoint}
+        isNew={isNewFor(`llm-${cycle.verify.id}`)}
+        statusContext={statusContext}
+      />,
+    );
+  }
+
+  if (cycle.verifySkipped) {
+    const skippedId = `${cycle.id}-verify-skipped`;
+    cards.push(
+      <VerifySkippedCard
+        key={skippedId}
+        id={skippedId}
+        reason={cycle.verifySkipped}
+        isNew={isNewFor(skippedId)}
+      />,
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {cards}
+    </div>
+  );
+}
+
+function CompileDraftCard({
+  record,
+  isNew,
+  statusContext,
+}: {
+  record: LlmCallDto;
+  isNew: boolean;
+  statusContext?: ActivityStatusContext;
+}) {
   const { label, description } = formatPurpose(record.purpose);
-  const status = resolveLlmCallStatus(record);
+  const status = resolveLlmCallStatus(record, undefined, statusContext);
 
   return (
     <div
@@ -419,14 +355,16 @@ function LlmCallCard({
   llmCall,
   checkpoint,
   isNew,
+  statusContext,
 }: {
   llmCall: LlmCallDto;
   checkpoint?: ExplorationCheckpointDto;
   isNew: boolean;
+  statusContext?: ActivityStatusContext;
 }) {
   const [expanded, setExpanded] = useState(false);
   const { label, description } = formatPurpose(llmCall.purpose);
-  const status = resolveLlmCallStatus(llmCall, checkpoint);
+  const status = resolveLlmCallStatus(llmCall, checkpoint, statusContext);
   const showModelBadge = LLM_PURPOSES.has(llmCall.purpose);
   const canExpand = llmCall.status === 'done' && llmCall.responseJson !== null;
 
@@ -456,7 +394,7 @@ function LlmCallCard({
                 {llmCall.model.split('/').pop()}
               </span>
             )}
-            <ActivityTimestamp value={llmCall.createdAt} />
+            <ActivityTimestamp value={activityDisplayAtLlm(llmCall)} />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
@@ -511,7 +449,15 @@ function probeActivityLabel(probe: ProbeStatusDto): string {
   return isSmokeProbe(probe) ? 'Smoke replay' : 'Probe';
 }
 
-function ProbeCycleCard({ probe, isNew }: { probe: ProbeStatusDto; isNew: boolean }) {
+function ProbeCycleCard({
+  probe,
+  isNew,
+  statusContext,
+}: {
+  probe: ProbeStatusDto;
+  isNew: boolean;
+  statusContext?: ActivityStatusContext;
+}) {
   const [expanded, setExpanded] = useState(false);
   const smoke = isSmokeProbe(probe);
   const steps = (probe.executedSteps ?? []) as SlotStepLike[];
@@ -531,14 +477,14 @@ function ProbeCycleCard({ probe, isNew }: { probe: ProbeStatusDto; isNew: boolea
           onClick={() => setExpanded((v) => !v)}
           className="w-full flex items-start gap-3 px-3 py-2.5 text-left cursor-pointer"
         >
-          <ProbeCycleHeader probe={probe} />
+          <ProbeCycleHeader probe={probe} statusContext={statusContext} />
           <div className="shrink-0 text-muted-foreground">
             {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
           </div>
         </button>
       ) : (
         <div className="flex items-start gap-3 px-3 py-2.5">
-          <ProbeCycleHeader probe={probe} />
+          <ProbeCycleHeader probe={probe} statusContext={statusContext} />
         </div>
       )}
 
@@ -559,10 +505,16 @@ function ProbeCycleCard({ probe, isNew }: { probe: ProbeStatusDto; isNew: boolea
   );
 }
 
-function ProbeCycleHeader({ probe }: { probe: ProbeStatusDto }) {
+function ProbeCycleHeader({
+  probe,
+  statusContext,
+}: {
+  probe: ProbeStatusDto;
+  statusContext?: ActivityStatusContext;
+}) {
   const smoke = isSmokeProbe(probe);
   const ProbeKindIcon = smoke ? Flame : Crosshair;
-  const status = resolveProbeBadgeStatus(probe);
+  const status = resolveProbeBadgeStatus(probe, statusContext);
 
   return (
     <>
@@ -575,7 +527,7 @@ function ProbeCycleHeader({ probe }: { probe: ProbeStatusDto }) {
             {probeActivityLabel(probe)}
           </span>
           <StatusBadge status={status} />
-          <ActivityTimestamp value={probe.updatedAt} />
+          <ActivityTimestamp value={activityDisplayAtProbe(probe)} />
         </div>
         {probe.stepCount !== null && (
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -660,9 +612,23 @@ function createEmptyRawState(): RawActivityState {
   };
 }
 
+function normalizeProbe(probe: ProbeStatusDto): ProbeStatusDto {
+  const createdAt = probe.createdAt ?? probe.updatedAt;
+  return {
+    ...probe,
+    exploreJobId: probe.exploreJobId ?? null,
+    planLlmCallId: probe.planLlmCallId ?? null,
+    cycleIteration: probe.cycleIteration ?? null,
+    createdAt,
+    startedAt: probe.startedAt ?? null,
+    updatedAt: probe.updatedAt ?? createdAt,
+  };
+}
+
 function normalizeLlmCall(llmCall: LlmCallDto): LlmCallDto {
   return {
     ...llmCall,
+    jobId: llmCall.jobId ?? null,
     status:
       llmCall.status ??
       (llmCall.responseJson !== null && llmCall.responseJson !== undefined ? 'done' : 'running'),
@@ -683,6 +649,9 @@ function llmCallsEqual(a: LlmCallDto, b: LlmCallDto): boolean {
 export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
   const [rawState, setRawState] = useState<RawActivityState>(createEmptyRawState);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
+  const [terminalExploreJobs, setTerminalExploreJobs] = useState<
+    Map<string, TerminalExploreJobStatus>
+  >(() => new Map());
   const connectionState = useSessionEventsConnection();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -690,8 +659,21 @@ export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
   const hasScrolledInitiallyRef = useRef(false);
   const liveStreamingRef = useRef(false);
 
-  const activityGroups = useMemo(() => buildActivityGroups(rawState), [rawState]);
-  const activityFeed = useMemo(() => buildActivityFeed(activityGroups), [activityGroups]);
+  const statusContext = useMemo<ActivityStatusContext>(
+    () => ({ terminalExploreJobs }),
+    [terminalExploreJobs],
+  );
+
+  const { cycles, standalone } = useMemo(
+    () => buildExplorationCycles({ ...rawState, terminalExploreJobs }),
+    [rawState, terminalExploreJobs],
+  );
+  const cycleFeed = useMemo(
+    () => buildCycleFeed(cycles, standalone),
+    [cycles, standalone],
+  );
+
+  const feedItemCount = cycleFeed.length;
 
   const scrollToBottom = useCallback((smooth: boolean) => {
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
@@ -724,10 +706,10 @@ export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
   }, [isActive, connectionState]);
 
   useLayoutEffect(() => {
-    if (activityGroups.length === 0 || hasScrolledInitiallyRef.current) return;
+    if (feedItemCount === 0 || hasScrolledInitiallyRef.current) return;
     hasScrolledInitiallyRef.current = true;
     scrollToBottom(false);
-  }, [activityGroups.length, scrollToBottom]);
+  }, [feedItemCount, scrollToBottom]);
 
   const markNew = useCallback((activityId: string) => {
     setNewIds((prev) => new Set([...prev, activityId]));
@@ -756,6 +738,25 @@ export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
   }, [markNew, scheduleScroll]);
 
   const handleSessionEvent = useCallback((event: SessionEvent) => {
+    if (event.type === 'job.updated') {
+      const { job } = event;
+      if (job.type !== 'explore') return;
+      if (job.status === 'done' || job.status === 'completed') {
+        setTerminalExploreJobs((prev) => {
+          const next = new Map(prev);
+          next.set(job.id, 'done');
+          return next;
+        });
+      } else if (job.status === 'failed' || job.status === 'enqueue_failed') {
+        setTerminalExploreJobs((prev) => {
+          const next = new Map(prev);
+          next.set(job.id, 'failed');
+          return next;
+        });
+      }
+      return;
+    }
+
     if (event.type === 'llm.status' || event.type === 'llm.call') {
       const llmCall = normalizeLlmCall(event.llmCall);
       const id = `llm-${llmCall.id}`;
@@ -772,18 +773,18 @@ export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
     }
 
     if (event.type === 'probe.status') {
-      const id = `probe-${event.probe.jobId}`;
+      const probe = normalizeProbe(event.probe);
+      const id = `probe-${probe.jobId}`;
       ingestEvent(id, (prev) => {
-        const existing = prev.probes.get(event.probe.jobId);
+        const existing = prev.probes.get(probe.jobId);
         if (
-          existing?.status === event.probe.status &&
-          new Date(existing.updatedAt).getTime() ===
-          new Date(event.probe.updatedAt).getTime()
+          existing?.status === probe.status &&
+          new Date(existing.updatedAt).getTime() === new Date(probe.updatedAt).getTime()
         ) {
           return prev;
         }
         const probes = new Map(prev.probes);
-        probes.set(event.probe.jobId, event.probe);
+        probes.set(probe.jobId, probe);
         return { ...prev, probes };
       });
       return;
@@ -815,8 +816,8 @@ export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
   useSubscribeSessionEvents(handleSessionEvent);
   useSubscribeMrVersionEvents(handleMrVersionEvent);
 
-  const showConnecting = connectionState === 'connecting' && activityGroups.length === 0;
-  const showError = connectionState === 'error' && activityGroups.length === 0;
+  const showConnecting = connectionState === 'connecting' && feedItemCount === 0;
+  const showError = connectionState === 'error' && feedItemCount === 0;
 
   if (showConnecting) {
     return (
@@ -880,15 +881,15 @@ export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
               <span className="size-2 rounded-full bg-primary animate-pulse" />
               Streaming
             </span>
-          ) : activityGroups.length > 0 ? (
+          ) : feedItemCount > 0 ? (
             <span className="text-xs text-muted-foreground ml-auto">
-              {activityGroups.length} events
+              {feedItemCount} events
             </span>
           ) : null}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {activityGroups.length === 0 ? (
+        {feedItemCount === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="p-3 rounded-full bg-muted mb-3">
               <Eye className="size-5 text-muted-foreground" />
@@ -900,7 +901,7 @@ export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
           <div ref={scrollAreaRef}>
             <ScrollArea className="h-[620px]">
               <div className="space-y-2 pr-4 pt-1 pb-1">
-                {activityFeed.map((item, index) => {
+                {cycleFeed.map((item, index) => {
                   if (item.kind === 'phase_divider') {
                     return (
                       <ActivityPhaseDivider
@@ -910,10 +911,38 @@ export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
                     );
                   }
 
-                  const { group } = item;
+                  if (item.kind === 'standalone') {
+                    const standaloneId =
+                      item.item.type === 'llm'
+                        ? `llm-${item.item.llm.id}`
+                        : item.item.type === 'compile'
+                          ? `compile-${item.item.record.id}`
+                          : item.item.type === 'session_capture'
+                            ? `screenshot-${item.item.screenshot.id}`
+                            : `checkpoint-${item.item.checkpoint.id}`;
+
+                    return (
+                      <Fragment key={standaloneId}>
+                        {renderStandalone(
+                          item.item,
+                          newIds.has(standaloneId),
+                          statusContext,
+                        )}
+                      </Fragment>
+                    );
+                  }
+
+                  const prev = cycleFeed[index - 1];
+                  const showSeparator = prev?.kind === 'cycle';
+
                   return (
-                    <Fragment key={group.id}>
-                      {renderActivityGroup(group, newIds.has(group.id))}
+                    <Fragment key={item.cycle.id}>
+                      {showSeparator && <CycleSeparator cycle={item.cycle} />}
+                      {renderExplorationCycle(
+                        item.cycle,
+                        (id) => newIds.has(id),
+                        statusContext,
+                      )}
                     </Fragment>
                   );
                 })}

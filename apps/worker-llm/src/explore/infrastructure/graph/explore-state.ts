@@ -39,6 +39,7 @@ export type ExploreGraphState = {
   batchLog: ExploreBatchLog;
   pendingProbeSteps: SlotStep[];
   pendingProbeJobId?: string;
+  lastPlanLlmCallId?: string;
   iteration: number;
   maxIterations: number;
   recoveryAttempts: number;

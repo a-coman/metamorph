@@ -10,6 +10,8 @@ const probeJobPayloadSchema = z
     validated_prefix: z.array(slotStepSchema).default([]),
     probe_steps: z.array(slotStepSchema).min(1),
     resume_url: z.url(),
+    plan_llm_call_id: z.uuid().optional(),
+    cycle_iteration: z.number().int().nonnegative().optional(),
   })
   .superRefine((payload, ctx) => {
     if (payload.mode === 'incremental' && payload.probe_steps.length > 3) {

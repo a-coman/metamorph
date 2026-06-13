@@ -356,6 +356,8 @@ model LlmCall {
   latencyMs     Int?     @map("latency_ms")
   responseJson  Json?    @map("response_json")
   createdAt     DateTime @default(now()) @map("created_at")
+  completedAt   DateTime? @map("completed_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   job                     Job?                     @relation(fields: [jobId], references: [id], onDelete: SetNull)
   run                     Run?                     @relation(fields: [runId], references: [id], onDelete: SetNull)

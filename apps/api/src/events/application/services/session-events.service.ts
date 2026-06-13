@@ -16,11 +16,20 @@ const MR_TERMINAL_STATUSES = new Set<string>([
   MrVersionStatus.violation_pending_triage,
 ]);
 
+const TERMINAL_JOB_STATUSES = new Set<JobStatus>([
+  JobStatus.done,
+  JobStatus.failed,
+  JobStatus.enqueue_failed,
+]);
+
 type ProbeJobPayload = {
   phase?: string;
   mode?: 'incremental' | 'smoke_replay';
   validated_prefix?: unknown[];
   probe_steps?: unknown[];
+  explore_job_id?: string;
+  plan_llm_call_id?: string;
+  cycle_iteration?: number;
 };
 
 function resolveProbeMode(
@@ -71,6 +80,7 @@ export class SessionEventsService {
                 llmCalls: {
                   select: {
                     id: true,
+                    jobId: true,
                     purpose: true,
                     model: true,
                     promptVersion: true,
@@ -79,6 +89,8 @@ export class SessionEventsService {
                     latencyMs: true,
                     responseJson: true,
                     createdAt: true,
+                    completedAt: true,
+                    updatedAt: true,
                   },
                   orderBy: { createdAt: 'asc' },
                 },
@@ -120,6 +132,7 @@ export class SessionEventsService {
 
         type TimestampedEvent = { event: SessionEvent; timestamp: Date };
         const timestampedEvents: TimestampedEvent[] = [];
+        const isInitialPoll = !initialized;
         const jobState = new Map<string, string>();
         const mrState = new Map<string, string>();
         const probeState = new Map<string, string>();
@@ -147,6 +160,15 @@ export class SessionEventsService {
               event: { type: 'job.updated', job },
               timestamp: job.startedAt ?? job.createdAt,
             });
+          } else if (
+            isInitialPoll &&
+            job.type === JobType.explore &&
+            TERMINAL_JOB_STATUSES.has(job.status)
+          ) {
+            timestampedEvents.push({
+              event: { type: 'job.updated', job },
+              timestamp: job.finishedAt ?? job.startedAt ?? job.createdAt,
+            });
           }
 
           if (job.type === JobType.probe) {
@@ -162,6 +184,12 @@ export class SessionEventsService {
               const probeUpdatedAt = job.finishedAt ?? job.startedAt ?? job.createdAt;
               const probe: ProbeStatusDto = {
                 jobId: job.id,
+                exploreJobId: (payload?.explore_job_id as string) ?? null,
+                planLlmCallId: (payload?.plan_llm_call_id as string) ?? null,
+                cycleIteration:
+                  typeof payload?.cycle_iteration === 'number'
+                    ? payload.cycle_iteration
+                    : null,
                 status: this.mapJobStatus(job.status),
                 mode: resolveProbeMode(payload),
                 phase: (payload?.phase as string) ?? null,
@@ -170,11 +198,13 @@ export class SessionEventsService {
                 error: job.errorMessage,
                 snapshotId: outputSnapshotId,
                 outputSnapshotId,
+                createdAt: job.createdAt,
+                startedAt: job.startedAt,
                 updatedAt: probeUpdatedAt,
               };
               timestampedEvents.push({
                 event: { type: 'probe.status', probe },
-                timestamp: probeUpdatedAt,
+                timestamp: job.createdAt,
               });
             }
           }
@@ -345,6 +375,7 @@ export class SessionEventsService {
 
   private mapLlmCallDto(llmCall: {
     id: string;
+    jobId: string | null;
     purpose: string;
     model: string;
     promptVersion: string;
@@ -353,11 +384,14 @@ export class SessionEventsService {
     latencyMs: number | null;
     responseJson: unknown;
     createdAt: Date;
+    completedAt: Date | null;
+    updatedAt: Date;
   }): LlmCallDto {
     const status = this.mapLlmCallStatus(llmCall.responseJson);
 
     return {
       id: llmCall.id,
+      jobId: llmCall.jobId,
       purpose: llmCall.purpose,
       model: llmCall.model,
       promptVersion: llmCall.promptVersion,
@@ -367,7 +401,7 @@ export class SessionEventsService {
       latencyMs: llmCall.latencyMs,
       responseJson: llmCall.responseJson ?? null,
       createdAt: llmCall.createdAt,
-      updatedAt: llmCall.createdAt,
+      updatedAt: llmCall.completedAt ?? llmCall.updatedAt ?? llmCall.createdAt,
     };
   }
 

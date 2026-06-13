@@ -1,0 +1,212 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import type { LlmCallDto, ProbeStatusDto } from '@metamorph/api-client';
+import { buildExplorationCycles } from './exploration-cycles';
+
+function planLlm(
+  id: string,
+  action: string,
+  createdAt: string,
+): LlmCallDto {
+  return {
+    id,
+    jobId: 'explore-1',
+    purpose: 'plan_explore',
+    model: 'test/model',
+    promptVersion: 'v1',
+    status: 'done',
+    tokensIn: 1,
+    tokensOut: 1,
+    latencyMs: 100,
+    responseJson: { action },
+    createdAt: new Date(createdAt),
+    updatedAt: new Date(createdAt),
+  };
+}
+
+function verifyLlm(id: string, createdAt: string): LlmCallDto {
+  return {
+    id,
+    jobId: 'explore-1',
+    purpose: 'explore_verify',
+    model: 'test/model',
+    promptVersion: 'v1',
+    status: 'done',
+    tokensIn: 1,
+    tokensOut: 1,
+    latencyMs: 100,
+    responseJson: { verdict: 'ok' },
+    createdAt: new Date(createdAt),
+    updatedAt: new Date(createdAt),
+  };
+}
+
+function probe(
+  jobId: string,
+  createdAt: string,
+  overrides: Partial<ProbeStatusDto> = {},
+): ProbeStatusDto {
+  return {
+    jobId,
+    exploreJobId: 'explore-1',
+    planLlmCallId: null,
+    cycleIteration: null,
+    status: 'done',
+    mode: 'incremental',
+    phase: 'source',
+    stepCount: 1,
+    executedSteps: [],
+    error: null,
+    snapshotId: null,
+    outputSnapshotId: null,
+    createdAt: new Date(createdAt),
+    startedAt: new Date(createdAt),
+    updatedAt: new Date(createdAt),
+    ...overrides,
+  };
+}
+
+describe('exploration-cycles', () => {
+  it('builds incremental plan → probe → verify cycle', () => {
+    const plan = planLlm('plan-1', 'append_steps', '2026-06-13T10:00:00Z');
+    const result = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', plan],
+        ['verify-1', verifyLlm('verify-1', '2026-06-13T10:00:05Z')],
+      ]),
+      probes: new Map([
+        ['probe-1', probe('probe-1', '2026-06-13T10:00:02Z', { planLlmCallId: 'plan-1' })],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    assert.equal(result.cycles.length, 1);
+    assert.equal(result.cycles[0]?.kind, 'incremental');
+    assert.equal(result.cycles[0]?.plan?.id, 'plan-1');
+    assert.equal(result.cycles[0]?.probe?.jobId, 'probe-1');
+    assert.equal(result.cycles[0]?.verify?.id, 'verify-1');
+  });
+
+  it('marks probe failed cycles with verify skipped', () => {
+    const result = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', planLlm('plan-1', 'append_steps', '2026-06-13T10:00:00Z')],
+      ]),
+      probes: new Map([
+        [
+          'probe-1',
+          probe('probe-1', '2026-06-13T10:00:02Z', {
+            planLlmCallId: 'plan-1',
+            status: 'failed',
+          }),
+        ],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    assert.equal(result.cycles[0]?.verifySkipped, 'probe_failed');
+    assert.equal(result.cycles[0]?.verify, undefined);
+  });
+
+  it('builds goal_complete without probe or verify', () => {
+    const result = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', planLlm('plan-1', 'scenario_complete', '2026-06-13T10:00:00Z')],
+      ]),
+      probes: new Map(),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    assert.equal(result.cycles.length, 1);
+    assert.equal(result.cycles[0]?.kind, 'goal_complete');
+    assert.equal(result.cycles[0]?.probe, undefined);
+    assert.equal(result.cycles[0]?.verify, undefined);
+  });
+
+  it('links smoke probe to scenario_complete plan via planLlmCallId', () => {
+    const result = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-inc', planLlm('plan-inc', 'append_steps', '2026-06-13T09:00:00Z')],
+        ['plan-goal', planLlm('plan-goal', 'scenario_complete', '2026-06-13T10:00:00Z')],
+      ]),
+      probes: new Map([
+        ['probe-inc', probe('probe-inc', '2026-06-13T09:00:02Z', { planLlmCallId: 'plan-inc' })],
+        [
+          'probe-smoke',
+          probe('probe-smoke', '2026-06-13T10:00:05Z', {
+            mode: 'smoke_replay',
+            planLlmCallId: 'plan-goal',
+          }),
+        ],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    const smoke = result.cycles.find((cycle) => cycle.kind === 'smoke');
+    assert.ok(smoke);
+    assert.equal(smoke.probe?.jobId, 'probe-smoke');
+    assert.equal(smoke.plan, undefined);
+  });
+
+  it('builds plan_recovery cycles for consecutive failed plans', () => {
+    const result = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', planLlm('plan-1', 'append_steps', '2026-06-13T10:00:00Z')],
+        ['plan-2', planLlm('plan-2', 'append_steps', '2026-06-13T10:00:03Z')],
+      ]),
+      probes: new Map(),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    const recoveries = result.cycles.filter((cycle) => cycle.kind === 'plan_recovery');
+    assert.equal(recoveries.length, 2);
+  });
+
+  it('falls back to temporal linking without planLlmCallId metadata', () => {
+    const result = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', planLlm('plan-1', 'append_steps', '2026-06-13T10:00:00Z')],
+        ['verify-1', verifyLlm('verify-1', '2026-06-13T10:00:05Z')],
+      ]),
+      probes: new Map([
+        ['probe-1', probe('probe-1', '2026-06-13T10:00:02Z')],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    assert.equal(result.cycles[0]?.plan?.id, 'plan-1');
+    assert.equal(result.cycles[0]?.probe?.jobId, 'probe-1');
+    assert.equal(result.cycles[0]?.verify?.id, 'verify-1');
+  });
+
+  it('marks graph_interrupted when explore job failed without verify', () => {
+    const terminalExploreJobs = new Map<string, 'done' | 'failed'>([
+      ['explore-1', 'failed'],
+    ]);
+    const result = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', planLlm('plan-1', 'append_steps', '2026-06-13T10:00:00Z')],
+      ]),
+      probes: new Map([
+        [
+          'probe-1',
+          probe('probe-1', '2026-06-13T10:00:02Z', {
+            planLlmCallId: 'plan-1',
+            status: 'done',
+          }),
+        ],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+      terminalExploreJobs,
+    });
+
+    assert.equal(result.cycles[0]?.verifySkipped, 'graph_interrupted');
+  });
+});

@@ -31,6 +31,8 @@ export class ProbeJobPublisher {
   async publishIncremental(input: PublishProbeInput & {
     validatedPrefix: SlotStep[];
     probeSteps: SlotStep[];
+    planLlmCallId?: string;
+    cycleIteration?: number;
   }): Promise<string> {
     return this.publish({
       ...input,
@@ -42,6 +44,8 @@ export class ProbeJobPublisher {
 
   async publishSmokeReplay(input: PublishProbeInput & {
     replaySteps: SlotStep[];
+    planLlmCallId?: string;
+    cycleIteration?: number;
   }): Promise<string> {
     return this.publish({
       ...input,
@@ -56,6 +60,8 @@ export class ProbeJobPublisher {
     mode?: 'incremental' | 'smoke_replay';
     validatedPrefix: SlotStep[];
     probeSteps: SlotStep[];
+    planLlmCallId?: string;
+    cycleIteration?: number;
   }): Promise<string> {
     const mode = input.mode ?? 'incremental';
 
@@ -73,6 +79,10 @@ export class ProbeJobPublisher {
           validated_prefix: input.validatedPrefix,
           probe_steps: input.probeSteps,
           resume_url: input.resumeUrl,
+          ...(input.planLlmCallId ? { plan_llm_call_id: input.planLlmCallId } : {}),
+          ...(input.cycleIteration !== undefined
+            ? { cycle_iteration: input.cycleIteration }
+            : {}),
         },
       },
     });
@@ -94,6 +104,10 @@ export class ProbeJobPublisher {
           validated_prefix: input.validatedPrefix,
           probe_steps: input.probeSteps,
           resume_url: input.resumeUrl,
+          ...(input.planLlmCallId ? { plan_llm_call_id: input.planLlmCallId } : {}),
+          ...(input.cycleIteration !== undefined
+            ? { cycle_iteration: input.cycleIteration }
+            : {}),
         },
       };
 

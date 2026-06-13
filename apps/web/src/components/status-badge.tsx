@@ -44,6 +44,8 @@ const STATUS_MAP: Record<string, StatusConfig> = {
 
   // Activity outcomes
   ok: { label: 'Ok', type: 'success', icon: CheckCircle },
+  stale: { label: 'Stale', type: 'warning', icon: AlertCircle },
+  skipped: { label: 'Skipped', type: 'neutral', icon: Clock },
   goal_reached: { label: 'Goal', type: 'info', icon: Target },
 
   // Plan explore actions

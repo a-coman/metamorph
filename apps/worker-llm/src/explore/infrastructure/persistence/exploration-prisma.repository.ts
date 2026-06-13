@@ -193,6 +193,7 @@ export class ExplorationPrismaRepository {
         tokensOut: input.audit.tokensOut,
         latencyMs: input.audit.latencyMs,
         responseJson: input.responseJson as Prisma.InputJsonValue,
+        completedAt: new Date(),
       },
     });
   }
@@ -202,6 +203,7 @@ export class ExplorationPrismaRepository {
       where: { id: input.id },
       data: {
         responseJson: { error: input.error } as Prisma.InputJsonValue,
+        completedAt: new Date(),
       },
     });
   }
