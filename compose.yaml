@@ -98,6 +98,7 @@ services:
         condition: service_healthy
     environment:
       PLAYWRIGHT_HEADLESS: "true"
+      PLAYWRIGHT_LOCALE: ${PLAYWRIGHT_LOCALE:-es-ES}
       CI: "true"
       DATABASE_URL: postgresql://${POSTGRES_USER:-metamorph}:${POSTGRES_PASSWORD:-metamorph}@postgres:5432/${POSTGRES_DB:-metamorph}
       MINIO_ENDPOINT: http://minio:9000
@@ -152,6 +153,7 @@ services:
     working_dir: /app
     environment:
       PLAYWRIGHT_HEADLESS: "true"
+      PLAYWRIGHT_LOCALE: ${PLAYWRIGHT_LOCALE:-es-ES}
       CI: "true"
       INVENTORY_OUT_DIR: /app/tmp/inventory
     volumes:

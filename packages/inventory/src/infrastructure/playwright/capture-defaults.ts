@@ -13,7 +13,7 @@ export const DEFAULT_MAX_CAPTURE_HEIGHT = DEFAULT_CAPTURE_VIEWPORT.height;
 export const DEFAULT_MAX_ITEMS = 100;
 
 /** Browser locale for probes and inventory capture. Override with PLAYWRIGHT_LOCALE. */
-export const DEFAULT_BROWSER_LOCALE = process.env.PLAYWRIGHT_LOCALE ?? 'en-US';
+export const DEFAULT_BROWSER_LOCALE = process.env.PLAYWRIGHT_LOCALE ?? 'es-ES';
 
 export function buildBrowserContextOptions() {
   return {

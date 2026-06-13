@@ -4,7 +4,7 @@ import type {
   PageInventory,
 } from '../../domain/types/inventory-item.types.js';
 import { PageInventoryBuilderPort } from '../../domain/repositories/page-inventory-builder.repository.port.js';
-import { DEFAULT_CAPTURE_VIEWPORT } from '../../infrastructure/playwright/capture-defaults.js';
+import { buildBrowserContextOptions } from '../../infrastructure/playwright/capture-defaults.js';
 import { PlaywrightInventoryBuilderAdapter } from '../../infrastructure/playwright/inventory-builder.adapter.js';
 
 export class BuildPageInventoryService {
@@ -25,9 +25,7 @@ export class BuildPageInventoryService {
     url: string,
     options?: BuildPageInventoryOptions,
   ): Promise<PageInventory> {
-    const context = await browser.newContext({
-      viewport: DEFAULT_CAPTURE_VIEWPORT,
-    });
+    const context = await browser.newContext(buildBrowserContextOptions());
     const page = await context.newPage();
 
     try {
