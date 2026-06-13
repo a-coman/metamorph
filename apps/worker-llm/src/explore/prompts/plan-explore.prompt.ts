@@ -2,8 +2,9 @@ import type { MrIntent, PageSnapshotInventory, SlotStep } from '@metamorph/core'
 import type {
   ExplorePhase,
   ExploreSourceReference,
-  ProbeFailureContext,
+  ExploreBatchLog,
 } from '../infrastructure/graph/explore-state.js';
+import { formatBatchLogForPrompt } from '../infrastructure/graph/batch-log.js';
 import { buildInventorySummary } from './inventory-summary.js';
 import { PLAN_EXPLORE_OPTIONS } from './plan-explore.config.js';
 
@@ -120,10 +121,12 @@ export function buildPlanExploreSystemPrompt(): string {
     '- Return action=scenario_complete when the phase goal is already satisfied in the screenshot.',
     '- Return action=abort when the phase goal cannot be achieved on this page (impossible MR, unrecoverable auth/captcha, or no viable path after probe failures). This ends exploration immediately.',
     '- Do NOT use abort for dismissible cookies or modals, or recoverable steps — plan append_steps to continue instead.',
-    '- After a probe failure, read the Last probe failure section and the second screenshot (if present).',
-    '- The second screenshot shows the page immediately BEFORE the failed step; do NOT use element_ids from that image — only Current inventory applies to the first screenshot.',
-    '- Use url_before_failure to detect unwanted navigation (e.g. a deep-link left the homepage before a homepage-only control was clicked).',
     '- After a probe failure, prefer append_steps with a different approach; use abort only when continuing is pointless.',
+    '- Do not repeat batches listed under Errors in the user message.',
+    '- If a batch committed overlay dismissal, plan the next sub-goal (e.g. fill destination, submit search) — do not dismiss the same overlays again.',
+    '- element_ids from failed batches or screenshots may not match Current inventory; always pick from Current inventory for the attached screenshot.',
+    '- After a probe failure, read Errors and the second screenshot (if present).',
+    '- The second screenshot shows the page immediately BEFORE the latest probe failure; do NOT use element_ids from that image — only Current inventory applies to the first screenshot.',
     'Example:',
     JSON.stringify(PLAN_EXPLORE_EXAMPLE, null, 2),
   ].join('\n');
@@ -134,16 +137,17 @@ export function buildPlanExploreUserText(input: {
   phase: ExplorePhase;
   mrIntent: MrIntent;
   inventory: PageSnapshotInventory;
-  validatedSteps: { source: unknown[]; follow_up: unknown[] };
+  batchLog: ExploreBatchLog;
   sourceReference?: ExploreSourceReference;
-  probeError?: string;
-  probeFailureContext?: ProbeFailureContext;
-  batchSize?: number;
+  latestProbeFailureBatch?: number;
 }): string {
   const phaseGoal =
     input.phase === 'source'
       ? input.mrIntent.exploration.source_phase_goal
       : input.mrIntent.exploration.follow_up_phase_goal;
+
+  const { historySection, validatedSection, errorsSection, latestProbeFailureBatch } =
+    formatBatchLogForPrompt(input.batchLog, input.phase);
 
   const lines = [
     `Target URL: ${input.url}`,
@@ -153,20 +157,22 @@ export function buildPlanExploreUserText(input: {
     'MR summary:',
     buildMrSummary(input.mrIntent),
     '',
-    'Validated steps in this phase:',
-    JSON.stringify(input.validatedSteps[input.phase], null, 2),
+    historySection,
+    '',
+    validatedSection,
   ];
 
   if (input.phase === 'follow_up' && input.sourceReference) {
     lines.push('', buildCompletedSourceReferenceSection(input.sourceReference));
   }
 
-  if (input.probeFailureContext) {
+  const probeFailureBatch = input.latestProbeFailureBatch ?? latestProbeFailureBatch;
+  if (probeFailureBatch !== undefined) {
     lines.push(
       '',
       'Attached:',
       '1. Current inventory screenshot — element_id labels match the inventory below.',
-      '2. Probe failure context — page state immediately BEFORE the failed step (labels may not apply).',
+      `2. Probe failure context (Batch ${probeFailureBatch}) — page state immediately BEFORE the failed step (labels may not apply).`,
     );
   } else {
     lines.push(
@@ -176,26 +182,7 @@ export function buildPlanExploreUserText(input: {
   }
 
   lines.push('', 'Current inventory:', buildInventorySummary(input.inventory));
-
-  if (input.probeFailureContext) {
-    const ctx = input.probeFailureContext;
-    const batchLabel =
-      ctx.failedBatchIndex !== undefined && input.batchSize !== undefined
-        ? ` (batch index ${ctx.failedBatchIndex + 1} of ${input.batchSize})`
-        : ctx.failedBatchIndex !== undefined
-          ? ` (batch index ${ctx.failedBatchIndex + 1})`
-          : '';
-
-    lines.push(
-      '',
-      'Last probe failure:',
-      `- error: ${input.probeError ?? '(none)'}`,
-      `- url before failure: ${ctx.urlBeforeFailure}`,
-      `- failed step${batchLabel}: ${JSON.stringify(ctx.failedStep, null, 2)}`,
-    );
-  } else if (input.probeError) {
-    lines.push('', `Last probe/plan error: ${input.probeError}`);
-  }
+  lines.push('', errorsSection);
 
   lines.push(
     '',

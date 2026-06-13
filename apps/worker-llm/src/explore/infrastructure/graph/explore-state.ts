@@ -4,6 +4,10 @@ import type {
   SlotStep,
 } from '@metamorph/core';
 import { parseObservationCatalogFields } from '@metamorph/core';
+import type { ExploreBatchLog } from './batch-log.js';
+import { EMPTY_BATCH_LOG } from './batch-log.js';
+
+export type { ExploreBatchLog, ExploreBatchRecord, ExploreBatchOutcome } from './batch-log.js';
 
 export type ExplorePhase = 'source' | 'follow_up';
 
@@ -32,6 +36,7 @@ export type ExploreGraphState = {
   sourceEndSnapshotId?: string;
   currentSnapshotId: string;
   validatedSteps: { source: SlotStep[]; follow_up: SlotStep[] };
+  batchLog: ExploreBatchLog;
   pendingProbeSteps: SlotStep[];
   pendingProbeJobId?: string;
   iteration: number;
@@ -70,6 +75,7 @@ export const DEFAULT_EXPLORE_STATE: Omit<
 > = {
   phase: 'source',
   validatedSteps: { source: [], follow_up: [] },
+  batchLog: EMPTY_BATCH_LOG,
   pendingProbeSteps: [],
   iteration: 0,
   maxIterations: 30,

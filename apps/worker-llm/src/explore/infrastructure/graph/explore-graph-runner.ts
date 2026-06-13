@@ -2,6 +2,7 @@ import { Command } from '@langchain/langgraph';
 import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres';
 import pg from 'pg';
 import { DEFAULT_EXPLORE_STATE, type ProbeResumeValue } from '../graph/explore-state.js';
+import { EMPTY_BATCH_LOG } from '../graph/batch-log.js';
 import { buildExploreGraph, type ExploreGraphDeps } from '../graph/explore-graph.js';
 
 export class ExploreGraphRunner {
@@ -51,6 +52,7 @@ export class ExploreGraphRunner {
       initialSnapshotId: input.pageSnapshotId,
       currentSnapshotId: input.pageSnapshotId,
       checkpointSequence: 0,
+      batchLog: EMPTY_BATCH_LOG,
       lastExecutedSteps: [],
       smokeGatePassed: false,
       awaitingSmokeReplay: false,

@@ -21,7 +21,7 @@ import {
   buildPlanExploreSystemPrompt,
   buildPlanExploreUserText,
 } from '../../prompts/plan-explore.prompt.js';
-import type { ExplorePhase, ExploreSourceReference, ProbeFailureContext } from '../graph/explore-state.js';
+import type { ExplorePhase, ExploreSourceReference, ExploreBatchLog } from '../graph/explore-state.js';
 import { logExploreLlmExchange } from './explore-llm-logger.js';
 import {
   buildOpenRouterResponseFormat,
@@ -98,11 +98,11 @@ export class ExploreOpenRouterClient {
     mrIntent: MrIntent;
     inventory: PageSnapshotInventory;
     validatedSteps: { source: unknown[]; follow_up: unknown[] };
+    batchLog: ExploreBatchLog;
     sourceReference?: ExploreSourceReference;
     screenshotBase64: string;
-    probeError?: string;
-    probeFailureContext?: ProbeFailureContext;
     failureScreenshotBase64?: string;
+    latestProbeFailureBatch?: number;
   }): Promise<ExploreLlmResult<import('@metamorph/core').ExplorePlanOutput>> {
     const phaseSteps = input.validatedSteps[input.phase as keyof typeof input.validatedSteps];
     const nextStepId =
@@ -118,8 +118,13 @@ export class ExploreOpenRouterClient {
       promptVersion: PLAN_EXPLORE_PROMPT_VERSION,
       system: buildPlanExploreSystemPrompt(),
       userText: buildPlanExploreUserText({
-        ...input,
-        batchSize: input.probeFailureContext?.failedBatchSize,
+        url: input.url,
+        phase: input.phase,
+        mrIntent: input.mrIntent,
+        inventory: input.inventory,
+        batchLog: input.batchLog,
+        sourceReference: input.sourceReference,
+        latestProbeFailureBatch: input.latestProbeFailureBatch,
       }),
       screenshotsBase64,
       schema: ExplorePlanOutputSchema,

@@ -6,10 +6,16 @@ import {
   buildMrSummary,
 } from './plan-explore.prompt.js';
 
-const EXPLORE_VERIFY_EXAMPLE = {
+const EXPLORE_VERIFY_EXAMPLE_OK_MODAL = {
   verdict: 'ok',
   rationale:
-    'Cookie banner was dismissed and navigation moved closer to the phase goal; target state not reached yet.',
+    'Sign-in modal and cookie banner were dismissed. Destination search not submitted yet, but the UI is unblocked for the next batch.',
+};
+
+const EXPLORE_VERIFY_EXAMPLE_OK_SEARCH = {
+  verdict: 'ok',
+  rationale:
+    'Search was submitted and results page loaded. Phase goal may still need follow-up actions, but this batch advanced clearly.',
 };
 
 function buildAllowedValuesSection(): string {
@@ -37,12 +43,14 @@ export function buildExploreVerifySystemPrompt(): string {
     '- goal_reached: the AFTER screenshot and URL after probe show the current phase goal is fully satisfied; no further steps are needed for this phase.',
     '- ok: the executed batch made progress toward the phase goal, but the phase goal is NOT fully satisfied yet.',
     '- fail: the batch did not work, the page did not advance toward the goal, state regressed, or a probe error indicates execution failure.',
+    '- fail is ONLY for no useful change, regression, or execution failure — NOT for incomplete phase goals.',
     '',
     'Rules:',
     '- You are judging ONE probe batch (1-3 steps), NOT whether the entire phase goal is complete in a single batch.',
-    '- The phase goal may require many batches. A batch that completes an early sub-step (e.g. dismiss cookies, or first search submission) is ok unless AFTER regressed or shows no useful change.',
-    '- NEVER return fail merely because later sub-steps of the phase goal remain undone.',
+    '- The phase goal may require many batches. A batch that completes an early sub-step (e.g. dismiss cookies, close a modal, first search submission) is ok unless AFTER regressed or shows no useful change.',
+    '- NEVER return fail merely because later sub-steps of the phase goal remain undone (e.g. destination not filled yet, search not clicked yet, results not verified yet).',
     '- Important: Partial progress toward the phase goal is ok, not fail.',
+    '- If BEFORE had blocking overlays (cookie banner, sign-in modal) and AFTER shows them gone or the main UI unblocked, return ok even when search/destination steps are still pending.',
     '- Your rationale MUST match your verdict: if you describe progress made, verdict MUST be ok or goal_reached, never fail.',
     '- Every enum field must use exactly one of the allowed values above; do not invent new values.',
     '- Judge primarily against the current phase goal in the user message, using the MR summary for metamorphic intent.',
@@ -54,8 +62,9 @@ export function buildExploreVerifySystemPrompt(): string {
     '- Cookie banners, modals, or overlays dismissed during the batch count as progress if they unblock movement toward the goal.',
     '- Return fail when AFTER shows an error page, login wall, captcha, or clearly wrong state with no progress.',
     '',
-    'Example:',
-    JSON.stringify(EXPLORE_VERIFY_EXAMPLE, null, 2),
+    'Examples:',
+    JSON.stringify(EXPLORE_VERIFY_EXAMPLE_OK_MODAL, null, 2),
+    JSON.stringify(EXPLORE_VERIFY_EXAMPLE_OK_SEARCH, null, 2),
   ].join('\n');
 }
 
@@ -106,11 +115,15 @@ export function buildExploreVerifyUserText(input: {
     'Attached: two screenshots — BEFORE (first image) and AFTER (second image) the probe batch.',
     '',
     'Judge THIS BATCH ONLY (executed steps above):',
-    '- Did this batch move closer to the phase goal compared to BEFORE? → ok',
+    '- Did this batch move closer to the phase goal compared to BEFORE? → ok (even if later phase-goal steps remain)',
     '- Is the full phase goal now satisfied in AFTER? → goal_reached',
-    '- Did the batch fail, regress, or leave the page unchanged/worse? → fail',
+    '- Did the batch fail, regress, or leave the page unchanged/worse with no useful progress? → fail',
     '',
-    'Do NOT use fail when the batch clearly advanced (e.g. homepage → search results, cookie dismissed, search re-submitted on results page) even if the phase goal lists more steps still pending.',
+    'Common ok cases:',
+    '- Cookie banner or modal dismissed; main UI visible but search not done yet.',
+    '- Destination typed or search submitted; results or confirmation still pending.',
+    '',
+    'Do NOT use fail when the batch clearly advanced (e.g. homepage → search results, cookie dismissed, modal closed, search re-submitted on results page) even if the phase goal lists more steps still pending.',
   );
 
   return lines.join('\n');

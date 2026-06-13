@@ -28,6 +28,13 @@ import {
   type ProbeFailureContext,
   type ProbeResumeValue,
 } from './explore-state.js';
+import {
+  appendBatchRecord,
+  EMPTY_BATCH_LOG,
+  finalizeLastPendingBatch,
+  findLatestProbeFailureScreenshotId,
+  formatBatchLogForPrompt,
+} from './batch-log.js';
 
 export type ExploreGraphDeps = {
   explorationRepo: ExplorationPrismaRepository;
@@ -47,6 +54,7 @@ const ExploreAnnotation = Annotation.Root({
   sourceEndSnapshotId: Annotation<string | undefined>,
   currentSnapshotId: Annotation<string>,
   validatedSteps: Annotation<ExploreGraphState['validatedSteps']>,
+  batchLog: Annotation<ExploreGraphState['batchLog']>,
   pendingProbeSteps: Annotation<SlotStep[]>,
   lastExecutedSteps: Annotation<SlotStep[]>,
   pendingProbeJobId: Annotation<string | undefined>,
@@ -134,6 +142,36 @@ function buildEmptyPathBacktrackHint(
       : 'Checkpoint failed with no validated progress. Try a different element or navigation path toward the phase goal.';
 
   return probeError ? `${probeError} ${base}` : base;
+}
+
+function withPlanRejection(
+  state: State,
+  steps: SlotStep[],
+  error: string,
+  iteration: number,
+): Partial<State> {
+  return {
+    iteration,
+    probeError: error,
+    planRecoveryAttempts: state.planRecoveryAttempts + 1,
+    batchLog: appendBatchRecord(state.batchLog ?? EMPTY_BATCH_LOG, state.phase, {
+      steps,
+      outcome: 'plan_rejected',
+      error,
+    }),
+  };
+}
+
+function withBatchFinalized(
+  state: State,
+  outcome: 'committed' | 'checkpoint_failed' | 'probe_failed',
+  details?: {
+    error?: string;
+    failedStep?: SlotStep;
+    screenshotBeforeSnapshotId?: string;
+  },
+): ExploreGraphState['batchLog'] {
+  return finalizeLastPendingBatch(state.batchLog ?? EMPTY_BATCH_LOG, state.phase, outcome, details);
 }
 
 export function buildExploreGraph(deps: ExploreGraphDeps) {
@@ -263,9 +301,16 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     }
 
     const screenshotBase64 = await loadAnnotatedBase64(state.currentSnapshotId);
-    const failureScreenshotBase64 = state.probeFailureContext
-      ? await loadRawBase64(state.probeFailureContext.screenshotBeforeSnapshotId)
+    const latestProbeScreenshotId =
+      findLatestProbeFailureScreenshotId(state.batchLog ?? EMPTY_BATCH_LOG, state.phase) ??
+      state.probeFailureContext?.screenshotBeforeSnapshotId;
+    const failureScreenshotBase64 = latestProbeScreenshotId
+      ? await loadRawBase64(latestProbeScreenshotId)
       : undefined;
+    const { latestProbeFailureBatch } = formatBatchLogForPrompt(
+      state.batchLog ?? EMPTY_BATCH_LOG,
+      state.phase,
+    );
     const sourceReference = await resolveSourceReference(state, deps);
 
     try {
@@ -280,11 +325,13 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
             mrIntent,
             inventory: snapshot.inventory,
             validatedSteps: state.validatedSteps,
+            batchLog: state.batchLog ?? EMPTY_BATCH_LOG,
             sourceReference,
             screenshotBase64,
-            probeError: state.probeError,
-            probeFailureContext: state.probeFailureContext,
             failureScreenshotBase64,
+            latestProbeFailureBatch: failureScreenshotBase64
+              ? latestProbeFailureBatch
+              : undefined,
           }),
       );
 
@@ -328,11 +375,12 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       );
 
       if (missingIds.length > 0) {
-        return {
-          iteration: nextIteration,
-          probeError: `Unknown element_ids: ${missingIds.join(', ')}`,
-          planRecoveryAttempts: state.planRecoveryAttempts + 1,
-        };
+        return withPlanRejection(
+          state,
+          steps,
+          `Unknown element_ids: ${missingIds.join(', ')}`,
+          nextIteration,
+        );
       }
 
       const itemMap = new Map(snapshot.inventory.items.map((item) => [item.shortId, item]));
@@ -345,21 +393,22 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       });
       if (nonFillableFill.length > 0) {
         const ids = nonFillableFill.map((s) => s.element_id).join(', ');
-        return {
-          iteration: nextIteration,
-          probeError:
-            `fill not allowed on ${ids} (not input/textarea/combobox). ` +
+        return withPlanRejection(
+          state,
+          steps,
+          `fill not allowed on ${ids} (not input/textarea/combobox). ` +
             'For travel/combobox UIs: batch 1 = click destination trigger + waitFor; batch 2 = fill the revealed input or pick a suggestion, then click search.',
-          planRecoveryAttempts: state.planRecoveryAttempts + 1,
-        };
+          nextIteration,
+        );
       }
 
       if (steps.length === 0) {
-        return {
-          iteration: nextIteration,
-          probeError: 'Plan returned append_steps with no executable steps',
-          planRecoveryAttempts: state.planRecoveryAttempts + 1,
-        };
+        return withPlanRejection(
+          state,
+          steps,
+          'Plan returned append_steps with no executable steps',
+          nextIteration,
+        );
       }
 
       const pendingProbeSteps = resolveStepTargets(steps, snapshot.inventory);
@@ -374,14 +423,14 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         probeFailureContext: undefined,
         planRecoveryAttempts: 0,
         snapshotBeforeId: state.currentSnapshotId,
+        batchLog: appendBatchRecord(state.batchLog ?? EMPTY_BATCH_LOG, state.phase, {
+          steps: pendingProbeSteps,
+          outcome: 'pending',
+        }),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'plan_next LLM error';
-      return {
-        iteration: nextIteration,
-        probeError: message,
-        planRecoveryAttempts: state.planRecoveryAttempts + 1,
-      };
+      return withPlanRejection(state, [], message, nextIteration);
     }
   }
 
@@ -619,6 +668,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         checkpointRecoveryAttempts: 0,
         recoveryAttempts: 0,
         planRecoveryAttempts: 0,
+        batchLog: withBatchFinalized(state, 'committed'),
       };
     }
 
@@ -664,6 +714,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         checkpointRecoveryAttempts: 0,
         recoveryAttempts: 0,
         planRecoveryAttempts: 0,
+        batchLog: withBatchFinalized(state, 'committed'),
       };
     }
 
@@ -699,12 +750,25 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         buildGenerationSlots({ ...state, validatedSteps }),
       );
 
+      const batchLog =
+        state.probeStatus === 'failed' || state.probeFailureContext
+          ? withBatchFinalized(state, 'probe_failed', {
+              error: state.probeError,
+              failedStep: state.probeFailureContext?.failedStep,
+              screenshotBeforeSnapshotId:
+                state.probeFailureContext?.screenshotBeforeSnapshotId,
+            })
+          : withBatchFinalized(state, 'checkpoint_failed', {
+              error: state.probeError,
+            });
+
       return {
         validatedSteps,
         lastExecutedSteps: [],
         recoveryAttempts: state.recoveryAttempts + 1,
         currentSnapshotId: revertedSnapshotId,
         snapshotBeforeId: undefined,
+        batchLog,
         ...(backtrackHint ? { probeError: backtrackHint } : {}),
       };
     }
