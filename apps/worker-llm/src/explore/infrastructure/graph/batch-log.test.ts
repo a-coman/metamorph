@@ -75,4 +75,26 @@ describe('batch-log', () => {
     assert.match(formatted.errorsSection, /Plan rejected/);
     assert.match(formatted.errorsSection, /fill not allowed on E46/);
   });
+
+  it('includes rejected steps in history when plan_rejected carries steps from validation failure', () => {
+    const log = appendBatchRecord(EMPTY_BATCH_LOG, 'source', {
+      steps: [
+        { id: 1, action: 'click', element_id: 'E4' },
+        { id: 2, action: 'click', element_id: 'E78' },
+        { id: 3, action: 'fill', element_id: 'destination-input', value: 'Madrid' },
+      ],
+      outcome: 'plan_rejected',
+      error:
+        'fill element_id=destination-input value="Madrid" failed validation - element_id: got "destination-input" — use a shortId from Current inventory (e.g. E4), not a selector or DOM id',
+    });
+
+    const formatted = formatBatchLogForPrompt(log, 'source');
+
+    assert.match(formatted.historySection, /click element_id=E4/);
+    assert.match(formatted.historySection, /fill element_id=destination-input/);
+    assert.match(
+      formatted.errorsSection,
+      /fill element_id=destination-input value="Madrid" failed validation/,
+    );
+  });
 });

@@ -23,6 +23,7 @@ import {
   buildPlanExploreUserText,
 } from '../../prompts/plan-explore.prompt.js';
 import type { ExplorePhase, ExploreSourceReference, ExploreBatchLog } from '../graph/explore-state.js';
+import { ExploreLlmValidationError, formatLlmValidationErrorForPrompt } from './explore-llm-validation.error.js';
 import { logExploreLlmExchange } from './explore-llm-logger.js';
 import {
   buildOpenRouterResponseFormat,
@@ -202,6 +203,8 @@ export class ExploreOpenRouterClient {
     const screenshotCount = input.screenshotsBase64?.length ?? 0;
 
     if (!validated.success || !validated.data) {
+      const promptMessage = formatLlmValidationErrorForPrompt(validated.error, normalized);
+
       logExploreLlmExchange({
         purpose: input.purpose,
         promptVersion: input.promptVersion,
@@ -216,9 +219,7 @@ export class ExploreOpenRouterClient {
         validationError: validated.error?.message ?? 'unknown',
       });
 
-      throw new Error(
-        `LLM output failed validation: ${validated.error?.message ?? 'unknown'}`,
-      );
+      throw new ExploreLlmValidationError(promptMessage, normalized, parsed);
     }
 
     logExploreLlmExchange({

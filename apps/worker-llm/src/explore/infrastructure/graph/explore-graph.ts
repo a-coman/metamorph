@@ -18,6 +18,10 @@ import {
   ExploreOpenRouterClient,
   type ExploreLlmResult,
 } from '../openrouter/explore-openrouter.client.js';
+import {
+  ExploreLlmValidationError,
+  extractRejectedPlanSteps,
+} from '../openrouter/explore-llm-validation.error.js';
 import { logExploreGraphEvent } from '../openrouter/explore-llm-logger.js';
 import { ExplorationPrismaRepository } from '../persistence/exploration-prisma.repository.js';
 import { ExploreSnapshotRepository } from '../persistence/explore-snapshot.repository.js';
@@ -447,7 +451,11 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'plan_next LLM error';
-      return withPlanRejection(state, [], message, nextIteration);
+      const rejectedSteps =
+        error instanceof ExploreLlmValidationError
+          ? extractRejectedPlanSteps(error.normalizedOutput, error.rawOutput)
+          : [];
+      return withPlanRejection(state, rejectedSteps, message, nextIteration);
     }
   }
 
