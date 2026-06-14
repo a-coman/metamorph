@@ -35,7 +35,7 @@ describe('llmExploreResumeMessageSchema', () => {
           failed_step: {
             id: 2,
             action: 'click',
-            element_id: 'E01',
+            element_id: 'E1',
             resolved_locator: "getByTestId('search-button')",
           },
           failed_step_index: 3,

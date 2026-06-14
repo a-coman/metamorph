@@ -13,7 +13,7 @@ export const slotStepSchema = z.object({
   ]),
   element_id: z
     .string()
-    .regex(/^E\d{2,}$/)
+    .regex(/^E[1-9]\d*$/)
     .optional(),
   value: z.string().optional(),
   url: z.string().optional(),

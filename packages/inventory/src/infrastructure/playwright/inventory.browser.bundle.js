@@ -483,7 +483,7 @@ var __metamorphInventory = (() => {
         locatorMatchCount
       };
     });
-    const shortIdFor = (index) => `E${String(index + 1).padStart(2, "0")}`;
+    const shortIdFor = (index) => `E${index + 1}`;
     const placedRects = [];
     const labeledElementRects = [];
     const overlaps = (a, b) => !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);

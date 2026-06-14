@@ -12,13 +12,13 @@ import {
 describe('batch-log', () => {
   it('assigns incrementing batch numbers per phase', () => {
     let log = appendBatchRecord(EMPTY_BATCH_LOG, 'source', {
-      steps: [{ id: 1, action: 'click', element_id: 'E01' }],
+      steps: [{ id: 1, action: 'click', element_id: 'E1' }],
       outcome: 'plan_rejected',
       error: 'bad id',
     });
 
     log = appendBatchRecord(log, 'source', {
-      steps: [{ id: 1, action: 'click', element_id: 'E02' }],
+      steps: [{ id: 1, action: 'click', element_id: 'E2' }],
       outcome: 'pending',
     });
 
@@ -28,7 +28,7 @@ describe('batch-log', () => {
 
   it('finalizes the last pending batch', () => {
     let log = appendBatchRecord(EMPTY_BATCH_LOG, 'source', {
-      steps: [{ id: 1, action: 'click', element_id: 'E04' }],
+      steps: [{ id: 1, action: 'click', element_id: 'E4' }],
       outcome: 'pending',
     });
 
@@ -42,13 +42,13 @@ describe('batch-log', () => {
 
   it('finds the latest probe failure screenshot id', () => {
     let log = appendBatchRecord(EMPTY_BATCH_LOG, 'source', {
-      steps: [{ id: 1, action: 'click', element_id: 'E01' }],
+      steps: [{ id: 1, action: 'click', element_id: 'E1' }],
       outcome: 'probe_failed',
       screenshotBeforeSnapshotId: 'snap-a',
     });
 
     log = appendBatchRecord(log, 'source', {
-      steps: [{ id: 1, action: 'click', element_id: 'E02' }],
+      steps: [{ id: 1, action: 'click', element_id: 'E2' }],
       outcome: 'probe_failed',
       screenshotBeforeSnapshotId: 'snap-b',
     });
@@ -58,7 +58,7 @@ describe('batch-log', () => {
 
   it('formats history, validated batches, and errors for the prompt', () => {
     let log = appendBatchRecord(EMPTY_BATCH_LOG, 'source', {
-      steps: [{ id: 1, action: 'click', element_id: 'E04' }],
+      steps: [{ id: 1, action: 'click', element_id: 'E4' }],
       outcome: 'committed',
     });
 

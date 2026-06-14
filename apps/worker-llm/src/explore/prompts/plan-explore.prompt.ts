@@ -14,8 +14,8 @@ const PLAN_EXPLORE_EXAMPLE = {
     'Cookie banner blocks the page. Click its accept/dismiss control from Current inventory, fill the searchbox from Current inventory, then press Enter.',
   steps: [
     { id: 1, action: 'click', element_id: 'E42' },
-    { id: 2, action: 'fill', element_id: 'E01', value: 'portatil' },
-    { id: 3, action: 'press', element_id: 'E01', key: 'Enter' },
+    { id: 2, action: 'fill', element_id: 'E1', value: 'portatil' },
+    { id: 3, action: 'press', element_id: 'E1', key: 'Enter' },
   ],
 };
 

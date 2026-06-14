@@ -622,7 +622,7 @@ export function scanAndLabelPage(
       locatorMatchCount,
     };
   });
-  const shortIdFor = (index: number) => `E${String(index + 1).padStart(2, '0')}`;
+  const shortIdFor = (index: number) => `E${index + 1}`;
   const placedRects: Array<{
     left: number;
     top: number;

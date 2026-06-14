@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ELEMENT_SHORT_ID_PATTERN } from '../element-short-id.js';
 import { ObservationCatalogFieldSchema } from './observation-catalog.schema.js';
 
 export const SlotActionSchema = z.enum([
@@ -16,7 +17,7 @@ export const SlotStepSchema = z.object({
   action: SlotActionSchema,
   element_id: z
     .string()
-    .regex(/^E\d{2,}$/)
+    .regex(ELEMENT_SHORT_ID_PATTERN)
     .optional(),
   value: z.string().optional(),
   url: z.string().optional(),

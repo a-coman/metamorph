@@ -37,7 +37,7 @@ const batchLog: ExploreBatchLog = {
     {
       batch: 1,
       outcome: 'committed',
-      steps: [{ id: 1, action: 'click', element_id: 'E04' }],
+      steps: [{ id: 1, action: 'click', element_id: 'E4' }],
     },
     {
       batch: 2,
@@ -46,13 +46,13 @@ const batchLog: ExploreBatchLog = {
       failedStep: {
         id: 2,
         action: 'click',
-        element_id: 'E01',
+        element_id: 'E1',
         resolved_locator: "getByTestId('search-button')",
       },
       screenshotBeforeSnapshotId: '00000000-0000-4000-8000-000000000001',
       steps: [
-        { id: 2, action: 'fill', element_id: 'E01', value: 'laptop' },
-        { id: 3, action: 'click', element_id: 'E02' },
+        { id: 2, action: 'fill', element_id: 'E1', value: 'laptop' },
+        { id: 3, action: 'click', element_id: 'E2' },
       ],
     },
     {

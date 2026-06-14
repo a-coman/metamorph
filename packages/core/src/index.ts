@@ -1,4 +1,10 @@
 export {
+  ELEMENT_SHORT_ID_PATTERN,
+  formatElementShortId,
+  normalizeElementShortId,
+} from './domain/element-short-id.js';
+
+export {
   InventoryItemSchema,
   PageMetricsSchema,
   PageSnapshotInventorySchema,

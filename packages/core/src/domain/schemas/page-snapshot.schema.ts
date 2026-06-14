@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ELEMENT_SHORT_ID_PATTERN } from '../element-short-id.js';
 
 export const PageMetricsSchema = z.object({
   width: z.number().positive(),
@@ -9,7 +10,7 @@ export const ViewportSizeSchema = PageMetricsSchema;
 
 export const InventoryItemSchema = z.object({
   index: z.number().int().nonnegative(),
-  shortId: z.string().regex(/^E\d{2,}$/),
+  shortId: z.string().regex(ELEMENT_SHORT_ID_PATTERN),
   locator: z.string().nullable(),
   selector: z.string().min(1),
   score: z.number(),

@@ -137,7 +137,7 @@ model PageSnapshot {
   sessionId String   @map("session_id") @db.Uuid
   jobId     String?  @map("job_id") @db.Uuid
   url       String
-  /// Set-of-Marks inventory JSON (E01, E02… + locators)
+  /// Set-of-Marks inventory JSON (E1, E2… + locators)
   inventory Json
   createdAt DateTime @default(now()) @map("created_at")
 

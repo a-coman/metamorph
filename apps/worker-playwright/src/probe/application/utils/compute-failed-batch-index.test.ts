@@ -6,7 +6,7 @@ describe('computeFailedBatchIndex', () => {
   const rawSteps = [
     { id: 1, action: 'click' as const, element_id: 'E21' },
     { id: 2, action: 'click' as const, element_id: 'E61' },
-    { id: 3, action: 'click' as const, element_id: 'E01' },
+    { id: 3, action: 'click' as const, element_id: 'E1' },
   ];
 
   const allSteps = [

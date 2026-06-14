@@ -8,7 +8,7 @@ import { resolveStepTargets } from './probe-spec-compiler.js';
 function baseItem(overrides: Partial<InventoryItem> = {}): InventoryItem {
   return {
     index: 0,
-    shortId: 'E03',
+    shortId: 'E3',
     locator: 'getByRole("link", { name: "Amazon.es" })',
     selector: '#nav-logo-sprites',
     score: 100,
@@ -59,7 +59,7 @@ describe('resolveInventoryItemTarget', () => {
         ),
       (error: unknown) => {
         assert.ok(error instanceof PlaybookCompileError);
-        assert.match((error as Error).message, /Ambiguous target for E03/);
+        assert.match((error as Error).message, /Ambiguous target for E3/);
         return true;
       },
     );
@@ -89,7 +89,7 @@ describe('resolveInventoryItemTarget', () => {
 describe('resolveStepTargets', () => {
   it('attaches resolved_selector when locator is ambiguous', () => {
     const [step] = resolveStepTargets(
-      [{ id: 1, action: 'click', element_id: 'E03' }],
+      [{ id: 1, action: 'click', element_id: 'E3' }],
       {
         url: 'https://www.amazon.es/',
         capturedAt: new Date().toISOString(),

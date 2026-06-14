@@ -5,6 +5,7 @@ import {
   MR_PLAN_PROMPT_VERSION,
   MrPlanOutputSchema,
   PLAN_EXPLORE_PROMPT_VERSION,
+  normalizeElementShortId,
   type MrIntent,
   type PageSnapshotInventory,
 } from '@metamorph/core';
@@ -540,6 +541,10 @@ function normalizePlanStep(step: unknown, fallbackId: number): unknown {
   delete record.duration_ms;
   delete record.ms;
   delete record.wait_ms;
+
+  if (typeof record.element_id === 'string') {
+    record.element_id = normalizeElementShortId(record.element_id);
+  }
 
   return {
     ...record,

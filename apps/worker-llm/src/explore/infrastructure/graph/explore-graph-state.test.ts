@@ -17,9 +17,9 @@ const graphSourcePath = join(
 
 describe('explore-graph pendingProbeSteps', () => {
   it('reducer uses last-write-wins', () => {
-    const previous: SlotStep[] = [{ id: 1, action: 'click', element_id: 'E01' }];
+    const previous: SlotStep[] = [{ id: 1, action: 'click', element_id: 'E1' }];
     const cleared: SlotStep[] = [];
-    const next: SlotStep[] = [{ id: 2, action: 'fill', element_id: 'E02', value: 'x' }];
+    const next: SlotStep[] = [{ id: 2, action: 'fill', element_id: 'E2', value: 'x' }];
 
     assert.deepEqual(mergePendingProbeSteps(previous, cleared), []);
     assert.deepEqual(mergePendingProbeSteps(previous, next), next);

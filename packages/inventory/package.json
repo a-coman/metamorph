@@ -1,7 +1,7 @@
 {
   "name": "@metamorph/inventory",
   "version": "1.0.0",
-  "description": "Set-of-Marks page inventory (E01, E02…)",
+  "description": "Set-of-Marks page inventory (E1, E2…)",
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "build": "tsc",
