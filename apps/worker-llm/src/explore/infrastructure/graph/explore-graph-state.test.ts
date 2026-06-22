@@ -46,4 +46,30 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.ok(source.includes('pendingProbeSteps: []'));
     assert.ok(source.includes('return afterAssessCheckpoint({'));
   });
+
+  it('does not splice validatedSteps on probe or checkpoint failure', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    const commitStart = source.indexOf('async function commitOrBacktrackNode');
+    const dispatchSmokeStart = source.indexOf('async function dispatchSmokeNode');
+    assert.ok(commitStart >= 0);
+    assert.ok(dispatchSmokeStart > commitStart);
+
+    const commitBody = source.slice(commitStart, dispatchSmokeStart);
+    const failBranchStart = commitBody.indexOf("if (state.lastVerdict === 'fail')");
+    assert.ok(failBranchStart >= 0);
+
+    const failBranch = commitBody.slice(failBranchStart);
+    assert.equal(
+      failBranch.includes('validatedSteps[phase].splice'),
+      false,
+      'commit fail must not remove committed steps from validatedSteps',
+    );
+    assert.equal(
+      failBranch.includes('current.splice'),
+      false,
+      'commit fail must not splice a backtracked copy of validatedSteps',
+    );
+    assert.match(failBranch, /revert snapshot/);
+    assert.match(failBranch, /revertedSnapshotId/);
+  });
 });

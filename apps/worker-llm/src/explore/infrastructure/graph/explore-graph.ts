@@ -745,35 +745,21 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
     if (state.lastVerdict === 'fail') {
       const phase = state.phase;
-      const current = [...state.validatedSteps[phase]];
-      const batchSize = Math.min(state.lastExecutedSteps.length || 3, current.length);
-      if (batchSize > 0) {
-        current.splice(-batchSize, batchSize);
-      }
+      const committedStepCount = state.validatedSteps[phase].length;
 
       const backtrackHint =
-        current.length === 0
+        committedStepCount === 0
           ? buildEmptyPathBacktrackHint(phase, state.probeError)
           : undefined;
 
       logExploreGraphEvent(
-        `iter=${state.iteration} phase=${state.phase} commit fail → backtrack | path=${current.length} steps`,
+        `iter=${state.iteration} phase=${state.phase} commit fail → revert snapshot | path=${committedStepCount} steps`,
       );
 
       const revertedSnapshotId =
-        current.length === 0
+        committedStepCount === 0
           ? state.initialSnapshotId
           : (state.snapshotBeforeId ?? state.initialSnapshotId);
-
-      const validatedSteps = {
-        ...state.validatedSteps,
-        [phase]: current,
-      };
-
-      await deps.explorationRepo.updateGenerationSlots(
-        state.mrVersionId,
-        buildGenerationSlots({ ...state, validatedSteps }),
-      );
 
       const batchLog =
         state.probeStatus === 'failed' || state.probeFailureContext
@@ -788,7 +774,6 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
             });
 
       return {
-        validatedSteps,
         lastExecutedSteps: [],
         recoveryAttempts: state.recoveryAttempts + 1,
         currentSnapshotId: revertedSnapshotId,

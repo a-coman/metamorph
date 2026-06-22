@@ -140,6 +140,7 @@ export function buildPlanExploreSystemPrompt(): string {
     '- Return action=abort when the phase goal cannot be achieved on this page (impossible MR, unrecoverable auth/captcha, or no viable path after probe failures). This ends exploration immediately.',
     '- Do NOT use abort for dismissible cookies or modals, or recoverable steps — plan append_steps to continue instead.',
     '- After a probe failure, prefer append_steps with a different approach; use abort only when continuing is pointless.',
+    '- Probe or checkpoint failure reverts the browser to the snapshot before the failed batch; validated batches in Exploration history stay committed — do not assume those steps were undone.',
     '- Do not repeat batches listed under Errors in the user message.',
     '- If a batch committed overlay dismissal, plan the next sub-goal (e.g. fill destination, submit search) — do not dismiss the same overlays again.',
     '- element_ids from failed batches or screenshots may not match Current inventory; always pick from Current inventory for the attached screenshot.',
