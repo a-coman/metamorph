@@ -98,7 +98,42 @@ describe('buildPlanExploreUserText batch log', () => {
     });
 
     assert.match(text, /Attached: annotated screenshot/);
+    assert.match(text, /Current inventory \(use ONLY these element_ids in steps\):/);
+    assert.doesNotMatch(text, /Page structure/);
     assert.match(text, /Errors \(do not repeat these failed approaches\):/);
     assert.match(text, /\(none yet\)/);
+  });
+
+  it('includes annotated accessibility tree when present on inventory', () => {
+    const text = buildPlanExploreUserText({
+      url: 'https://www.example.com/',
+      phase: 'source',
+      mrIntent,
+      inventory: {
+        ...inventory,
+        items: [
+          {
+            index: 0,
+            shortId: 'E2',
+            locator: null,
+            selector: '#accept',
+            score: 1,
+            labelShown: true,
+            tagName: 'button',
+            id: null,
+            role: 'button',
+            name: 'Aceptar todas',
+            ariaLabel: null,
+          },
+        ],
+        labeledCount: 1,
+        accessibilityTreeAnnotated: `- dialog "Usamos cookies"
+  - button "Aceptar todas" → E2`,
+      },
+      batchLog: { source: [], follow_up: [] },
+    });
+
+    assert.match(text, /Page structure \(accessibility tree/);
+    assert.match(text, /→ E2/);
   });
 });

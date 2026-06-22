@@ -17,3 +17,20 @@ export function buildInventorySummary(inventory: PageSnapshotInventory): string 
     })
     .join('\n');
 }
+
+export function buildEnrichedInventorySection(inventory: PageSnapshotInventory): string {
+  const sections = [
+    'Current inventory (use ONLY these element_ids in steps):',
+    buildInventorySummary(inventory),
+  ];
+
+  if (inventory.accessibilityTreeAnnotated?.trim()) {
+    sections.push(
+      '',
+      'Page structure (accessibility tree — context only; lines with → E{n} map to inventory):',
+      inventory.accessibilityTreeAnnotated,
+    );
+  }
+
+  return sections.join('\n');
+}

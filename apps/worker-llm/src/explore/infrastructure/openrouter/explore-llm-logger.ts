@@ -273,7 +273,9 @@ function formatUserPrompt(userText: string, screenshotCount: number): string[] {
     lines.push(...formatStepsList(batch, 'probe_batch'));
   }
 
-  const inventoryCurrent = extractBlock(userText, 'Current inventory:');
+  const inventoryCurrent =
+    extractBlock(userText, 'Current inventory (use ONLY these element_ids in steps):') ??
+    extractBlock(userText, 'Current inventory:');
   const inventoryBefore = extractBlock(userText, 'Inventory BEFORE:');
   const inventoryAfter = extractBlock(userText, 'Inventory AFTER:');
 

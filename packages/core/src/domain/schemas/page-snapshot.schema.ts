@@ -41,6 +41,10 @@ export const PageSnapshotInventorySchema = z.object({
   viewport: ViewportSizeSchema,
   items: z.array(InventoryItemSchema),
   labeledCount: z.number().int().nonnegative(),
+  /** Raw Playwright ariaSnapshot YAML (captured before DOM overlays). */
+  accessibilitySnapshot: z.string().optional(),
+  /** ariaSnapshot YAML with inventory shortIds annotated as → E{n}. */
+  accessibilityTreeAnnotated: z.string().optional(),
 });
 
 export type PageMetrics = z.infer<typeof PageMetricsSchema>;

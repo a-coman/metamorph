@@ -18,6 +18,7 @@ export {
   DEFAULT_CAPTURE_VIEWPORT,
   DEFAULT_MAX_CAPTURE_HEIGHT,
   DEFAULT_MAX_ITEMS,
+  DEFAULT_MAX_A11Y_TREE_CHARS,
   DEFAULT_BROWSER_LOCALE,
   buildBrowserContextOptions,
 } from './infrastructure/playwright/capture-defaults.js';
@@ -36,6 +37,9 @@ export { evaluateLocatorChain } from './infrastructure/playwright/evaluate-locat
 export { fillWithAutocomplete } from './infrastructure/playwright/fill-with-autocomplete.js';
 
 export { scanAndEnrichCurrentPage } from './infrastructure/playwright/scan-and-enrich-current-page.js';
+
+export { annotateAccessibilityTree } from './infrastructure/playwright/annotate-accessibility-tree.js';
+export { captureAccessibilitySnapshot } from './infrastructure/playwright/capture-accessibility-snapshot.js';
 
 export { toPageSnapshotPayload } from './application/mappers/page-snapshot.mapper.js';
 

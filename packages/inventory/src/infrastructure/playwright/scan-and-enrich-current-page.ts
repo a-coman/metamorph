@@ -1,8 +1,11 @@
 import type { Page } from 'playwright';
 import type { InventoryItem } from '@metamorph/core';
 import { DEFAULT_MAX_CAPTURE_HEIGHT, DEFAULT_MAX_ITEMS } from './capture-defaults.js';
-import { loadBrowserScanScript } from './load-browser-scan-script.js';
-import { captureAnnotatedScreenshot, prepareCaptureViewport } from './prepare-viewport.js';
+import {
+  captureAnnotatedScreenshot,
+  prepareCaptureViewport,
+} from './prepare-viewport.js';
+import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
 
 export type ScanAndEnrichResult = {
   url: string;
@@ -12,6 +15,8 @@ export type ScanAndEnrichResult = {
   items: InventoryItem[];
   screenshot: Buffer;
   labeledCount: number;
+  accessibilitySnapshot?: string;
+  accessibilityTreeAnnotated?: string;
 };
 
 export async function scanAndEnrichCurrentPage(
@@ -29,16 +34,12 @@ export async function scanAndEnrichCurrentPage(
     waitAfterViewportMs,
   );
 
-  const browserScript = loadBrowserScanScript();
-  const scannedItems = (await page.evaluate(
-    ({ script, opts }) => {
-      const api = (0, eval)(`${script}\n; __metamorphInventory`) as {
-        scanAndLabelPage: (options: { maxItems: number }) => unknown[];
-      };
-      return api.scanAndLabelPage(opts);
-    },
-    { script: browserScript, opts: { maxItems } },
-  )) as InventoryItem[];
+  const {
+    items,
+    accessibilitySnapshot,
+    accessibilityTreeAnnotated,
+    labeledCount,
+  } = await scanInventoryWithAccessibility(page, maxItems);
 
   const screenshot = await captureAnnotatedScreenshot(page);
 
@@ -47,8 +48,10 @@ export async function scanAndEnrichCurrentPage(
     capturedAt: new Date().toISOString(),
     pageMetrics,
     viewport,
-    items: scannedItems,
+    items,
     screenshot,
-    labeledCount: scannedItems.filter((item) => item.labelShown).length,
+    labeledCount,
+    ...(accessibilitySnapshot ? { accessibilitySnapshot } : {}),
+    ...(accessibilityTreeAnnotated ? { accessibilityTreeAnnotated } : {}),
   };
 }

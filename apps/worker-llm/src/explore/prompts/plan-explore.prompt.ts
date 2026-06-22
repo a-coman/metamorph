@@ -126,6 +126,7 @@ export function buildPlanExploreSystemPrompt(): string {
     '- element_ids in examples and source reference are NOT valid targets; never copy them — pick from Current inventory for the attached screenshot.',
     '- click, fill, and selectOption MUST include element_id.',
     '- fill is ONLY allowed on inventory items marked fillable.',
+    '- If the target element for the phase goal is not in Current inventory, plan only steps using existing element_ids (dismiss overlays, click triggers, waitFor). Do not plan fill or click on absent elements; wait for the next snapshot.',
     '- Plan toward the current phase goal stated in the user message.',
     '- Each phase is an independent Playwright scenario replayed from the homepage with a new browser context.',
     '- Plan only toward the current phase goal; do not assume follow_up must copy or repeat source unless the follow_up phase goal explicitly requires it.',

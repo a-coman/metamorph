@@ -17,6 +17,8 @@ export type PageInventory = {
   rawScreenshot?: Buffer;
   screenshot: Buffer;
   labeledCount: number;
+  accessibilitySnapshot?: string;
+  accessibilityTreeAnnotated?: string;
 };
 
 export type BuildPageInventoryOptions = {

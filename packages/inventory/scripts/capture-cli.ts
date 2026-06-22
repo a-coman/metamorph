@@ -26,15 +26,30 @@ async function main() {
 
     const jsonPath = join(outDir, 'inventory.json');
     const pngPath = join(outDir, 'annotated.png');
+    const treePath = join(outDir, 'accessibility-tree.txt');
+    const snapshotPath = join(outDir, 'accessibility-snapshot.txt');
 
     await writeFile(jsonPath, JSON.stringify(payload, null, 2), 'utf8');
     await writeFile(pngPath, inventory.screenshot);
+
+    if (payload.accessibilityTreeAnnotated) {
+      await writeFile(treePath, payload.accessibilityTreeAnnotated, 'utf8');
+    }
+    if (payload.accessibilitySnapshot) {
+      await writeFile(snapshotPath, payload.accessibilitySnapshot, 'utf8');
+    }
 
     console.log(
       `Captured ${payload.items.length} elements (${payload.labeledCount} labeled) from ${payload.url}`,
     );
     console.log(`JSON → ${jsonPath}`);
     console.log(`PNG  → ${pngPath}`);
+    if (payload.accessibilityTreeAnnotated) {
+      console.log(`Tree → ${treePath}`);
+    }
+    if (payload.accessibilitySnapshot) {
+      console.log(`A11y → ${snapshotPath}`);
+    }
   } finally {
     await browser.close();
   }

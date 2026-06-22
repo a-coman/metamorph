@@ -1,17 +1,16 @@
 import type { Page } from 'playwright';
-import type { InventoryItem } from '@metamorph/core';
 import type {
   BuildPageInventoryOptions,
   PageInventory,
 } from '../../domain/types/inventory-item.types.js';
 import { PageInventoryBuilderPort } from '../../domain/repositories/page-inventory-builder.repository.port.js';
-import { loadBrowserScanScript } from './load-browser-scan-script.js';
 import { DEFAULT_MAX_CAPTURE_HEIGHT, DEFAULT_MAX_ITEMS } from './capture-defaults.js';
 import {
   captureAnnotatedScreenshot,
   captureRawScreenshot,
   prepareCaptureViewport,
 } from './prepare-viewport.js';
+import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
 
 export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort {
   async buildFromPage(
@@ -40,16 +39,12 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
 
     const rawScreenshot = await captureRawScreenshot(page);
 
-    const browserScript = loadBrowserScanScript();
-    const items = (await page.evaluate(
-      ({ script, opts }) => {
-        const api = (0, eval)(`${script}\n; __metamorphInventory`) as {
-          scanAndLabelPage: (options: { maxItems: number }) => unknown[];
-        };
-        return api.scanAndLabelPage(opts);
-      },
-      { script: browserScript, opts: { maxItems } },
-    )) as InventoryItem[];
+    const {
+      items,
+      accessibilitySnapshot,
+      accessibilityTreeAnnotated,
+      labeledCount,
+    } = await scanInventoryWithAccessibility(page, maxItems);
 
     const screenshot = await captureAnnotatedScreenshot(page);
 
@@ -61,7 +56,9 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
       items,
       rawScreenshot,
       screenshot,
-      labeledCount: items.filter((item) => item.labelShown).length,
+      labeledCount,
+      ...(accessibilitySnapshot ? { accessibilitySnapshot } : {}),
+      ...(accessibilityTreeAnnotated ? { accessibilityTreeAnnotated } : {}),
     };
 
     return inventory;
