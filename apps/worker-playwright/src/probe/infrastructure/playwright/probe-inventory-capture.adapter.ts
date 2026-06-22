@@ -24,6 +24,7 @@ import {
   type PageInventory,
 } from '@metamorph/inventory';
 import { ProbeInventoryCaptureError } from '../../domain/errors/probe-capture.errors.js';
+import { sessionControlChecker } from '../../../shared/infrastructure/session-control/session-control.js';
 
 export type ProbeCaptureResult = {
   inventory: PageInventory;
@@ -35,6 +36,7 @@ export class ProbeInventoryCaptureAdapter {
     steps: SlotStep[],
     inventory: PageSnapshotInventory,
     jobId: string,
+    sessionId?: string,
   ): Promise<ProbeCaptureResult> {
     const browser = await chromium.launch({
       headless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
@@ -62,6 +64,10 @@ export class ProbeInventoryCaptureAdapter {
         let screenshotBeforeStep = await captureRawScreenshot(page);
 
         for (let index = 0; index < steps.length; index++) {
+          if (sessionId && (await sessionControlChecker.isPauseRequested(sessionId))) {
+            throw new ProbeInventoryCaptureError('Session paused by user', null);
+          }
+
           const step = steps[index]!;
           const urlBeforeFailure = page.url();
           const beforeScreenshot = screenshotBeforeStep;

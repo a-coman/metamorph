@@ -23,3 +23,11 @@ export class JobExecutionFailedError implements DomainError {
     this.errorMessage = `Job ${jobId} failed: ${message}`;
   }
 }
+
+export class JobPausedError implements DomainError {
+  readonly errorMessage: string;
+
+  constructor(jobId: string) {
+    this.errorMessage = `Job ${jobId} paused`;
+  }
+}

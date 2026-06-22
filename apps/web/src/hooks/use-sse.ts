@@ -14,12 +14,16 @@ function closeEventSource(source: EventSource) {
 export function useSessionEvents(
   sessionId: string | null,
   onEvent: (event: SessionEvent) => void,
-  options?: { onConnectionChange?: (state: SseConnectionState) => void },
+  options?: {
+    onConnectionChange?: (state: SseConnectionState) => void;
+    reconnectKey?: number;
+  },
 ) {
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
   const onConnectionChangeRef = useRef(options?.onConnectionChange);
   onConnectionChangeRef.current = options?.onConnectionChange;
+  const reconnectKey = options?.reconnectKey ?? 0;
 
   useEffect(() => {
     if (!sessionId) return;
@@ -63,7 +67,7 @@ export function useSessionEvents(
       closeEventSource(source);
       onConnectionChangeRef.current?.('closed');
     };
-  }, [sessionId]);
+  }, [sessionId, reconnectKey]);
 }
 
 export function useMrVersionEvents(

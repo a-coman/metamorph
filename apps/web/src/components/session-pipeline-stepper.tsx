@@ -157,10 +157,15 @@ function PipelinePhaseMessage({
 type SessionPipelineStepperProps = {
   mr?: SessionMrVersionSummaryDto;
   jobs: SessionJobSummaryDto[];
+  controlStatus?: string;
 };
 
-export function SessionPipelineStepper({ mr, jobs }: SessionPipelineStepperProps) {
+export function SessionPipelineStepper({ mr, jobs, controlStatus }: SessionPipelineStepperProps) {
   const stepStates = resolveStepStates(mr, jobs);
+  const pausedStepStates =
+    controlStatus === 'paused'
+      ? stepStates.map((state) => (state === 'active' ? 'warning' : state))
+      : stepStates;
   const hasStarted = jobs.length > 0 || mr !== undefined;
 
   return (
@@ -170,7 +175,16 @@ export function SessionPipelineStepper({ mr, jobs }: SessionPipelineStepperProps
         <span className="text-sm font-medium text-muted-foreground">Pipeline</span>
       </div>
 
-      {hasStarted && <PipelinePhaseMessage stepStates={stepStates} />}
+      {controlStatus === 'paused' && (
+        <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
+          <Loader2 className="size-4 shrink-0 text-amber-600" />
+          <span className="text-sm text-foreground">Session paused — resume to continue the pipeline</span>
+        </div>
+      )}
+
+      {hasStarted && controlStatus !== 'paused' && (
+        <PipelinePhaseMessage stepStates={stepStates} />
+      )}
 
       {!hasStarted ? (
         <div className="flex items-center justify-center py-6 text-sm text-muted-foreground border border-dashed border-border rounded-xl bg-muted/20">
@@ -180,7 +194,7 @@ export function SessionPipelineStepper({ mr, jobs }: SessionPipelineStepperProps
         <div className="rounded-xl border border-border bg-card px-4 py-5 shadow-sm">
           <div className="flex items-start w-full">
             {PIPELINE_STEPS.map((step, index) => {
-              const state = stepStates[index];
+              const state = pausedStepStates[index];
               const Icon = step.icon;
               const isLast = index === PIPELINE_STEPS.length - 1;
 

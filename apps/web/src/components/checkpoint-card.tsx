@@ -15,8 +15,10 @@ import { api } from '@/lib/api';
 import { SlotStepLabel, type SlotStepLike } from '@/lib/format-slot-step';
 import type { ExplorationCheckpointDto } from '@metamorph/api-client';
 
+const ACTIVITY_TIME_LOCALE = 'en-GB';
+
 function formatActivityTime(value: Date | string): string {
-  return new Date(value).toLocaleTimeString(undefined, {
+  return new Date(value).toLocaleTimeString(ACTIVITY_TIME_LOCALE, {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -28,7 +30,7 @@ function ActivityTimestamp({ value }: { value: Date | string }) {
   return (
     <span
       className="text-[11px] tabular-nums shrink-0 text-muted-foreground/60"
-      title={new Date(value).toLocaleString(undefined, { hour12: false })}
+      title={new Date(value).toLocaleString(ACTIVITY_TIME_LOCALE, { hour12: false })}
     >
       {formatActivityTime(value)}
     </span>

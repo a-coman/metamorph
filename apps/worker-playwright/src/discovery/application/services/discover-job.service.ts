@@ -4,12 +4,17 @@ import { left, right } from '@metamorph/utils';
 import {
   JobExecutionFailedError,
   JobNotFoundError,
+  JobPausedError,
 } from '../../domain/errors/discovery.errors.js';
 import { DiscoverJobRepositoryPort } from '../../domain/repositories/discover-job.repository.port.js';
 import { DiscoverJobPort } from '../ports/discover-job.port.js';
 import { PageInventoryCapturePort } from '../ports/page-inventory-capture.port.js';
 import { ChainExploreJobService } from './chain-explore-job.service.js';
 import { SavePageSnapshotService } from './save-page-snapshot.service.js';
+import {
+  pauseSessionJob,
+  sessionControlChecker,
+} from '../../../shared/infrastructure/session-control/session-control.js';
 
 export class DiscoverJobService implements DiscoverJobPort {
   constructor(
@@ -24,6 +29,11 @@ export class DiscoverJobService implements DiscoverJobPort {
     const job = await this.jobRepository.findById(jobId);
     if (!job) {
       return left(new JobNotFoundError(jobId));
+    }
+
+    if (await sessionControlChecker.isPauseRequested(job.sessionId)) {
+      await pauseSessionJob(job.sessionId, jobId);
+      return left(new JobPausedError(jobId));
     }
 
     const startOrError = job.start();
@@ -51,6 +61,11 @@ export class DiscoverJobService implements DiscoverJobPort {
 
       job.complete();
       await this.jobRepository.save(job);
+
+      if (await sessionControlChecker.isPauseRequested(job.sessionId)) {
+        await pauseSessionJob(job.sessionId, jobId);
+        return left(new JobPausedError(jobId));
+      }
 
       await this.chainExploreJob.chain({
         sessionId: job.sessionId,

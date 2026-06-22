@@ -34,6 +34,8 @@ export function SessionEventsProvider({
   const bufferRef = useRef<SessionEvent[]>([]);
   const [connectionState, setConnectionState] =
     useState<SseConnectionState>('connecting');
+  const [reconnectKey, setReconnectKey] = useState(0);
+  const connectionStateRef = useRef<SseConnectionState>('connecting');
 
   const broadcast = useCallback((event: SessionEvent) => {
     bufferRef.current.push(event);
@@ -41,9 +43,22 @@ export function SessionEventsProvider({
       bufferRef.current.shift();
     }
 
+    if (
+      event.type === 'session.control_changed' &&
+      event.controlStatus === 'active' &&
+      connectionStateRef.current === 'closed'
+    ) {
+      setReconnectKey((key) => key + 1);
+    }
+
     for (const handler of subscribersRef.current) {
       handler(event);
     }
+  }, []);
+
+  const handleConnectionChange = useCallback((state: SseConnectionState) => {
+    connectionStateRef.current = state;
+    setConnectionState(state);
   }, []);
 
   const subscribe = useCallback((handler: SessionEventHandler) => {
@@ -61,7 +76,8 @@ export function SessionEventsProvider({
   }, [sessionId]);
 
   useSessionEvents(sessionId, broadcast, {
-    onConnectionChange: setConnectionState,
+    onConnectionChange: handleConnectionChange,
+    reconnectKey,
   });
 
   return (

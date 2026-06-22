@@ -1,4 +1,5 @@
 import { Annotation, END, START, StateGraph, interrupt } from '@langchain/langgraph';
+import type { SessionControlChecker } from '@metamorph/session-control';
 import {
   compilePlaybook,
   EXPLORE_VERIFY_PROMPT_VERSION,
@@ -46,6 +47,7 @@ export type ExploreGraphDeps = {
   openRouter: ExploreOpenRouterClient;
   probePublisher: ProbeJobPublisher;
   artifactReader: S3ArtifactReaderAdapter;
+  sessionControl: SessionControlChecker;
 };
 
 const ExploreAnnotation = Annotation.Root({
@@ -226,6 +228,12 @@ function withBatchFinalized(
 export function buildExploreGraph(deps: ExploreGraphDeps) {
   let checkpointSequence = 0;
 
+  async function checkUserPause(sessionId: string): Promise<void> {
+    if (await deps.sessionControl.isPauseRequested(sessionId)) {
+      interrupt({ reason: 'user_pause' });
+    }
+  }
+
   async function loadAnnotatedBase64(snapshotId: string): Promise<string> {
     const path = await deps.snapshotRepo.loadAnnotatedScreenshot(snapshotId);
     const buffer = await deps.artifactReader.get(path);
@@ -250,6 +258,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function initNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.mrVersionId) {
       return {};
     }
@@ -274,6 +284,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function mrPlanNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed) {
       return {};
     }
@@ -318,6 +330,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function planNextNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed) {
       return {};
     }
@@ -518,6 +532,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   // re-executed on resume (LangGraph re-runs only the node that interrupts).
   // The published job id is persisted in state to stay idempotent.
   async function dispatchProbeNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed) {
       return {};
     }
@@ -607,6 +623,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function assessCheckpointNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed || state.lastVerdict === 'goal_reached') {
       return {};
     }
@@ -714,6 +732,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function commitOrBacktrackNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed) {
       return {};
     }
@@ -842,6 +862,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function dispatchSmokeNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed || state.smokeGatePassed || state.lastVerdict !== 'goal_reached') {
       return {};
     }
@@ -881,6 +903,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function assessSmokeNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed || !state.awaitingSmokeReplay) {
       return {};
     }
@@ -953,6 +977,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function switchPhaseNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed || state.lastVerdict !== 'goal_reached' || !state.smokeGatePassed) {
       return {};
     }
@@ -984,6 +1010,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   }
 
   async function compileDraftNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
     if (state.failed || !state.mrDefinition || !state.smokeGatePassed) {
       return {};
     }

@@ -2,7 +2,8 @@ import { Injectable, MessageEvent, NotFoundException } from '@nestjs/common';
 import type { SessionEvent } from '@metamorph/api-client';
 import { MrVersionStatus, JobType, JobStatus } from '../../../../generated/prisma/enums.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
-import { Observable } from 'rxjs';
+import { from, Observable, switchMap } from 'rxjs';
+import { closeSseStream } from '../sse-stream.utils.js';
 import {
   mapLlmCallDto,
   mapProbeDto,
@@ -33,6 +34,22 @@ export class SessionEventsService {
   constructor(private readonly prisma: PrismaService) {}
 
   stream(sessionId: string): Observable<MessageEvent> {
+    return from(this.assertSessionExists(sessionId)).pipe(
+      switchMap(() => this.createStream(sessionId)),
+    );
+  }
+
+  private async assertSessionExists(sessionId: string): Promise<void> {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { id: true },
+    });
+    if (!session) {
+      throw new NotFoundException(`Session ${sessionId} not found`);
+    }
+  }
+
+  private createStream(sessionId: string): Observable<MessageEvent> {
     return new Observable((subscriber) => {
       const startedAt = Date.now();
       let lastJobState = new Map<string, string>();
@@ -41,12 +58,16 @@ export class SessionEventsService {
       let lastProbeState = new Map<string, string>();
       let seenScreenshotIds = new Set<string>();
       let seenMrIds = new Set<string>();
+      let lastControlStatus: string | null = null;
       let initialized = false;
+      let timer: ReturnType<typeof setInterval> | undefined;
 
       const poll = async () => {
         const session = await this.prisma.session.findUnique({
           where: { id: sessionId },
           select: {
+            controlStatus: true,
+            controlStatusChangedAt: true,
             jobs: {
               select: {
                 id: true,
@@ -104,9 +125,7 @@ export class SessionEventsService {
         });
 
         if (!session) {
-          subscriber.error(
-            new NotFoundException(`Session ${sessionId} not found`),
-          );
+          closeSseStream(subscriber, timer);
           return null;
         }
 
@@ -127,6 +146,18 @@ export class SessionEventsService {
             .filter((snapshot) => snapshot.jobId !== null)
             .map((snapshot) => [snapshot.jobId as string, snapshot]),
         );
+
+        if (initialized && lastControlStatus !== session.controlStatus) {
+          timestampedEvents.push({
+            event: {
+              type: 'session.control_changed',
+              controlStatus: session.controlStatus,
+              changedAt: (session.controlStatusChangedAt ?? new Date()).toISOString(),
+            },
+            timestamp: session.controlStatusChangedAt ?? new Date(),
+          });
+        }
+        lastControlStatus = session.controlStatus;
 
         for (const job of session.jobs) {
           const key = `${job.type}:${job.status}`;
@@ -250,7 +281,6 @@ export class SessionEventsService {
 
       const handlePollResult = (result: { events: SessionEvent[]; terminal: boolean } | null) => {
         if (!result) {
-          clearInterval(timer);
           return true;
         }
 
@@ -262,15 +292,11 @@ export class SessionEventsService {
           result.terminal ||
           Date.now() - startedAt >= STREAM_TIMEOUT_MS
         ) {
-          subscriber.next({ data: { type: 'stream.end' } });
-          subscriber.complete();
-          clearInterval(timer);
+          closeSseStream(subscriber, timer);
           return true;
         }
         return false;
       };
-
-      let timer: ReturnType<typeof setInterval>;
 
       void poll()
         .then((result) => {
@@ -279,15 +305,14 @@ export class SessionEventsService {
             timer = setInterval(() => {
               void poll()
                 .then(handlePollResult)
-                .catch((error: unknown) => {
-                  subscriber.error(error);
-                  clearInterval(timer);
+                .catch(() => {
+                  closeSseStream(subscriber, timer);
                 });
             }, POLL_INTERVAL_MS);
           }
         })
-        .catch((error: unknown) => {
-          subscriber.error(error);
+        .catch(() => {
+          closeSseStream(subscriber, timer);
         });
 
       return () => {

@@ -10,6 +10,7 @@ export const QUEUE_PLAYWRIGHT_DLQ = 'q.playwright.dlq';
 
 export const JOB_LLM_EXPLORE = 'job.llm.explore';
 export const JOB_LLM_EXPLORE_RESUME = 'job.llm.explore_resume';
+export const JOB_LLM_EXPLORE_USER_RESUME = 'job.llm.explore_user_resume';
 export const JOB_LLM_DLQ = 'job.llm.dlq';
 
 export const QUEUE_LLM = 'q.llm';

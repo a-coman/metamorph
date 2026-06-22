@@ -15,6 +15,7 @@ import {
   Clock,
   Zap,
   Eye,
+  Pause,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -60,6 +61,7 @@ import type {
 
 interface SessionLiveActivityProps {
   isActive: boolean;
+  controlStatus?: string;
   initialActivity?: SessionActivityDto | null;
 }
 
@@ -103,8 +105,10 @@ function formatScreenshotPath(url: string): string {
   }
 }
 
+const ACTIVITY_TIME_LOCALE = 'en-GB';
+
 function formatActivityTime(value: Date | string): string {
-  return new Date(value).toLocaleTimeString(undefined, {
+  return new Date(value).toLocaleTimeString(ACTIVITY_TIME_LOCALE, {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -116,7 +120,7 @@ function ActivityTimestamp({ value }: { value: Date | string }) {
   return (
     <span
       className="text-[11px] tabular-nums shrink-0 text-muted-foreground/60"
-      title={new Date(value).toLocaleString(undefined, { hour12: false })}
+      title={new Date(value).toLocaleString(ACTIVITY_TIME_LOCALE, { hour12: false })}
     >
       {formatActivityTime(value)}
     </span>
@@ -633,7 +637,7 @@ function llmCallsEqual(a: LlmCallDto, b: LlmCallDto): boolean {
   );
 }
 
-export function SessionLiveActivity({ isActive, initialActivity }: SessionLiveActivityProps) {
+export function SessionLiveActivity({ isActive, controlStatus = 'active', initialActivity }: SessionLiveActivityProps) {
   const [rawState, setRawState] = useState<RawActivityState>(() => {
     if (!initialActivity) {
       return createEmptyRawState();
@@ -662,8 +666,14 @@ export function SessionLiveActivity({ isActive, initialActivity }: SessionLiveAc
   const liveStreamingRef = useRef(false);
 
   const statusContext = useMemo<ActivityStatusContext>(
-    () => ({ terminalExploreJobs }),
-    [terminalExploreJobs],
+    () => ({
+      terminalExploreJobs,
+      sessionControlStatus:
+        controlStatus === 'pausing' || controlStatus === 'paused'
+          ? controlStatus
+          : 'active',
+    }),
+    [terminalExploreJobs, controlStatus],
   );
 
   const { cycles, standalone } = useMemo(
@@ -878,7 +888,12 @@ export function SessionLiveActivity({ isActive, initialActivity }: SessionLiveAc
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
           <Activity className="size-4 text-muted-foreground" />
           Live Activity
-          {isActive ? (
+          {controlStatus === 'paused' || controlStatus === 'pausing' ? (
+            <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium ml-auto">
+              <Pause className="size-3" />
+              Paused
+            </span>
+          ) : isActive ? (
             <span className="flex items-center gap-1.5 text-xs text-primary font-medium ml-auto">
               <span className="size-2 rounded-full bg-primary animate-pulse" />
               Streaming

@@ -231,6 +231,9 @@ importers:
       '@metamorph/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@metamorph/session-control':
+        specifier: workspace:*
+        version: link:../../packages/session-control
       '@metamorph/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -446,6 +449,9 @@ importers:
       '@metamorph/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@metamorph/session-control':
+        specifier: workspace:*
+        version: link:../../packages/session-control
       '@metamorph/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -501,6 +507,9 @@ importers:
       '@metamorph/inventory':
         specifier: workspace:*
         version: link:../../packages/inventory
+      '@metamorph/session-control':
+        specifier: workspace:*
+        version: link:../../packages/session-control
       '@metamorph/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -592,6 +601,18 @@ importers:
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
+      tsx:
+        specifier: ^4.22.3
+        version: 4.22.3
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/session-control:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
       tsx:
         specifier: ^4.22.3
         version: 4.22.3

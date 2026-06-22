@@ -51,4 +51,26 @@ export class SessionsController {
 
     return result.value;
   }
+
+  @Post(':id/pause')
+  async pause(@Param('id') id: string) {
+    const result = await this.sessionPort.pauseSession(id);
+
+    if (result.isLeft()) {
+      mapSessionDomainError(result.value);
+    }
+
+    return result.value;
+  }
+
+  @Post(':id/resume')
+  async resume(@Param('id') id: string) {
+    const result = await this.sessionPort.resumeSession(id);
+
+    if (result.isLeft()) {
+      mapSessionDomainError(result.value);
+    }
+
+    return result.value;
+  }
 }

@@ -1,8 +1,9 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { DEFAULT_BROWSER_LOCALE } from '@metamorph/inventory';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sessionControlChecker } from '../../../shared/infrastructure/session-control/session-control.js';
 
 export type PlaybookRunResult = {
   sourceObservation: Record<string, unknown>;
@@ -20,7 +21,11 @@ export class PlaybookRunnerAdapter {
     this.reporterPath = join(here, 'observation-reporter.cjs');
   }
 
-  async run(playbookContent: string, runId: string): Promise<PlaybookRunResult> {
+  async run(
+    playbookContent: string,
+    runId: string,
+    sessionId?: string,
+  ): Promise<PlaybookRunResult> {
     const runDir = join(this.workerRoot, '.runs', runId);
     await mkdir(runDir, { recursive: true });
 
@@ -50,7 +55,7 @@ module.exports = {
 
     const configPath = join(runDir, 'playwright.config.cjs');
     await writeFile(configPath, configContent);
-    await this.execPlaywright(configPath);
+    await this.execPlaywright(configPath, sessionId);
 
     const sourceObservation = JSON.parse(
       await readFile(join(runDir, 'source.observation.json'), 'utf-8'),
@@ -65,7 +70,7 @@ module.exports = {
     return { sourceObservation, followUpObservation, traceZipPath };
   }
 
-  private execPlaywright(configPath: string): Promise<void> {
+  private execPlaywright(configPath: string, sessionId?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const child = spawn(
         'pnpm',
@@ -73,7 +78,30 @@ module.exports = {
         { cwd: this.workerRoot, stdio: 'inherit', env: process.env },
       );
 
+      let pauseWatcher: ReturnType<typeof setInterval> | null = null;
+      let abortedForPause = false;
+
+      if (sessionId) {
+        pauseWatcher = setInterval(() => {
+          void sessionControlChecker.isPauseRequested(sessionId).then((paused) => {
+            if (paused && !abortedForPause) {
+              abortedForPause = true;
+              this.terminateChild(child);
+            }
+          });
+        }, 1000);
+      }
+
       child.on('close', (code) => {
+        if (pauseWatcher) {
+          clearInterval(pauseWatcher);
+        }
+
+        if (abortedForPause) {
+          reject(new Error('Playbook paused by user'));
+          return;
+        }
+
         if (code === 0) {
           resolve();
           return;
@@ -82,8 +110,19 @@ module.exports = {
         reject(new Error(`Playwright tests failed with exit code ${code}`));
       });
 
-      child.on('error', reject);
+      child.on('error', (error) => {
+        if (pauseWatcher) {
+          clearInterval(pauseWatcher);
+        }
+        reject(error);
+      });
     });
+  }
+
+  private terminateChild(child: ChildProcess): void {
+    if (child.pid) {
+      process.kill(child.pid, 'SIGTERM');
+    }
   }
 
   private async findTraceZip(dir: string): Promise<string | null> {

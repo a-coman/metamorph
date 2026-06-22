@@ -14,6 +14,8 @@ COPY packages/core/package.json packages/core/
 COPY packages/inventory/package.json packages/inventory/
 COPY packages/utils/package.json packages/utils/
 COPY packages/utils/tsconfig.json packages/utils/
+COPY packages/session-control/package.json packages/session-control/
+COPY packages/session-control/tsconfig.json packages/session-control/
 COPY apps/worker-playwright/package.json apps/worker-playwright/
 COPY apps/worker-playwright/tsconfig.json apps/worker-playwright/
 COPY apps/api/package.json apps/api/
@@ -32,12 +34,14 @@ COPY packages/contracts packages/contracts
 COPY packages/core packages/core
 COPY packages/inventory packages/inventory
 COPY packages/utils packages/utils
+COPY packages/session-control packages/session-control
 COPY apps/worker-playwright apps/worker-playwright
 
 RUN pnpm --filter @metamorph/worker-playwright exec prisma generate \
       --schema=../api/prisma/schema.prisma \
   && pnpm --filter @metamorph/contracts build \
   && pnpm --filter @metamorph/utils build \
+  && pnpm --filter @metamorph/session-control build \
   && pnpm --filter @metamorph/inventory build:browser
 
 ENTRYPOINT ["pnpm", "--filter", "@metamorph/worker-playwright", "exec", "tsx", "src/main.ts"]

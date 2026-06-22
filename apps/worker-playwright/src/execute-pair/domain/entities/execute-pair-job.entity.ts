@@ -123,4 +123,9 @@ export class ExecutePairJob extends Entity<ExecutePairJobProps> {
     this.props.finishedAt = new Date();
     this.props.errorMessage = message;
   }
+
+  pause(): void {
+    this.props.status = JobStatus.paused;
+    this.props.finishedAt = new Date();
+  }
 }

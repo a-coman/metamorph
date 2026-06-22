@@ -86,4 +86,9 @@ export class DiscoverJob extends Entity<DiscoverJobProps> {
     this.props.finishedAt = new Date();
     this.props.errorMessage = message;
   }
+
+  pause(): void {
+    this.props.status = JobStatus.paused;
+    this.props.finishedAt = new Date();
+  }
 }

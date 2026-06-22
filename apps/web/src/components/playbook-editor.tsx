@@ -32,15 +32,17 @@ interface PlaybookEditorProps {
   mrVersionId: string;
   initialContent: string;
   status: string;
+  sessionControlPaused?: boolean;
 }
 
 export function PlaybookEditor({
   mrVersionId,
   initialContent,
   status,
+  sessionControlPaused = false,
 }: PlaybookEditorProps) {
   const router = useRouter();
-  const editable = status === 'draft_pending_hitl';
+  const editable = status === 'draft_pending_hitl' && !sessionControlPaused;
   const [content, setContent] = useState(initialContent);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);

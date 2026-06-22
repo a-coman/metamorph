@@ -27,6 +27,7 @@ export type SessionDetailsDto = {
   mode: string;
   generateCount: number;
   weakOracle: boolean;
+  controlStatus: string;
   createdAt: Date;
   updatedAt: Date;
   jobs: SessionJobSummaryDto[];
@@ -57,4 +58,14 @@ export type CreateSessionResultDto = {
 export type QueueDiscoverResultDto = {
   jobId: string;
   status: string;
+};
+
+export type PauseSessionResultDto = {
+  controlStatus: string;
+};
+
+export type ResumeSessionResultDto = {
+  controlStatus: string;
+  jobId: string;
+  jobType: string;
 };

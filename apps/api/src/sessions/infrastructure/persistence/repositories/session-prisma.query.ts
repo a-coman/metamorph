@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { JobStatus } from '../../../../../generated/prisma/enums.js';
+import { JobStatus, SessionControlStatus } from '../../../../../generated/prisma/enums.js';
 import { PrismaService } from '../../../../shared/infrastructure/prisma/prisma.service.js';
 import type {
   SessionDetailsDto,
@@ -15,9 +15,14 @@ const ACTIVE_JOB_STATUSES: JobStatus[] = [
 ];
 
 function deriveSessionStatus(
+  controlStatus: SessionControlStatus,
   latestJob: { type: string; status: string } | undefined,
   mrVersionStatus: string | undefined,
 ): string {
+  if (controlStatus !== SessionControlStatus.active) {
+    return controlStatus;
+  }
+
   const jobActive =
     latestJob !== undefined &&
     ACTIVE_JOB_STATUSES.includes(latestJob.status as JobStatus);
@@ -98,6 +103,7 @@ export class SessionPrismaQuery extends SessionQueryPort {
       mode: session.mode,
       generateCount: session.generateCount,
       weakOracle: session.weakOracle,
+      controlStatus: session.controlStatus,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       jobs: session.jobs,
@@ -150,6 +156,7 @@ export class SessionPrismaQuery extends SessionQueryPort {
         id: true,
         url: true,
         mode: true,
+        controlStatus: true,
         createdAt: true,
         jobs: {
           select: { type: true, status: true },
@@ -171,7 +178,11 @@ export class SessionPrismaQuery extends SessionQueryPort {
       const latestJob = session.jobs[0];
       const latestMr = session.mrVersions[0];
       const mrVersionStatus = latestMr?.status;
-      const status = deriveSessionStatus(latestJob, mrVersionStatus);
+      const status = deriveSessionStatus(
+        session.controlStatus,
+        latestJob,
+        mrVersionStatus,
+      );
 
       return {
         id: session.id,

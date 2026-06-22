@@ -23,3 +23,11 @@ export class ExecutePairJobExecutionFailedError implements DomainError {
     this.errorMessage = `Execute pair job ${jobId} failed: ${message}`;
   }
 }
+
+export class ExecutePairJobPausedError implements DomainError {
+  readonly errorMessage: string;
+
+  constructor(jobId: string) {
+    this.errorMessage = `Execute pair job ${jobId} paused`;
+  }
+}

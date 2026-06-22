@@ -4,6 +4,7 @@ import { ExploreJobService } from '../../application/services/explore-job.servic
 import {
   JobNotFoundError,
   JobNotRunnableError,
+  JobPausedError,
 } from '../../domain/errors/explore.errors.js';
 
 export type LlmExploreSubscriberConfig = {
@@ -76,7 +77,11 @@ export class LlmExploreSubscriber {
       const result =
         parsed.data.type === 'explore'
           ? await this.exploreJobService.run(parsed.data.job_id)
-          : await this.exploreJobService.resume(parsed.data.explore_job_id, {
+          : parsed.data.type === 'explore_user_resume'
+            ? await this.exploreJobService.resumeFromUserPause(
+                parsed.data.explore_job_id,
+              )
+            : await this.exploreJobService.resume(parsed.data.explore_job_id, {
               probe_job_id: parsed.data.payload.probe_job_id,
               snapshot_id: parsed.data.payload.snapshot_id,
               probe_status: parsed.data.payload.probe_status,
@@ -105,7 +110,7 @@ export class LlmExploreSubscriber {
       }
 
       const error = result.value;
-      if (error instanceof JobNotRunnableError) {
+      if (error instanceof JobNotRunnableError || error instanceof JobPausedError) {
         console.warn(error.errorMessage);
         this.channel.ack(message);
         return;

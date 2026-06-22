@@ -35,7 +35,7 @@ export class ExploreGraphRunner {
     sessionId: string;
     sessionUrl: string;
     pageSnapshotId: string;
-  }): Promise<{ status: 'completed' | 'interrupted' | 'failed'; mrVersionId?: string; reason?: string }> {
+  }): Promise<{ status: 'completed' | 'interrupted' | 'failed' | 'paused'; mrVersionId?: string; reason?: string }> {
     if (!this.compiled) {
       await this.setup();
     }
@@ -67,7 +67,7 @@ export class ExploreGraphRunner {
   async resume(
     exploreJobId: string,
     resumeValue: ProbeResumeValue,
-  ): Promise<{ status: 'completed' | 'interrupted' | 'failed'; mrVersionId?: string; reason?: string }> {
+  ): Promise<{ status: 'completed' | 'interrupted' | 'failed' | 'paused'; mrVersionId?: string; reason?: string }> {
     if (!this.compiled) {
       await this.setup();
     }
@@ -83,11 +83,26 @@ export class ExploreGraphRunner {
     return this.interpretResult(result, config);
   }
 
+  async resumeFromUserPause(
+    exploreJobId: string,
+  ): Promise<{ status: 'completed' | 'interrupted' | 'failed' | 'paused'; mrVersionId?: string; reason?: string }> {
+    if (!this.compiled) {
+      await this.setup();
+    }
+
+    const graph = this.compiled!;
+    const config = this.threadConfig(exploreJobId);
+
+    const result = (await graph.invoke(null, config)) as Record<string, unknown>;
+    return this.interpretResult(result, config, exploreJobId);
+  }
+
   private async interpretResult(
     result: Record<string, unknown>,
     config: { configurable: { thread_id: string } },
+    exploreJobId?: string,
   ): Promise<{
-    status: 'completed' | 'interrupted' | 'failed';
+    status: 'completed' | 'interrupted' | 'failed' | 'paused';
     mrVersionId?: string;
     reason?: string;
   }> {
@@ -102,6 +117,12 @@ export class ExploreGraphRunner {
     const graph = this.compiled!;
     const snapshot = await graph.getState(config);
     if (snapshot.next.length > 0) {
+      const interruptValue = snapshot.tasks?.[0]?.interrupts?.[0]?.value as
+        | { reason?: string }
+        | undefined;
+      if (interruptValue?.reason === 'user_pause') {
+        return { status: 'paused', mrVersionId };
+      }
       return { status: 'interrupted', mrVersionId };
     }
 

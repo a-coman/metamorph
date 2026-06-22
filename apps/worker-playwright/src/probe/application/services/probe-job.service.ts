@@ -6,9 +6,14 @@ import type { PageInventory } from '@metamorph/inventory';
 import { SavePageSnapshotService } from '../../../discovery/application/services/save-page-snapshot.service.js';
 import { ProbeInventoryCaptureError } from '../../domain/errors/probe-capture.errors.js';
 import {
+  pauseSessionJob,
+  sessionControlChecker,
+} from '../../../shared/infrastructure/session-control/session-control.js';
+import {
   ProbeJobExecutionFailedError,
   ProbeJobNotFoundError,
   ProbeJobNotRunnableError,
+  ProbeJobPausedError,
 } from '../../domain/errors/probe.errors.js';
 import type { ProbeJob } from '../../domain/entities/probe-job.entity.js';
 import {
@@ -34,6 +39,11 @@ export class ProbeJobService {
     const job = await this.jobRepository.findById(jobId);
     if (!job) {
       return left(new ProbeJobNotFoundError(jobId));
+    }
+
+    if (await sessionControlChecker.isPauseRequested(job.sessionId)) {
+      await pauseSessionJob(job.sessionId, jobId);
+      return left(new ProbeJobPausedError(jobId));
     }
 
     const startResult = job.start();
@@ -70,6 +80,7 @@ export class ProbeJobService {
         snapshotData.inventory,
         jobId,
         maxAttempts,
+        job.sessionId,
       );
 
       const saved = await this.savePageSnapshot.execute({
@@ -88,6 +99,11 @@ export class ProbeJobService {
       job.complete();
       await this.jobRepository.save(job);
 
+      if (await sessionControlChecker.isPauseRequested(job.sessionId)) {
+        await pauseSessionJob(job.sessionId, jobId);
+        return left(new ProbeJobPausedError(jobId));
+      }
+
       await this.exploreResumePublisher.publishExploreResume({
         exploreJobId: job.payload.exploreJobId,
         sessionId: job.sessionId,
@@ -103,11 +119,17 @@ export class ProbeJobService {
 
       return right(undefined);
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown probe job error';
+
+      if (message === 'Session paused by user') {
+        await pauseSessionJob(job.sessionId, jobId);
+        return left(new ProbeJobPausedError(jobId));
+      }
+
       const captureError =
         error instanceof ProbeInventoryCaptureError ? error : null;
       const traceZip = captureError?.traceZip ?? null;
-      const message =
-        error instanceof Error ? error.message : 'Unknown probe job error';
 
       let failureSnapshotId: string | null = null;
       if (captureError?.partialInventory) {
@@ -207,12 +229,18 @@ export class ProbeJobService {
     inventory: Parameters<ProbeInventoryCaptureAdapter['captureAfterSteps']>[1],
     jobId: string,
     maxAttempts: number,
+    sessionId: string,
   ) {
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        return await this.inventoryCapture.captureAfterSteps(steps, inventory, jobId);
+        return await this.inventoryCapture.captureAfterSteps(
+          steps,
+          inventory,
+          jobId,
+          sessionId,
+        );
       } catch (error) {
         lastError = error;
         if (attempt < maxAttempts) {

@@ -113,6 +113,8 @@ function toDomainJobStatus(status: PrismaJobStatus): JobStatus {
       return JobStatus.done;
     case PrismaJobStatus.failed:
       return JobStatus.failed;
+    case PrismaJobStatus.paused:
+      return JobStatus.paused;
   }
 }
 
@@ -130,5 +132,7 @@ function toPrismaJobStatus(status: JobStatus): PrismaJobStatus {
       return PrismaJobStatus.done;
     case JobStatus.failed:
       return PrismaJobStatus.failed;
+    case JobStatus.paused:
+      return PrismaJobStatus.paused;
   }
 }

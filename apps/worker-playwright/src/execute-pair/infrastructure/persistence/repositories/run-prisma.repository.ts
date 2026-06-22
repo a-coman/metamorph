@@ -31,6 +31,16 @@ export class RunPrismaRepository {
     });
   }
 
+  async markPaused(runId: string): Promise<void> {
+    await prisma.run.update({
+      where: { id: runId },
+      data: {
+        status: RunStatus.paused,
+        finishedAt: new Date(),
+      },
+    });
+  }
+
   async saveSuccess(input: {
     runId: string;
     sessionId: string;

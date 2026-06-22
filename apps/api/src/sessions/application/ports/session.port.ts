@@ -4,6 +4,8 @@ import type {
   CreateSessionResultDto,
   QueueDiscoverResultDto,
 } from '../dtos/create-session.dto.js';
+import type { PauseSessionResult } from '../services/pause-session.service.js';
+import type { ResumeSessionResult } from '../services/resume-session.service.js';
 import type {
   SessionDetailsDto,
   SessionListDto,
@@ -26,4 +28,12 @@ export abstract class SessionPort {
     limit: number;
     cursor?: string;
   }): Promise<SessionListDto>;
+
+  abstract pauseSession(
+    sessionId: string,
+  ): Promise<Either<DomainError, PauseSessionResult>>;
+
+  abstract resumeSession(
+    sessionId: string,
+  ): Promise<Either<DomainError, ResumeSessionResult>>;
 }

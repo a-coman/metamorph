@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { CheckCircle, XCircle, Clock, Loader2, AlertCircle, Target, Play, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Loader2, AlertCircle, Target, Play, Eye, Pause } from 'lucide-react';
 
 type StatusType = 'success' | 'error' | 'warning' | 'info' | 'neutral' | 'active';
 
@@ -28,6 +28,8 @@ const STATUS_MAP: Record<string, StatusConfig> = {
   completed: { label: 'Completed', type: 'success', icon: CheckCircle },
   failed: { label: 'Failed', type: 'error', icon: XCircle },
   enqueue_failed: { label: 'Failed', type: 'error', icon: XCircle },
+  paused: { label: 'Paused', type: 'warning', icon: Pause },
+  pausing: { label: 'Pausing', type: 'warning', icon: Loader2 },
 
   // MR version statuses
   draft_pending_hitl: { label: 'Needs Review', type: 'warning', icon: Eye },

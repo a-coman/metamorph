@@ -7,6 +7,7 @@ import { ExplorationPrismaRepository } from './infrastructure/persistence/explor
 import { ExploreSnapshotRepository } from './infrastructure/persistence/explore-snapshot.repository.js';
 import { ExploreJobPrismaRepository } from './infrastructure/persistence/repositories/explore-job-prisma.repository.js';
 import { S3ArtifactReaderAdapter } from '../shared/infrastructure/minio/s3-artifact-reader.adapter.js';
+import { sessionControlChecker } from '../shared/infrastructure/session-control/session-control.js';
 
 function requireRabbitMqUrl(): string {
   const url = process.env.RABBITMQ_URL;
@@ -23,6 +24,7 @@ function createExploreGraphRunner(): ExploreGraphRunner {
     openRouter: new ExploreOpenRouterClient(),
     probePublisher: new ProbeJobPublisher(requireRabbitMqUrl()),
     artifactReader: new S3ArtifactReaderAdapter(),
+    sessionControl: sessionControlChecker,
   });
 }
 

@@ -1,6 +1,7 @@
 export {
   JOB_LLM_EXPLORE,
   JOB_LLM_EXPLORE_RESUME,
+  JOB_LLM_EXPLORE_USER_RESUME,
   JOB_LLM_DLQ,
   JOB_PLAYWRIGHT_DISCOVER,
   JOB_PLAYWRIGHT_EXECUTE_PAIR,
@@ -15,9 +16,11 @@ export {
 export {
   llmExploreJobMessageSchema,
   llmExploreResumeMessageSchema,
+  llmExploreUserResumeMessageSchema,
   llmJobMessageSchema,
   type LlmExploreJobMessage,
   type LlmExploreResumeMessage,
+  type LlmExploreUserResumeMessage,
   type LlmJobMessage,
 } from './messages/llm-explore-job.message.js';
 export {

@@ -88,6 +88,12 @@ export type SessionStreamEndEvent = {
   type: 'stream.end';
 };
 
+export type SessionControlChangedEvent = {
+  type: 'session.control_changed';
+  controlStatus: string;
+  changedAt: string;
+};
+
 export type SessionActivityDto = {
   llmCalls: LlmCallDto[];
   probes: ProbeStatusDto[];
@@ -104,6 +110,7 @@ export type SessionEvent =
   | SessionLlmStatusEvent
   | SessionProbeStatusEvent
   | SessionScreenshotEvent
+  | SessionControlChangedEvent
   | SessionStreamEndEvent;
 
 export type MrCheckpointCreatedEvent = {

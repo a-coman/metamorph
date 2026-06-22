@@ -21,6 +21,8 @@ import type {
 import { SessionPort } from '../ports/session.port.js';
 import { SessionQueryPort } from '../ports/session-query.port.js';
 import { EnqueueDiscoverJobService } from './enqueue-discover-job.service.js';
+import { PauseSessionService } from './pause-session.service.js';
+import { ResumeSessionService } from './resume-session.service.js';
 
 @Injectable()
 export class SessionService implements SessionPort {
@@ -28,6 +30,8 @@ export class SessionService implements SessionPort {
     private readonly sessionRepository: SessionRepositoryPort,
     private readonly sessionQuery: SessionQueryPort,
     private readonly enqueueDiscoverJobService: EnqueueDiscoverJobService,
+    private readonly pauseSessionService: PauseSessionService,
+    private readonly resumeSessionService: ResumeSessionService,
   ) {}
 
   async createSession(
@@ -89,6 +93,14 @@ export class SessionService implements SessionPort {
     cursor?: string;
   }): Promise<SessionListDto> {
     return this.sessionQuery.findList(params);
+  }
+
+  pauseSession(sessionId: string) {
+    return this.pauseSessionService.pause(sessionId);
+  }
+
+  resumeSession(sessionId: string) {
+    return this.resumeSessionService.resume(sessionId);
   }
 
   private async processDiscoverJobQueuedEvents(

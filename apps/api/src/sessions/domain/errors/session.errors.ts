@@ -27,3 +27,19 @@ export class InvalidJobStatusTransitionError implements DomainError {
     this.errorMessage = `Job ${jobId} cannot ${action} from status ${from}`;
   }
 }
+
+export class SessionNotPausableError implements DomainError {
+  readonly errorMessage: string;
+
+  constructor(sessionId: string, reason: string) {
+    this.errorMessage = `Session ${sessionId} cannot be paused: ${reason}`;
+  }
+}
+
+export class SessionNotResumableError implements DomainError {
+  readonly errorMessage: string;
+
+  constructor(sessionId: string, reason: string) {
+    this.errorMessage = `Session ${sessionId} cannot be resumed: ${reason}`;
+  }
+}

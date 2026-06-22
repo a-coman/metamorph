@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { AlertCircle, CheckCircle2, ChevronRight, Loader2 as SpinIcon } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronRight, Loader2 as SpinIcon, Pause } from 'lucide-react';
 import { useMrVersionTab } from '@/hooks/use-mr-version-tab';
 import { CheckpointCard } from '@/components/checkpoint-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMrVersionEvents } from '@/hooks/use-sse';
+import { useSubscribeSessionEvents } from '@/hooks/session-events-context';
 import type {
   ExplorationTimelineDto,
   MrVersionEvent,
@@ -14,16 +15,23 @@ import type {
 interface ExplorationTimelineProps {
   mrVersionId: string;
   initial: ExplorationTimelineDto;
+  initialControlStatus?: string;
 }
 
-export function ExplorationTimeline({ mrVersionId, initial }: ExplorationTimelineProps) {
+export function ExplorationTimeline({
+  mrVersionId,
+  initial,
+  initialControlStatus = 'active',
+}: ExplorationTimelineProps) {
   const { setTab } = useMrVersionTab('exploration');
   const [status, setStatus] = useState(initial.status);
+  const [controlStatus, setControlStatus] = useState(initialControlStatus);
   const [checkpoints, setCheckpoints] = useState(initial.checkpoints);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const isActive = !['draft_pending_hitl', 'exploration_failed', 'approved'].includes(status);
+  const isExplorationActive = !['draft_pending_hitl', 'exploration_failed', 'approved'].includes(status);
+  const isSessionPaused = controlStatus === 'paused' || controlStatus === 'pausing';
 
   const handleEvent = useCallback((event: MrVersionEvent) => {
     if (event.type === 'checkpoint.created') {
@@ -47,7 +55,13 @@ export function ExplorationTimeline({ mrVersionId, initial }: ExplorationTimelin
     }
   }, []);
 
-  useMrVersionEvents(isActive ? mrVersionId : null, handleEvent);
+  useSubscribeSessionEvents((event) => {
+    if (event.type === 'session.control_changed') {
+      setControlStatus(event.controlStatus);
+    }
+  });
+
+  useMrVersionEvents(isExplorationActive ? mrVersionId : null, handleEvent);
 
   const goals = initial.phaseGoals;
 
@@ -87,24 +101,24 @@ export function ExplorationTimeline({ mrVersionId, initial }: ExplorationTimelin
       )}
 
       {goals && (
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Test Flow</span>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl border border-border bg-card">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="min-w-0 p-4 rounded-xl border border-border bg-card">
               <div className="flex items-center gap-2 mb-2">
                 <div className="size-5 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center shrink-0">1</div>
                 <span className="text-sm font-medium text-foreground">Source</span>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{goals.source}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">{goals.source}</p>
             </div>
-            <div className="p-4 rounded-xl border border-border bg-card">
+            <div className="min-w-0 p-4 rounded-xl border border-border bg-card">
               <div className="flex items-center gap-2 mb-2">
                 <div className="size-5 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center shrink-0">2</div>
                 <span className="text-sm font-medium text-foreground">Follow-up</span>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{goals.follow_up}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">{goals.follow_up}</p>
             </div>
           </div>
         </div>
@@ -120,7 +134,13 @@ export function ExplorationTimeline({ mrVersionId, initial }: ExplorationTimelin
               {checkpoints.length}
             </span>
           </div>
-          {isActive && (
+          {isExplorationActive && isSessionPaused && (
+            <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+              <Pause className="size-3" />
+              Paused
+            </span>
+          )}
+          {isExplorationActive && !isSessionPaused && (
             <span className="flex items-center gap-1.5 text-xs text-primary font-medium">
               <span className="size-2 rounded-full bg-primary animate-pulse" />
               Live
@@ -134,7 +154,11 @@ export function ExplorationTimeline({ mrVersionId, initial }: ExplorationTimelin
               <SpinIcon className="size-5 text-muted-foreground" />
             </div>
             <p className="text-sm font-medium text-foreground">Waiting for checkpoints</p>
-            <p className="text-sm text-muted-foreground">The AI is exploring the application...</p>
+            <p className="text-sm text-muted-foreground">
+              {isSessionPaused
+                ? 'Exploration is paused — resume the session to continue'
+                : 'The AI is exploring the application...'}
+            </p>
           </div>
         ) : (
           <div>

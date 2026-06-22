@@ -4,8 +4,9 @@ import type { RunSummaryDto } from '@metamorph/api-client';
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/page-header';
 import { MrVersionTabs } from '@/components/mr-version-tabs';
-import { StatusBadge } from '@/components/status-badge';
+import { MrVersionHeader } from '@/components/mr-version-header';
 import { ExplorationTimeline, ExplorationTimelineSkeleton } from '@/components/exploration-timeline';
+import { SessionEventsProvider } from '@/hooks/session-events-context';
 import { PlaybookEditor, PlaybookSkeleton } from '@/components/playbook-editor';
 import { RunsTab, RunsTabSkeleton } from '@/components/runs-tab';
 
@@ -16,17 +17,31 @@ interface Props {
   searchParams: Promise<{ tab?: string }>;
 }
 
-async function ExplorationTab({ mrId }: { mrId: string }) {
+async function ExplorationTab({
+  mrId,
+  initialControlStatus,
+}: {
+  mrId: string;
+  initialControlStatus: string;
+}) {
   const data = await api.getExploration(mrId);
-  return <ExplorationTimeline mrVersionId={mrId} initial={data} />;
+  return (
+    <ExplorationTimeline
+      mrVersionId={mrId}
+      initial={data}
+      initialControlStatus={initialControlStatus}
+    />
+  );
 }
 
 async function PlaybookTab({
   mrId,
   mrStatus,
+  sessionControlPaused,
 }: {
   mrId: string;
   mrStatus: string;
+  sessionControlPaused: boolean;
 }) {
   let content = '';
   try {
@@ -39,6 +54,7 @@ async function PlaybookTab({
       mrVersionId={mrId}
       initialContent={content}
       status={mrStatus}
+      sessionControlPaused={sessionControlPaused}
     />
   );
 }
@@ -47,10 +63,12 @@ async function RunsTabWrapper({
   sessionId,
   mrId,
   mrStatus,
+  sessionControlPaused,
 }: {
   sessionId: string;
   mrId: string;
   mrStatus: string;
+  sessionControlPaused: boolean;
 }) {
   let runs: RunSummaryDto[] = [];
   try {
@@ -64,6 +82,7 @@ async function RunsTabWrapper({
       mrVersionId={mrId}
       mrStatus={mrStatus}
       initialRuns={runs}
+      sessionControlPaused={sessionControlPaused}
     />
   );
 }
@@ -73,11 +92,18 @@ export default async function MrVersionPage({ params, searchParams }: Props) {
   const { tab: tabParam } = await searchParams;
 
   let mrVersion;
+  let session;
   try {
-    mrVersion = await api.getMrVersion(mrId);
+    [mrVersion, session] = await Promise.all([
+      api.getMrVersion(mrId),
+      api.getSession(sessionId),
+    ]);
   } catch {
     notFound();
   }
+
+  const sessionControlPaused =
+    session.controlStatus === 'paused' || session.controlStatus === 'pausing';
 
   const defaultTab =
     tabParam ??
@@ -97,38 +123,46 @@ export default async function MrVersionPage({ params, searchParams }: Props) {
       />
 
       <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-        <div className="flex items-start gap-4">
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-semibold tracking-tight">
-                Metamorphic Relation
-              </h1>
-              <StatusBadge status={mrVersion.status} />
-            </div>
-            <div className="text-xs text-muted-foreground font-mono">{mrId}</div>
-          </div>
-        </div>
-
-        <Suspense>
-          <MrVersionTabs
-            defaultTab={defaultTab}
-            exploration={
-              <Suspense fallback={<ExplorationTimelineSkeleton />}>
-                <ExplorationTab mrId={mrId} />
-              </Suspense>
-            }
-            playbook={
-              <Suspense fallback={<PlaybookSkeleton />}>
-                <PlaybookTab mrId={mrId} mrStatus={mrVersion.status} />
-              </Suspense>
-            }
-            runs={
-              <Suspense fallback={<RunsTabSkeleton />}>
-                <RunsTabWrapper sessionId={sessionId} mrId={mrId} mrStatus={mrVersion.status} />
-              </Suspense>
-            }
+        <SessionEventsProvider sessionId={sessionId}>
+          <MrVersionHeader
+            mrId={mrId}
+            initialMrStatus={mrVersion.status}
+            initialControlStatus={session.controlStatus}
           />
-        </Suspense>
+
+          <Suspense>
+            <MrVersionTabs
+              defaultTab={defaultTab}
+              exploration={
+                <Suspense fallback={<ExplorationTimelineSkeleton />}>
+                  <ExplorationTab
+                    mrId={mrId}
+                    initialControlStatus={session.controlStatus}
+                  />
+                </Suspense>
+              }
+              playbook={
+                <Suspense fallback={<PlaybookSkeleton />}>
+                  <PlaybookTab
+                    mrId={mrId}
+                    mrStatus={mrVersion.status}
+                    sessionControlPaused={sessionControlPaused}
+                  />
+                </Suspense>
+              }
+              runs={
+                <Suspense fallback={<RunsTabSkeleton />}>
+                  <RunsTabWrapper
+                    sessionId={sessionId}
+                    mrId={mrId}
+                    mrStatus={mrVersion.status}
+                    sessionControlPaused={sessionControlPaused}
+                  />
+                </Suspense>
+              }
+            />
+          </Suspense>
+        </SessionEventsProvider>
       </main>
     </div>
   );

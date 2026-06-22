@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { llmExploreResumeMessageSchema } from '../messages/llm-explore-job.message.js';
+import { llmExploreResumeMessageSchema, llmExploreUserResumeMessageSchema, llmJobMessageSchema } from '../messages/llm-explore-job.message.js';
 
 describe('llmExploreResumeMessageSchema', () => {
   it('parses resume without failure_context', () => {
@@ -51,5 +51,29 @@ describe('llmExploreResumeMessageSchema', () => {
     if (parsed.success) {
       assert.equal(parsed.data.payload.failure_context?.failed_batch_index, 1);
     }
+  });
+});
+
+describe('llmExploreUserResumeMessageSchema', () => {
+  it('parses user resume message', () => {
+    const parsed = llmExploreUserResumeMessageSchema.safeParse({
+      job_id: '00000000-0000-4000-8000-000000000010',
+      session_id: '00000000-0000-4000-8000-000000000011',
+      type: 'explore_user_resume',
+      explore_job_id: '00000000-0000-4000-8000-000000000010',
+    });
+
+    assert.equal(parsed.success, true);
+  });
+
+  it('is included in llmJobMessageSchema union', () => {
+    const parsed = llmJobMessageSchema.safeParse({
+      job_id: '00000000-0000-4000-8000-000000000010',
+      session_id: '00000000-0000-4000-8000-000000000011',
+      type: 'explore_user_resume',
+      explore_job_id: '00000000-0000-4000-8000-000000000010',
+    });
+
+    assert.equal(parsed.success, true);
   });
 });

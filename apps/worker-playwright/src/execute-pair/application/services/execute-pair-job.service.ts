@@ -7,7 +7,12 @@ import { left, right } from '@metamorph/utils';
 import {
   ExecutePairJobExecutionFailedError,
   ExecutePairJobNotFoundError,
+  ExecutePairJobPausedError,
 } from '../../domain/errors/execute-pair.errors.js';
+import {
+  pauseSessionJob,
+  sessionControlChecker,
+} from '../../../shared/infrastructure/session-control/session-control.js';
 import type { ExecutePairJob } from '../../domain/entities/execute-pair-job.entity.js';
 import { ExecutePairJobRepositoryPort } from '../../domain/repositories/execute-pair-job.repository.port.js';
 import { PlaybookRunnerAdapter } from '../../infrastructure/playwright/playbook-runner.adapter.js';
@@ -28,6 +33,12 @@ export class ExecutePairJobService {
       return left(new ExecutePairJobNotFoundError(jobId));
     }
 
+    if (await sessionControlChecker.isPauseRequested(job.sessionId)) {
+      await pauseSessionJob(job.sessionId, jobId);
+      await this.runRepository.markPaused(job.runId);
+      return left(new ExecutePairJobPausedError(jobId));
+    }
+
     const startOrError = job.start();
     if (startOrError.isLeft()) {
       return left(startOrError.value);
@@ -40,6 +51,7 @@ export class ExecutePairJobService {
       const playbookResult = await this.playbookRunner.run(
         job.playbookContent,
         job.runId,
+        job.sessionId,
       );
 
       for (const [role, observation] of [
@@ -87,6 +99,14 @@ export class ExecutePairJobService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown execute pair job error';
+
+      if (message === 'Playbook paused by user') {
+        await pauseSessionJob(job.sessionId, jobId);
+        await this.runRepository.markPaused(job.runId);
+        job.pause();
+        await this.jobRepository.save(job);
+        return left(new ExecutePairJobPausedError(jobId));
+      }
 
       await this.failRun(job.runId, job, message);
       return left(new ExecutePairJobExecutionFailedError(jobId, message));

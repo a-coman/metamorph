@@ -4,6 +4,7 @@ import type { DiscoverJobService } from '../../../discovery/application/services
 import {
   JobNotFoundError,
   JobNotRunnableError,
+  JobPausedError,
 } from '../../../discovery/domain/errors/discovery.errors.js';
 import type { ExecutePairJobService } from '../../../execute-pair/application/services/execute-pair-job.service.js';
 import {
@@ -14,7 +15,11 @@ import type { ProbeJobService } from '../../../probe/application/services/probe-
 import {
   ProbeJobNotFoundError,
   ProbeJobNotRunnableError,
+  ProbeJobPausedError,
 } from '../../../probe/domain/errors/probe.errors.js';
+import {
+  ExecutePairJobPausedError,
+} from '../../../execute-pair/domain/errors/execute-pair.errors.js';
 
 export type PlaywrightJobSubscriberConfig = {
   url: string;
@@ -101,7 +106,10 @@ export class PlaywrightJobSubscriber {
       if (
         error instanceof JobNotRunnableError ||
         error instanceof ExecutePairJobNotRunnableError ||
-        error instanceof ProbeJobNotRunnableError
+        error instanceof ProbeJobNotRunnableError ||
+        error instanceof JobPausedError ||
+        error instanceof ProbeJobPausedError ||
+        error instanceof ExecutePairJobPausedError
       ) {
         console.warn(error.errorMessage);
         this.channel.ack(message);

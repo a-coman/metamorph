@@ -33,9 +33,21 @@ export type LlmExploreResumeMessage = z.infer<
   typeof llmExploreResumeMessageSchema
 >;
 
+export const llmExploreUserResumeMessageSchema = z.object({
+  job_id: z.uuid(),
+  session_id: z.uuid(),
+  type: z.literal('explore_user_resume'),
+  explore_job_id: z.uuid(),
+});
+
+export type LlmExploreUserResumeMessage = z.infer<
+  typeof llmExploreUserResumeMessageSchema
+>;
+
 export const llmJobMessageSchema = z.discriminatedUnion('type', [
   llmExploreJobMessageSchema,
   llmExploreResumeMessageSchema,
+  llmExploreUserResumeMessageSchema,
 ]);
 
 export type LlmJobMessage = z.infer<typeof llmJobMessageSchema>;

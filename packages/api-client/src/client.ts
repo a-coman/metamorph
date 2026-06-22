@@ -5,7 +5,9 @@ import type {
   ExplorationTimelineDto,
   MrVersionDetailsDto,
   PageSnapshotDto,
+  PauseSessionResultDto,
   QueueDiscoverResultDto,
+  ResumeSessionResultDto,
   SessionActivityDto,
   SessionDetailsDto,
   SessionListDto,
@@ -105,6 +107,18 @@ export function createApiClient(config: ApiClientConfig) {
 
     queueDiscover(sessionId: string) {
       return json<QueueDiscoverResultDto>(`/sessions/${sessionId}/discover`, {
+        method: 'POST',
+      });
+    },
+
+    pauseSession(sessionId: string) {
+      return json<PauseSessionResultDto>(`/sessions/${sessionId}/pause`, {
+        method: 'POST',
+      });
+    },
+
+    resumeSession(sessionId: string) {
+      return json<ResumeSessionResultDto>(`/sessions/${sessionId}/resume`, {
         method: 'POST',
       });
     },

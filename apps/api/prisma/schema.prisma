@@ -16,6 +16,12 @@ enum SessionMode {
   auto
 }
 
+enum SessionControlStatus {
+  active
+  pausing
+  paused
+}
+
 enum JobStatus {
   pending_enqueue
   queued
@@ -23,6 +29,7 @@ enum JobStatus {
   done
   failed
   enqueue_failed
+  paused
 }
 
 enum JobType {
@@ -80,20 +87,23 @@ enum RunStatus {
   running
   completed
   failed
+  paused
 }
 
 // ─── Session & jobs ──────────────────────────────────────────────────────────
 
 model Session {
-  id            String      @id @default(uuid()) @db.Uuid
-  url           String
-  mode          SessionMode @default(hitl)
-  generateCount Int         @default(1) @map("generate_count")
-  weakOracle    Boolean     @default(false) @map("weak_oracle")
+  id                     String               @id @default(uuid()) @db.Uuid
+  url                    String
+  mode                   SessionMode          @default(hitl)
+  generateCount          Int                  @default(1) @map("generate_count")
+  weakOracle             Boolean              @default(false) @map("weak_oracle")
   /// Optional user-provided MR definition JSON (skip discover LLM propose step)
-  userMrJson    Json?       @map("user_mr_json")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  userMrJson             Json?                @map("user_mr_json")
+  controlStatus          SessionControlStatus @default(active) @map("control_status")
+  controlStatusChangedAt DateTime?            @map("control_status_changed_at")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
 
   jobs          Job[]
   pageSnapshots PageSnapshot[]

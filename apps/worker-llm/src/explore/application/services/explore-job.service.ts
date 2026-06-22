@@ -1,12 +1,23 @@
 import type { DomainError, Either } from '@metamorph/utils';
 import { left, right } from '@metamorph/utils';
 import {
+  pauseSessionJob,
+  sessionControlChecker,
+} from '../../../shared/infrastructure/session-control/session-control.js';
+import {
   JobExecutionFailedError,
   JobNotFoundError,
+  JobPausedError,
 } from '../../domain/errors/explore.errors.js';
 import { ExploreJobRepositoryPort } from '../../domain/repositories/explore-job.repository.port.js';
 import { ExploreGraphRunner } from '../../infrastructure/graph/explore-graph-runner.js';
 import type { ProbeResumeValue } from '../../infrastructure/graph/explore-state.js';
+
+type ExploreOutcome = {
+  status: 'completed' | 'interrupted' | 'failed' | 'paused';
+  mrVersionId?: string;
+  reason?: string;
+};
 
 export class ExploreJobService {
   constructor(
@@ -18,6 +29,11 @@ export class ExploreJobService {
     const job = await this.jobRepository.findById(jobId);
     if (!job) {
       return left(new JobNotFoundError(jobId));
+    }
+
+    if (await sessionControlChecker.isPauseRequested(job.sessionId)) {
+      await pauseSessionJob(job.sessionId, jobId);
+      return left(new JobPausedError(jobId));
     }
 
     const startOrError = job.start();
@@ -35,28 +51,9 @@ export class ExploreJobService {
         pageSnapshotId: job.pageSnapshotId,
       });
 
-      if (outcome.status === 'interrupted') {
-        console.log(`Explore job ${jobId} interrupted — waiting for probe`);
-        return right({ mrVersionId: outcome.mrVersionId });
-      }
-
-      if (outcome.status === 'failed') {
-        throw new Error(outcome.reason ?? 'Exploration failed');
-      }
-
-      job.complete();
-      await this.jobRepository.save(job);
-
-      console.log(`Explore job ${jobId} done — mr_version ${outcome.mrVersionId}`);
-      return right({ mrVersionId: outcome.mrVersionId });
+      return this.handleOutcome(jobId, job.sessionId, outcome);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown explore job error';
-
-      job.fail(message);
-      await this.jobRepository.save(job);
-
-      return left(new JobExecutionFailedError(jobId, message));
+      return this.handleExecutionError(jobId, error);
     }
   }
 
@@ -69,41 +66,93 @@ export class ExploreJobService {
       return left(new JobNotFoundError(exploreJobId));
     }
 
+    if (await sessionControlChecker.isPauseRequested(job.sessionId)) {
+      await pauseSessionJob(job.sessionId, exploreJobId);
+      return left(new JobPausedError(exploreJobId));
+    }
+
     try {
       const outcome = await this.graphRunner.resume(exploreJobId, resumeValue);
+      return this.handleOutcome(exploreJobId, job.sessionId, outcome);
+    } catch (error) {
+      return this.handleExecutionError(exploreJobId, error);
+    }
+  }
 
-      if (outcome.status === 'interrupted') {
-        console.log(`Explore job ${exploreJobId} interrupted — waiting for probe`);
-        return right({ mrVersionId: outcome.mrVersionId });
-      }
+  async resumeFromUserPause(
+    exploreJobId: string,
+  ): Promise<Either<DomainError, { mrVersionId?: string }>> {
+    const job = await this.jobRepository.findById(exploreJobId);
+    if (!job) {
+      return left(new JobNotFoundError(exploreJobId));
+    }
 
-      if (outcome.status === 'failed') {
+    if (await sessionControlChecker.isPauseRequested(job.sessionId)) {
+      await pauseSessionJob(job.sessionId, exploreJobId);
+      return left(new JobPausedError(exploreJobId));
+    }
+
+    try {
+      const outcome = await this.graphRunner.resumeFromUserPause(exploreJobId);
+      return this.handleOutcome(exploreJobId, job.sessionId, outcome);
+    } catch (error) {
+      return this.handleExecutionError(exploreJobId, error);
+    }
+  }
+
+  private async handleOutcome(
+    jobId: string,
+    sessionId: string,
+    outcome: ExploreOutcome,
+  ): Promise<Either<DomainError, { mrVersionId?: string }>> {
+    if (outcome.status === 'paused') {
+      await pauseSessionJob(sessionId, jobId);
+      console.log(`Explore job ${jobId} paused by user`);
+      return left(new JobPausedError(jobId));
+    }
+
+    if (outcome.status === 'interrupted') {
+      console.log(`Explore job ${jobId} interrupted — waiting for probe`);
+      return right({ mrVersionId: outcome.mrVersionId });
+    }
+
+    if (outcome.status === 'failed') {
+      const job = await this.jobRepository.findById(jobId);
+      if (job) {
         job.fail(outcome.reason ?? 'Exploration failed');
         await this.jobRepository.save(job);
-        return left(
-          new JobExecutionFailedError(
-            exploreJobId,
-            outcome.reason ?? 'Exploration failed',
-          ),
-        );
       }
+      return left(
+        new JobExecutionFailedError(
+          jobId,
+          outcome.reason ?? 'Exploration failed',
+        ),
+      );
+    }
 
+    const job = await this.jobRepository.findById(jobId);
+    if (job) {
       job.complete();
       await this.jobRepository.save(job);
+    }
 
-      console.log(
-        `Explore job ${exploreJobId} completed — mr_version ${outcome.mrVersionId}`,
-      );
+    console.log(`Explore job ${jobId} done — mr_version ${outcome.mrVersionId}`);
+    return right({ mrVersionId: outcome.mrVersionId });
+  }
 
-      return right({ mrVersionId: outcome.mrVersionId });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown explore resume error';
+  private async handleExecutionError(
+    jobId: string,
+    error: unknown,
+  ): Promise<Either<DomainError, { mrVersionId?: string }>> {
+    const message =
+      error instanceof Error ? error.message : 'Unknown explore job error';
 
+    const job = await this.jobRepository.findById(jobId);
+    if (job) {
       job.fail(message);
       await this.jobRepository.save(job);
-
-      return left(new JobExecutionFailedError(exploreJobId, message));
     }
+
+    return left(new JobExecutionFailedError(jobId, message));
   }
 }

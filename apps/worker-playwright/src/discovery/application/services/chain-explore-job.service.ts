@@ -1,4 +1,4 @@
-import { JobType as PrismaJobType, JobStatus as PrismaJobStatus } from '../../../../../api/generated/prisma/enums.js';
+import { JobType as PrismaJobType, JobStatus as PrismaJobStatus, SessionControlStatus } from '../../../../../api/generated/prisma/enums.js';
 import { prisma } from '../../../shared/infrastructure/prisma/prisma-client.js';
 import { LlmJobPublisherPort } from '../ports/llm-job-publisher.port.js';
 
@@ -13,6 +13,18 @@ export class ChainExploreJobService {
   constructor(private readonly llmJobPublisher: LlmJobPublisherPort) {}
 
   async chain(input: ChainExploreInput): Promise<{ jobId: string }> {
+    const session = await prisma.session.findUnique({
+      where: { id: input.sessionId },
+      select: { controlStatus: true },
+    });
+
+    if (!session || session.controlStatus !== SessionControlStatus.active) {
+      console.log(
+        `Skipping explore chain for session ${input.sessionId} — control status ${session?.controlStatus ?? 'missing'}`,
+      );
+      return { jobId: '' };
+    }
+
     const job = await prisma.job.create({
       data: {
         sessionId: input.sessionId,

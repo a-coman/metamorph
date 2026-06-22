@@ -3,7 +3,8 @@ import type { MrVersionEvent } from '@metamorph/api-client';
 import { MrVersionStatus, RunStatus } from '../../../../generated/prisma/enums.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
 import { TracePathQuery } from '../../infrastructure/trace-path.query.js';
-import { Observable } from 'rxjs';
+import { from, Observable, switchMap } from 'rxjs';
+import { closeSseStream } from '../sse-stream.utils.js';
 
 const STREAM_TIMEOUT_MS = 30 * 60 * 1000;
 const POLL_INTERVAL_MS = 1000;
@@ -37,12 +38,29 @@ export class MrVersionEventsService {
   ) {}
 
   stream(mrVersionId: string): Observable<MessageEvent> {
+    return from(this.assertMrVersionExists(mrVersionId)).pipe(
+      switchMap(() => this.createStream(mrVersionId)),
+    );
+  }
+
+  private async assertMrVersionExists(mrVersionId: string): Promise<void> {
+    const mrVersion = await this.prisma.mrVersion.findUnique({
+      where: { id: mrVersionId },
+      select: { id: true },
+    });
+    if (!mrVersion) {
+      throw new NotFoundException(`MR version ${mrVersionId} not found`);
+    }
+  }
+
+  private createStream(mrVersionId: string): Observable<MessageEvent> {
     return new Observable((subscriber) => {
       const startedAt = Date.now();
       let lastStatus: string | null = null;
       let seenCheckpointIds = new Set<string>();
       let lastRunState = new Map<string, string>();
       let initialized = false;
+      let timer: ReturnType<typeof setInterval> | undefined;
 
       const poll = async () => {
         const mrVersion = await this.prisma.mrVersion.findUnique({
@@ -78,9 +96,7 @@ export class MrVersionEventsService {
         });
 
         if (!mrVersion) {
-          subscriber.error(
-            new NotFoundException(`MR version ${mrVersionId} not found`),
-          );
+          closeSseStream(subscriber, timer);
           return null;
         }
 
@@ -165,14 +181,11 @@ export class MrVersionEventsService {
         }
 
         if (result.terminal || Date.now() - startedAt >= STREAM_TIMEOUT_MS) {
-          subscriber.next({ data: { type: 'stream.end' } });
-          subscriber.complete();
+          closeSseStream(subscriber, timer);
           return true;
         }
         return false;
       };
-
-      let timer: ReturnType<typeof setInterval> | undefined;
 
       void poll()
         .then((result) => {
@@ -181,15 +194,14 @@ export class MrVersionEventsService {
             timer = setInterval(() => {
               void poll()
                 .then(handlePollResult)
-                .catch((error: unknown) => {
-                  subscriber.error(error);
-                  if (timer) clearInterval(timer);
+                .catch(() => {
+                  closeSseStream(subscriber, timer);
                 });
             }, POLL_INTERVAL_MS);
           }
         })
-        .catch((error: unknown) => {
-          subscriber.error(error);
+        .catch(() => {
+          closeSseStream(subscriber, timer);
         });
 
       return () => {

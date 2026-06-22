@@ -9,7 +9,13 @@ export type TerminalExploreJobStatus = 'done' | 'failed';
 
 export type ActivityStatusContext = {
   terminalExploreJobs?: Map<string, TerminalExploreJobStatus>;
+  sessionControlStatus?: 'active' | 'pausing' | 'paused';
 };
+
+function isSessionPaused(ctx?: ActivityStatusContext): boolean {
+  const status = ctx?.sessionControlStatus;
+  return status === 'paused' || status === 'pausing';
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -36,7 +42,9 @@ export function resolveLlmCallStatus(
   ) {
     return 'stale';
   }
-  if (llmCall.status === 'running') return 'running';
+  if (llmCall.status === 'running') {
+    return isSessionPaused(ctx) ? 'paused' : 'running';
+  }
   if (llmCall.status === 'failed') return 'failed';
 
   const response = asRecord(llmCall.responseJson);
@@ -76,6 +84,8 @@ export function resolveProbeBadgeStatus(
   }
   if (probe.status === 'done') return 'pass';
   if (probe.status === 'failed') return 'failed';
-  if (probe.status === 'queued' || probe.status === 'running') return 'running';
+  if (probe.status === 'queued' || probe.status === 'running') {
+    return isSessionPaused(ctx) ? 'paused' : 'running';
+  }
   return probe.status;
 }

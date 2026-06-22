@@ -32,9 +32,16 @@ interface RunsTabProps {
   mrVersionId: string;
   mrStatus: string;
   initialRuns: RunSummaryDto[];
+  sessionControlPaused?: boolean;
 }
 
-export function RunsTab({ sessionId, mrVersionId, mrStatus, initialRuns }: RunsTabProps) {
+export function RunsTab({
+  sessionId,
+  mrVersionId,
+  mrStatus,
+  initialRuns,
+  sessionControlPaused = false,
+}: RunsTabProps) {
   const [runs, setRuns] = useState(initialRuns);
   const [executing, setExecuting] = useState(false);
   const [mrVersionStatus, setMrVersionStatus] = useState(mrStatus);
@@ -109,7 +116,7 @@ export function RunsTab({ sessionId, mrVersionId, mrStatus, initialRuns }: RunsT
             <Button
               size="sm"
               onClick={handleExecute}
-              disabled={executing || hasActiveRun}
+              disabled={executing || hasActiveRun || sessionControlPaused}
               className="gap-2"
             >
               {executing ? (

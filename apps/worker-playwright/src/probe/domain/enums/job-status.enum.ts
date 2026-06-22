@@ -5,4 +5,5 @@ export enum JobStatus {
   done = 'done',
   failed = 'failed',
   enqueue_failed = 'enqueue_failed',
+  paused = 'paused',
 }
