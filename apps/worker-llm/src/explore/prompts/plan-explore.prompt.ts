@@ -5,10 +5,27 @@ import type {
   ExploreBatchLog,
 } from '../infrastructure/graph/explore-state.js';
 import { formatBatchLogForPrompt } from '../infrastructure/graph/batch-log.js';
-import { buildInventorySummary } from './inventory-summary.js';
+import { buildEnrichedInventorySection } from './inventory-summary.js';
 import { PLAN_EXPLORE_OPTIONS } from './plan-explore.config.js';
 
-const PLAN_EXPLORE_EXAMPLE = {
+const PLAN_EXPLORE_EXAMPLE_ONE_STEP = {
+  action: 'append_steps',
+  rationale:
+    'Cookie banner blocks the main UI. Dismiss it using the accept button from Current inventory.',
+  steps: [{ id: 1, action: 'click', element_id: 'E42' }],
+};
+
+const PLAN_EXPLORE_EXAMPLE_TWO_STEPS = {
+  action: 'append_steps',
+  rationale:
+    'Searchbox is visible. Fill it from Current inventory, then press Enter to submit the search.',
+  steps: [
+    { id: 1, action: 'fill', element_id: 'E1', value: 'portatil' },
+    { id: 2, action: 'press', element_id: 'E1', key: 'Enter' },
+  ],
+};
+
+const PLAN_EXPLORE_EXAMPLE_THREE_STEPS = {
   action: 'append_steps',
   rationale:
     'Cookie banner blocks the page. Click its accept/dismiss control from Current inventory, fill the searchbox from Current inventory, then press Enter.',
@@ -127,8 +144,16 @@ export function buildPlanExploreSystemPrompt(): string {
     '- element_ids from failed batches or screenshots may not match Current inventory; always pick from Current inventory for the attached screenshot.',
     '- After a probe failure, read Errors and the second screenshot (if present).',
     '- The second screenshot shows the page immediately BEFORE the latest probe failure; do NOT use element_ids from that image — only Current inventory applies to the first screenshot.',
-    'Example:',
-    JSON.stringify(PLAN_EXPLORE_EXAMPLE, null, 2),
+    '- Page structure is hierarchical context only; use ONLY element_id values listed under Current inventory in steps.',
+    '- Lines marked → E{n} in Page structure link tree nodes to inventory; do not invent element_ids from unannotated tree lines.',
+    '- The annotated screenshot and Current inventory remain the visual source of truth for element selection.',
+    'Examples (plan 1, 2, or 3 steps per batch):',
+    '1 step:',
+    JSON.stringify(PLAN_EXPLORE_EXAMPLE_ONE_STEP, null, 2),
+    '2 steps:',
+    JSON.stringify(PLAN_EXPLORE_EXAMPLE_TWO_STEPS, null, 2),
+    '3 steps:',
+    JSON.stringify(PLAN_EXPLORE_EXAMPLE_THREE_STEPS, null, 2),
   ].join('\n');
 }
 
@@ -181,7 +206,7 @@ export function buildPlanExploreUserText(input: {
     );
   }
 
-  lines.push('', 'Current inventory:', buildInventorySummary(input.inventory));
+  lines.push('', buildEnrichedInventorySection(input.inventory));
   lines.push('', errorsSection);
 
   lines.push(
