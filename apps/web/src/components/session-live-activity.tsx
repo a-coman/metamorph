@@ -40,7 +40,6 @@ import {
   activityDisplayAtLlm,
   activityDisplayAtProbe,
 } from '@/lib/activity-feed';
-import { readPlanExploreError } from '@/lib/plan-explore-errors';
 import { useSubscribeMrVersionEvents } from '@/hooks/mr-version-events-context';
 import {
   useSubscribeSessionEvents,
@@ -146,22 +145,6 @@ function ActivityPhaseDivider({ phase }: { phase: ExplorationPhase }) {
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
       <div className="flex-1 h-px bg-border" />
-    </div>
-  );
-}
-
-function CycleSeparator({ cycle }: { cycle: ExplorationCycle }) {
-  const iter = cycle.probe?.cycleIteration;
-
-  return (
-    <div className="flex items-center gap-2 py-1" aria-hidden>
-      <div className="flex-1 h-px bg-border/60" />
-      {iter != null && (
-        <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-          iter {iter}
-        </span>
-      )}
-      <div className="flex-1 h-px bg-border/60" />
     </div>
   );
 }
@@ -371,12 +354,6 @@ function LlmCallCard({
   const status = resolveLlmCallStatus(llmCall, checkpoint, statusContext);
   const showModelBadge = LLM_PURPOSES.has(llmCall.purpose);
   const canExpand = llmCall.responseJson !== null;
-  const planError =
-    llmCall.responseJson !== null &&
-    typeof llmCall.responseJson === 'object' &&
-    (llmCall.purpose === 'plan_explore' || llmCall.purpose === 'explore_plan')
-      ? readPlanExploreError(llmCall.responseJson as Record<string, unknown>)
-      : null;
 
   return (
     <div
@@ -407,9 +384,6 @@ function LlmCallCard({
             <ActivityTimestamp value={activityDisplayAtLlm(llmCall)} />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-          {planError && (
-            <p className="text-xs text-red-600 mt-1 line-clamp-2">{planError}</p>
-          )}
         </div>
         {canExpand && (
           <div className="shrink-0 text-muted-foreground">
@@ -960,12 +934,8 @@ export function SessionLiveActivity({ isActive, initialActivity }: SessionLiveAc
                     );
                   }
 
-                  const prev = cycleFeed[index - 1];
-                  const showSeparator = prev?.kind === 'cycle';
-
                   return (
                     <Fragment key={item.cycle.id}>
-                      {showSeparator && <CycleSeparator cycle={item.cycle} />}
                       {renderExplorationCycle(
                         item.cycle,
                         (id) => newIds.has(id),
