@@ -198,6 +198,15 @@ export class ExplorationPrismaRepository {
     });
   }
 
+  async patchLlmCallResponse(input: { id: string; responseJson: unknown }): Promise<void> {
+    await prisma.llmCall.update({
+      where: { id: input.id },
+      data: {
+        responseJson: input.responseJson as Prisma.InputJsonValue,
+      },
+    });
+  }
+
   async failLlmCall(input: {
     id: string;
     error: string;

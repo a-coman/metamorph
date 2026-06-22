@@ -184,6 +184,29 @@ function withPlanRejection(
   };
 }
 
+async function rejectPlan(
+  deps: ExploreGraphDeps,
+  state: State,
+  steps: SlotStep[],
+  error: string,
+  iteration: number,
+  planLlmCallId: string | undefined,
+  planResponse: Record<string, unknown> | undefined,
+): Promise<Partial<State>> {
+  if (planLlmCallId && planResponse) {
+    await deps.explorationRepo.patchLlmCallResponse({
+      id: planLlmCallId,
+      responseJson: {
+        ...planResponse,
+        action: 'plan_rejected',
+        error,
+      },
+    });
+  }
+
+  return withPlanRejection(state, steps, error, iteration, planLlmCallId);
+}
+
 function afterAssessCheckpoint(update: Partial<State>): Partial<State> {
   return { ...update, pendingProbeSteps: [] };
 }
@@ -401,6 +424,10 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       }
 
       const steps = planOutput.steps ?? [];
+      const planResponse = {
+        ...planOutput,
+        inventorySnapshotId: state.currentSnapshotId,
+      };
       const observationFields = parseObservationCatalogFields(
         state.mrDefinition!.relation.on,
       );
@@ -414,12 +441,14 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       );
 
       if (missingIds.length > 0) {
-        return withPlanRejection(
+        return rejectPlan(
+          deps,
           state,
           steps,
           `Unknown element_ids: ${missingIds.join(', ')}`,
           nextIteration,
           planLlmCallId,
+          planResponse,
         );
       }
 
@@ -433,23 +462,27 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       });
       if (nonFillableFill.length > 0) {
         const ids = nonFillableFill.map((s) => s.element_id).join(', ');
-        return withPlanRejection(
+        return rejectPlan(
+          deps,
           state,
           steps,
           `fill not allowed on ${ids} (not input/textarea/combobox). ` +
             'For travel/combobox UIs: batch 1 = click destination trigger + waitFor; batch 2 = fill the revealed input or pick a suggestion, then click search.',
           nextIteration,
           planLlmCallId,
+          planResponse,
         );
       }
 
       if (steps.length === 0) {
-        return withPlanRejection(
+        return rejectPlan(
+          deps,
           state,
           steps,
           'Plan returned append_steps with no executable steps',
           nextIteration,
           planLlmCallId,
+          planResponse,
         );
       }
 

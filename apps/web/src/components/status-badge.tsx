@@ -50,6 +50,7 @@ const STATUS_MAP: Record<string, StatusConfig> = {
 
   // Plan explore actions
   append_steps: { label: 'Append Steps', type: 'info', icon: Play },
+  plan_rejected: { label: 'Plan Rejected', type: 'error', icon: XCircle },
   scenario_complete: { label: 'Scenario Complete', type: 'success', icon: CheckCircle },
   abort: { label: 'Abort', type: 'error', icon: XCircle },
 };

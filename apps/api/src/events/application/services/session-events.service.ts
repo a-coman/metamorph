@@ -361,13 +361,14 @@ export class SessionEventsService {
       return 'running';
     }
 
-    if (
-      typeof responseJson === 'object' &&
-      responseJson !== null &&
-      'error' in responseJson &&
-      typeof (responseJson as { error?: unknown }).error === 'string'
-    ) {
-      return 'failed';
+    if (typeof responseJson === 'object' && responseJson !== null) {
+      const record = responseJson as { error?: unknown; action?: unknown };
+      if (record.action === 'plan_rejected') {
+        return 'done';
+      }
+      if (typeof record.error === 'string') {
+        return 'failed';
+      }
     }
 
     return 'done';
