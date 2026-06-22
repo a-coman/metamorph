@@ -9,13 +9,15 @@
     }
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "node --import tsx --test $(find src -name '*.test.ts')"
   },
   "type": "module",
   "dependencies": {
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   }
 }

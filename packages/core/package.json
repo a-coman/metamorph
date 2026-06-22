@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "exports": { ".": "./src/index.ts" },
-  "scripts": { "build": "tsc" },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --import tsx --test $(find src -name '*.test.ts')"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -14,6 +17,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3"
   }
 }

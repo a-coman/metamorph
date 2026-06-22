@@ -6,7 +6,8 @@
   "scripts": {
     "consume": "tsx src/main.ts consume",
     "explore": "tsx src/main.ts explore",
-    "db:generate": "prisma generate --schema=../api/prisma/schema.prisma"
+    "db:generate": "prisma generate --schema=../api/prisma/schema.prisma",
+    "test": "node --import tsx --test $(find src -name '*.test.ts')"
   },
   "keywords": [],
   "author": "",

@@ -10,7 +10,8 @@
     "discover:run": "tsx src/main.ts discover",
     "execute-pair": "tsx src/main.ts execute-pair",
     "execute-pair:run": "tsx src/main.ts execute-pair",
-    "db:generate": "prisma generate --schema=../api/prisma/schema.prisma"
+    "db:generate": "prisma generate --schema=../api/prisma/schema.prisma",
+    "test": "node --import tsx --test $(find src -name '*.test.ts')"
   },
   "keywords": [],
   "author": "",
