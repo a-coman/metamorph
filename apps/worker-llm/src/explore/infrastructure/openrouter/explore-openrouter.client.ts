@@ -132,6 +132,7 @@ export class ExploreOpenRouterClient {
       schema: ExplorePlanOutputSchema,
       schemaName: 'plan_explore',
       normalize: (raw) => normalizePlanOutput(raw, nextStepId),
+      maxTokens: this.planExploreMaxTokens(),
     });
   }
 
@@ -167,6 +168,7 @@ export class ExploreOpenRouterClient {
     schema: { safeParse: (data: unknown) => { success: boolean; data?: T; error?: { message: string } } };
     schemaName: string;
     normalize?: (raw: unknown) => unknown;
+    maxTokens?: number;
   }): Promise<ExploreLlmResult<T>> {
     const startedAt = Date.now();
 
@@ -186,7 +188,12 @@ export class ExploreOpenRouterClient {
       { role: 'user', content: userContent },
     ];
 
-    const completion = await this.completeWithFormatFallback(messages, input.schemaName, input.schema);
+    const completion = await this.completeWithFormatFallback(
+      messages,
+      input.schemaName,
+      input.schema,
+      input.maxTokens,
+    );
     const { content, payload } = completion;
 
     const parsed = parseLlmJsonContent(content);
@@ -252,13 +259,14 @@ export class ExploreOpenRouterClient {
     messages: Array<{ role: string; content: unknown }>,
     schemaName: string,
     zodSchema: unknown,
+    maxTokens?: number,
   ): Promise<{
     content: string;
     payload: ChatCompletionResponse;
     responseFormat: OpenRouterResponseFormat;
   }> {
     let responseFormat = buildOpenRouterResponseFormat(zodSchema, schemaName);
-    let response = await this.postCompletion(messages, responseFormat);
+    let response = await this.postCompletion(messages, responseFormat, maxTokens);
 
     if (!response.ok) {
       const body = await response.text();
@@ -267,7 +275,7 @@ export class ExploreOpenRouterClient {
         isStructuredOutputUnsupported(response.status, body)
       ) {
         responseFormat = { type: 'json_object' };
-        response = await this.postCompletion(messages, responseFormat);
+        response = await this.postCompletion(messages, responseFormat, maxTokens);
         if (!response.ok) {
           const retryBody = await response.text();
           throw new Error(`OpenRouter request failed (${response.status}): ${retryBody}`);
@@ -286,7 +294,7 @@ export class ExploreOpenRouterClient {
 
     if (shouldFallbackToJsonObject) {
       responseFormat = { type: 'json_object' };
-      response = await this.postCompletion(messages, responseFormat);
+      response = await this.postCompletion(messages, responseFormat, maxTokens);
       if (!response.ok) {
         const body = await response.text();
         throw new Error(`OpenRouter request failed (${response.status}): ${body}`);
@@ -312,9 +320,15 @@ export class ExploreOpenRouterClient {
     return Number.isFinite(configured) && configured > 0 ? configured : 120_000;
   }
 
+  private planExploreMaxTokens(): number {
+    const configured = Number(process.env.OPENROUTER_PLAN_EXPLORE_MAX_TOKENS ?? 4096);
+    return Number.isFinite(configured) && configured > 0 ? configured : 4096;
+  }
+
   private async postCompletion(
     messages: Array<{ role: string; content: unknown }>,
     responseFormat: OpenRouterResponseFormat,
+    maxTokens?: number,
   ): Promise<Response> {
     const plugins = openRouterPlugins(responseFormat);
     const temperature = process.env.OPENROUTER_TEMPERATURE
@@ -335,6 +349,7 @@ export class ExploreOpenRouterClient {
         body: JSON.stringify({
           model: this.model,
           response_format: responseFormat,
+          ...(maxTokens !== undefined ? { max_tokens: maxTokens } : {}),
           ...(plugins ? { plugins } : {}),
           ...(temperature !== undefined && !Number.isNaN(temperature)
             ? { temperature }
