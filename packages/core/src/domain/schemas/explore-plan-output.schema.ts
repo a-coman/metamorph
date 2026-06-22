@@ -7,11 +7,24 @@ export const ExplorePlanActionSchema = z.enum([
   'abort',
 ]);
 
-export const ExplorePlanOutputSchema = z.object({
-  action: ExplorePlanActionSchema,
-  steps: z.array(SlotStepSchema).min(1).max(3).optional(),
+const ExplorePlanRationaleSchema = z.object({
   rationale: z.string().min(1),
 });
+
+export const ExplorePlanOutputSchema = z.discriminatedUnion('action', [
+  ExplorePlanRationaleSchema.extend({
+    action: z.literal('append_steps'),
+    steps: z.array(SlotStepSchema).min(1).max(3),
+  }),
+  ExplorePlanRationaleSchema.extend({
+    action: z.literal('scenario_complete'),
+    steps: z.array(SlotStepSchema).min(1).max(3).optional(),
+  }),
+  ExplorePlanRationaleSchema.extend({
+    action: z.literal('abort'),
+    steps: z.array(SlotStepSchema).min(1).max(3).optional(),
+  }),
+]);
 
 export type ExplorePlanOutput = z.infer<typeof ExplorePlanOutputSchema>;
 
