@@ -94,7 +94,12 @@ type State = typeof ExploreAnnotation.State;
 async function runTrackedLlmCall<T>(
   deps: ExploreGraphDeps,
   state: Pick<State, 'exploreJobId' | 'mrVersionId'>,
-  meta: { purpose: string; promptVersion: string },
+  meta: {
+    purpose: string;
+    promptVersion: string;
+    enrichResponse?: (output: T) => unknown;
+    enrichFailureResponse?: (error: string) => unknown;
+  },
   call: () => Promise<ExploreLlmResult<T>>,
 ): Promise<{ output: T; llmCallId: string }> {
   const llmCallId = await deps.explorationRepo.beginLlmCall({
@@ -110,12 +115,18 @@ async function runTrackedLlmCall<T>(
     await deps.explorationRepo.completeLlmCall({
       id: llmCallId,
       audit: result.audit,
-      responseJson: result.output,
+      responseJson: meta.enrichResponse
+        ? meta.enrichResponse(result.output)
+        : result.output,
     });
     return { output: result.output, llmCallId };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'LLM error';
-    await deps.explorationRepo.failLlmCall({ id: llmCallId, error: message });
+    await deps.explorationRepo.failLlmCall({
+      id: llmCallId,
+      error: message,
+      responseJson: meta.enrichFailureResponse?.(message),
+    });
     throw error;
   }
 }
@@ -332,7 +343,18 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       const { output: planOutput, llmCallId: planLlmCallId } = await runTrackedLlmCall(
         deps,
         state,
-        { purpose: 'plan_explore', promptVersion: PLAN_EXPLORE_PROMPT_VERSION },
+        {
+          purpose: 'plan_explore',
+          promptVersion: PLAN_EXPLORE_PROMPT_VERSION,
+          enrichResponse: (output) => ({
+            ...output,
+            inventorySnapshotId: state.currentSnapshotId,
+          }),
+          enrichFailureResponse: (error) => ({
+            error,
+            inventorySnapshotId: state.currentSnapshotId,
+          }),
+        },
         () =>
           deps.openRouter.planNext({
             url: state.sessionUrl,

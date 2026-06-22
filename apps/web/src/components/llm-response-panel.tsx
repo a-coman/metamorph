@@ -159,9 +159,13 @@ function PlanExploreResponse({ response }: { response: Record<string, unknown> }
   const steps = Array.isArray(response.steps) ? (response.steps as SlotStepLike[]) : [];
   const error = readPlanExploreError(response);
   const failureType = error ? derivePlanFailureType(error) : null;
+  const inventorySnapshotId =
+    typeof response.inventorySnapshotId === 'string' && response.inventorySnapshotId.length > 0
+      ? response.inventorySnapshotId
+      : null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {error && (
         <InfoBlock>
           <div className="flex items-center gap-2 flex-wrap">
@@ -184,6 +188,14 @@ function PlanExploreResponse({ response }: { response: Record<string, unknown> }
             </li>
           ))}
         </ol>
+      )}
+      {inventorySnapshotId && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1.5 px-0.5">
+            Annotated screenshot at planning time
+          </p>
+          <CheckpointScreenshot snapshotId={inventorySnapshotId} />
+        </div>
       )}
     </div>
   );
