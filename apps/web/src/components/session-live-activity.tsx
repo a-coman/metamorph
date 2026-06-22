@@ -40,6 +40,7 @@ import {
   activityDisplayAtLlm,
   activityDisplayAtProbe,
 } from '@/lib/activity-feed';
+import { readPlanExploreError } from '@/lib/plan-explore-errors';
 import { useSubscribeMrVersionEvents } from '@/hooks/mr-version-events-context';
 import {
   useSubscribeSessionEvents,
@@ -366,7 +367,13 @@ function LlmCallCard({
   const { label, description } = formatPurpose(llmCall.purpose);
   const status = resolveLlmCallStatus(llmCall, checkpoint, statusContext);
   const showModelBadge = LLM_PURPOSES.has(llmCall.purpose);
-  const canExpand = llmCall.status === 'done' && llmCall.responseJson !== null;
+  const canExpand = llmCall.responseJson !== null;
+  const planError =
+    llmCall.responseJson !== null &&
+    typeof llmCall.responseJson === 'object' &&
+    (llmCall.purpose === 'plan_explore' || llmCall.purpose === 'explore_plan')
+      ? readPlanExploreError(llmCall.responseJson as Record<string, unknown>)
+      : null;
 
   return (
     <div
@@ -397,6 +404,9 @@ function LlmCallCard({
             <ActivityTimestamp value={activityDisplayAtLlm(llmCall)} />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+          {planError && (
+            <p className="text-xs text-red-600 mt-1 line-clamp-2">{planError}</p>
+          )}
         </div>
         {canExpand && (
           <div className="shrink-0 text-muted-foreground">

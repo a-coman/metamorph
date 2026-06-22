@@ -6,6 +6,10 @@ import {
 } from '@/components/checkpoint-card';
 import { SlotStepLabel, type SlotStepLike } from '@/lib/format-slot-step';
 import type { ExplorationCheckpointDto } from '@metamorph/api-client';
+import {
+  derivePlanFailureType,
+  readPlanExploreError,
+} from '@/lib/plan-explore-errors';
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
@@ -153,9 +157,22 @@ function MrPlanResponse({ response }: { response: Record<string, unknown> }) {
 function PlanExploreResponse({ response }: { response: Record<string, unknown> }) {
   const rationale = typeof response.rationale === 'string' ? response.rationale : null;
   const steps = Array.isArray(response.steps) ? (response.steps as SlotStepLike[]) : [];
+  const error = readPlanExploreError(response);
+  const failureType = error ? derivePlanFailureType(error) : null;
 
   return (
     <div className="space-y-2">
+      {error && (
+        <InfoBlock>
+          <div className="flex items-center gap-2 flex-wrap">
+            <FieldLabel>Planning error</FieldLabel>
+            {failureType && <EnumBadge value={failureType} />}
+          </div>
+          <FieldValue>
+            <span className="text-red-600">{error}</span>
+          </FieldValue>
+        </InfoBlock>
+      )}
       {rationale && (
         <p className="text-xs text-foreground/80 leading-relaxed">{rationale}</p>
       )}
