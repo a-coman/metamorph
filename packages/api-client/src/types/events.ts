@@ -88,6 +88,14 @@ export type SessionStreamEndEvent = {
   type: 'stream.end';
 };
 
+export type SessionActivityDto = {
+  llmCalls: LlmCallDto[];
+  probes: ProbeStatusDto[];
+  screenshots: ScreenshotDto[];
+  checkpoints: ExplorationCheckpointDto[];
+  terminalExploreJobs: Record<string, 'done' | 'failed'>;
+};
+
 export type SessionEvent =
   | SessionJobUpdatedEvent
   | SessionMrCreatedEvent

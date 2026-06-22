@@ -48,6 +48,7 @@ import {
 } from '@/hooks/session-events-context';
 import { api } from '@/lib/api';
 import type { SlotStepLike } from '@/lib/format-slot-step';
+import { hydrateSessionActivity } from '@/lib/hydrate-session-activity';
 import type {
   SessionEvent,
   MrVersionEvent,
@@ -55,10 +56,12 @@ import type {
   ProbeStatusDto,
   ScreenshotDto,
   ExplorationCheckpointDto,
+  SessionActivityDto,
 } from '@metamorph/api-client';
 
 interface SessionLiveActivityProps {
   isActive: boolean;
+  initialActivity?: SessionActivityDto | null;
 }
 
 type RawActivityState = {
@@ -656,17 +659,32 @@ function llmCallsEqual(a: LlmCallDto, b: LlmCallDto): boolean {
   );
 }
 
-export function SessionLiveActivity({ isActive }: SessionLiveActivityProps) {
-  const [rawState, setRawState] = useState<RawActivityState>(createEmptyRawState);
+export function SessionLiveActivity({ isActive, initialActivity }: SessionLiveActivityProps) {
+  const [rawState, setRawState] = useState<RawActivityState>(() => {
+    if (!initialActivity) {
+      return createEmptyRawState();
+    }
+    const hydrated = hydrateSessionActivity(initialActivity);
+    return {
+      llmCalls: hydrated.llmCalls,
+      probes: hydrated.probes,
+      screenshots: hydrated.screenshots,
+      checkpoints: hydrated.checkpoints,
+    };
+  });
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [terminalExploreJobs, setTerminalExploreJobs] = useState<
     Map<string, TerminalExploreJobStatus>
-  >(() => new Map());
+  >(() =>
+    initialActivity
+      ? hydrateSessionActivity(initialActivity).terminalExploreJobs
+      : new Map(),
+  );
   const connectionState = useSessionEventsConnection();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const hasScrolledInitiallyRef = useRef(false);
+  const hasScrolledInitiallyRef = useRef(initialActivity != null);
   const liveStreamingRef = useRef(false);
 
   const statusContext = useMemo<ActivityStatusContext>(

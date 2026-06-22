@@ -8,16 +8,23 @@ import { SessionLiveActivity } from '@/components/session-live-activity';
 import { SessionPipelineStepper } from '@/components/session-pipeline-stepper';
 import { MrVersionEventsProvider } from '@/hooks/mr-version-events-context';
 import { useSubscribeSessionEvents } from '@/hooks/session-events-context';
-import type { SessionDetailsDto, SessionJobSummaryDto, SessionMrVersionSummaryDto, SessionEvent } from '@metamorph/api-client';
+import type {
+  SessionDetailsDto,
+  SessionJobSummaryDto,
+  SessionMrVersionSummaryDto,
+  SessionEvent,
+  SessionActivityDto,
+} from '@metamorph/api-client';
 
 interface SessionHubClientProps {
   sessionId: string;
   initial: SessionDetailsDto;
+  initialActivity?: SessionActivityDto | null;
 }
 
 const ACTIVE_STATUSES = new Set(['queued', 'running']);
 
-export function SessionHubClient({ sessionId, initial }: SessionHubClientProps) {
+export function SessionHubClient({ sessionId, initial, initialActivity }: SessionHubClientProps) {
   const [jobs, setJobs] = useState<SessionJobSummaryDto[]>(initial.jobs);
   const [mrVersions, setMrVersions] = useState<SessionMrVersionSummaryDto[]>(initial.mrVersions);
 
@@ -89,7 +96,7 @@ export function SessionHubClient({ sessionId, initial }: SessionHubClientProps) 
       <div className="space-y-6">
         <SessionPipelineStepper mr={mr} jobs={jobs} />
         <MrVersionEventsProvider mrVersionId={mr?.id ?? null}>
-          <SessionLiveActivity isActive={hasActiveJob || !mr} />
+          <SessionLiveActivity isActive={hasActiveJob || !mr} initialActivity={initialActivity} />
         </MrVersionEventsProvider>
       </div>
     </div>

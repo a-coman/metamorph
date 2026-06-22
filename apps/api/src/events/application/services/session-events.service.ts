@@ -1,8 +1,14 @@
 import { Injectable, MessageEvent, NotFoundException } from '@nestjs/common';
-import type { SessionEvent, LlmCallDto, ProbeStatusDto, ScreenshotDto } from '@metamorph/api-client';
+import type { SessionEvent } from '@metamorph/api-client';
 import { MrVersionStatus, JobType, JobStatus } from '../../../../generated/prisma/enums.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
 import { Observable } from 'rxjs';
+import {
+  mapLlmCallDto,
+  mapProbeDto,
+  mapScreenshotDto,
+  mapLlmCallStatus,
+} from '../mappers/session-event.mapper.js';
 
 const STREAM_TIMEOUT_MS = 30 * 60 * 1000;
 const POLL_INTERVAL_MS = 1000;
@@ -21,32 +27,6 @@ const TERMINAL_JOB_STATUSES = new Set<JobStatus>([
   JobStatus.failed,
   JobStatus.enqueue_failed,
 ]);
-
-type ProbeJobPayload = {
-  phase?: string;
-  mode?: 'incremental' | 'smoke_replay';
-  validated_prefix?: unknown[];
-  probe_steps?: unknown[];
-  explore_job_id?: string;
-  plan_llm_call_id?: string;
-  cycle_iteration?: number;
-};
-
-function resolveProbeMode(
-  payload: Record<string, unknown> | null,
-): ProbeStatusDto['mode'] {
-  const mode = (payload as ProbeJobPayload | null)?.mode;
-  return mode === 'smoke_replay' ? 'smoke_replay' : 'incremental';
-}
-
-function resolveProbeExecutedSteps(
-  payload: Record<string, unknown> | null,
-): unknown[] {
-  const typed = payload as ProbeJobPayload | null;
-  const prefix = Array.isArray(typed?.validated_prefix) ? typed.validated_prefix : [];
-  const batch = Array.isArray(typed?.probe_steps) ? typed.probe_steps : [];
-  return [...prefix, ...batch];
-}
 
 @Injectable()
 export class SessionEventsService {
@@ -177,31 +157,11 @@ export class SessionEventsService {
 
             const prevProbe = lastProbeState.get(job.id);
             if (prevProbe !== probeKey) {
-              const payload = job.payload as Record<string, unknown> | null;
-              const executedSteps = resolveProbeExecutedSteps(payload);
               const outputSnapshot = snapshotByJobId.get(job.id);
-              const outputSnapshotId = outputSnapshot?.id ?? null;
-              const probeUpdatedAt = job.finishedAt ?? job.startedAt ?? job.createdAt;
-              const probe: ProbeStatusDto = {
-                jobId: job.id,
-                exploreJobId: (payload?.explore_job_id as string) ?? null,
-                planLlmCallId: (payload?.plan_llm_call_id as string) ?? null,
-                cycleIteration:
-                  typeof payload?.cycle_iteration === 'number'
-                    ? payload.cycle_iteration
-                    : null,
-                status: this.mapJobStatus(job.status),
-                mode: resolveProbeMode(payload),
-                phase: (payload?.phase as string) ?? null,
-                stepCount: executedSteps.length > 0 ? executedSteps.length : null,
-                executedSteps: executedSteps.length > 0 ? executedSteps : null,
-                error: job.errorMessage,
-                snapshotId: outputSnapshotId,
-                outputSnapshotId,
-                createdAt: job.createdAt,
-                startedAt: job.startedAt,
-                updatedAt: probeUpdatedAt,
-              };
+              const probe = mapProbeDto({
+                job,
+                outputSnapshotId: outputSnapshot?.id ?? null,
+              });
               timestampedEvents.push({
                 event: { type: 'probe.status', probe },
                 timestamp: job.createdAt,
@@ -214,7 +174,7 @@ export class SessionEventsService {
             llmState.set(llmCall.id, llmKey);
             const prevLlm = lastLlmState.get(llmCall.id);
             if (prevLlm !== llmKey) {
-              const llmCallDto = this.mapLlmCallDto(llmCall);
+              const llmCallDto = mapLlmCallDto(llmCall);
               timestampedEvents.push({
                 event: { type: 'llm.status', llmCall: llmCallDto },
                 timestamp: llmCallDto.updatedAt,
@@ -260,18 +220,13 @@ export class SessionEventsService {
             const isProbeOutput =
               snapshot.jobId !== null && probeJobIds.has(snapshot.jobId);
             if (artifactId && !isProbeOutput) {
-              const screenshot: ScreenshotDto = {
-                id: snapshot.id,
-                snapshotId: snapshot.id,
-                jobId: snapshot.jobId,
-                artifactId,
-                url: snapshot.url,
-                createdAt: snapshot.createdAt,
-              };
-              timestampedEvents.push({
-                event: { type: 'screenshot.captured', screenshot },
-                timestamp: snapshot.createdAt,
-              });
+              const screenshot = mapScreenshotDto(snapshot);
+              if (screenshot) {
+                timestampedEvents.push({
+                  event: { type: 'screenshot.captured', screenshot },
+                  timestamp: snapshot.createdAt,
+                });
+              }
             }
             seenScreenshotIds.add(snapshot.id);
           }
@@ -348,78 +303,11 @@ export class SessionEventsService {
     latencyMs: number | null;
   }): string {
     return [
-      this.mapLlmCallStatus(llmCall.responseJson),
+      mapLlmCallStatus(llmCall.responseJson),
       llmCall.tokensIn,
       llmCall.tokensOut,
       llmCall.latencyMs,
       llmCall.responseJson === null ? 'null' : 'set',
     ].join(':');
-  }
-
-  private mapLlmCallStatus(responseJson: unknown): LlmCallDto['status'] {
-    if (responseJson === null || responseJson === undefined) {
-      return 'running';
-    }
-
-    if (typeof responseJson === 'object' && responseJson !== null) {
-      const record = responseJson as { error?: unknown; action?: unknown };
-      if (record.action === 'plan_rejected') {
-        return 'done';
-      }
-      if (typeof record.error === 'string') {
-        return 'failed';
-      }
-    }
-
-    return 'done';
-  }
-
-  private mapLlmCallDto(llmCall: {
-    id: string;
-    jobId: string | null;
-    purpose: string;
-    model: string;
-    promptVersion: string;
-    tokensIn: number | null;
-    tokensOut: number | null;
-    latencyMs: number | null;
-    responseJson: unknown;
-    createdAt: Date;
-    completedAt: Date | null;
-    updatedAt: Date;
-  }): LlmCallDto {
-    const status = this.mapLlmCallStatus(llmCall.responseJson);
-
-    return {
-      id: llmCall.id,
-      jobId: llmCall.jobId,
-      purpose: llmCall.purpose,
-      model: llmCall.model,
-      promptVersion: llmCall.promptVersion,
-      status,
-      tokensIn: llmCall.tokensIn,
-      tokensOut: llmCall.tokensOut,
-      latencyMs: llmCall.latencyMs,
-      responseJson: llmCall.responseJson ?? null,
-      createdAt: llmCall.createdAt,
-      updatedAt: llmCall.completedAt ?? llmCall.updatedAt ?? llmCall.createdAt,
-    };
-  }
-
-  private mapJobStatus(status: JobStatus): ProbeStatusDto['status'] {
-    switch (status) {
-      case JobStatus.queued:
-      case JobStatus.pending_enqueue:
-        return 'queued';
-      case JobStatus.running:
-        return 'running';
-      case JobStatus.done:
-        return 'done';
-      case JobStatus.failed:
-      case JobStatus.enqueue_failed:
-        return 'failed';
-      default:
-        return 'queued';
-    }
   }
 }

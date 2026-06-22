@@ -6,6 +6,7 @@ import type {
   MrVersionDetailsDto,
   PageSnapshotDto,
   QueueDiscoverResultDto,
+  SessionActivityDto,
   SessionDetailsDto,
   SessionListDto,
 } from './index.js';
@@ -96,6 +97,10 @@ export function createApiClient(config: ApiClientConfig) {
 
     getSession(id: string) {
       return json<SessionDetailsDto>(`/sessions/${id}`);
+    },
+
+    getSessionActivity(id: string) {
+      return json<SessionActivityDto>(`/sessions/${id}/activity`);
     },
 
     queueDiscover(sessionId: string) {

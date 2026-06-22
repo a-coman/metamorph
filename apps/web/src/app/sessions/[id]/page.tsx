@@ -33,8 +33,12 @@ export default async function SessionHubPage({ params }: Props) {
   const { id } = await params;
 
   let session;
+  let initialActivity = null;
   try {
-    session = await api.getSession(id);
+    [session, initialActivity] = await Promise.all([
+      api.getSession(id),
+      api.getSessionActivity(id).catch(() => null),
+    ]);
   } catch {
     notFound();
   }
@@ -84,7 +88,7 @@ export default async function SessionHubPage({ params }: Props) {
         </div>
 
         <SessionEventsProvider sessionId={id}>
-          <SessionHubClient sessionId={id} initial={session} />
+          <SessionHubClient sessionId={id} initial={session} initialActivity={initialActivity} />
         </SessionEventsProvider>
       </main>
     </div>
