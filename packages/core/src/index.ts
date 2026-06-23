@@ -17,19 +17,33 @@ export {
 
 export {
   RelationTypeSchema,
+  TransformFamilySchema,
   MrDefinitionSchema,
   type RelationType,
+  type TransformFamily,
   type MrDefinition,
 } from './domain/schemas/mr-definition.schema.js';
+
+export {
+  TRANSFORM_FAMILIES,
+  isTransformFamily,
+  getFamilyProfile,
+  applyFamilyProfile,
+  type FamilyProfile,
+} from './domain/mr-family-profile.js';
 
 export {
   SlotActionSchema,
   SlotStepSchema,
   ScenarioSlotsSchema,
+  VisibleItemCountAnchorSchema,
+  ObservationAnchorsSchema,
   GenerationSlotsSchema,
   type SlotAction,
   type SlotStep,
   type ScenarioSlots,
+  type VisibleItemCountAnchor,
+  type ObservationAnchors,
   type GenerationSlots,
 } from './domain/schemas/generation-slots.schema.js';
 
@@ -114,3 +128,9 @@ export {
   type FieldEvaluationDetail,
   type MrEvaluationResult,
 } from './application/mr-engine/mr-engine.js';
+
+export {
+  ObservationAnchorOutputSchema,
+  OBSERVATION_ANCHOR_PROMPT_VERSION,
+  type ObservationAnchorOutput,
+} from './domain/schemas/observation-anchor-output.schema.js';

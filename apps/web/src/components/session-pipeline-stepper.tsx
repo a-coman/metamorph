@@ -10,6 +10,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { aggregateMrPipelineStatus } from '@/lib/mr-versions';
+import {
+  FamilyExplorationChips,
+  formatFailedFamilyNames,
+} from '@/components/family-exploration-chips';
+import type { ActivitySelection } from '@/lib/session-activity-by-family';
 import type { SessionJobSummaryDto, SessionMrVersionSummaryDto } from '@metamorph/api-client';
 
 type StepId = 'discovery' | 'exploring' | 'review' | 'approved';
@@ -30,9 +36,9 @@ const PIPELINE_STEPS: {
 
 const STEP_MESSAGES: Record<StepId, string> = {
   discovery: 'Analyzing page structure and capturing inventory',
-  exploring: 'Building the metamorphic relation — details in Live Activity',
-  review: 'Playbook draft ready — review and approve the relation',
-  approved: 'Relation approved — ready for test execution',
+  exploring: 'Building metamorphic relations',
+  review: 'Playbook drafts ready — review and approve each relation',
+  approved: 'Relations approved — ready for test execution',
 };
 
 const STEP_WARNING_MESSAGES: Partial<Record<StepId, string>> = {
@@ -41,6 +47,7 @@ const STEP_WARNING_MESSAGES: Partial<Record<StepId, string>> = {
 
 function resolveStepStates(
   mr: SessionMrVersionSummaryDto | undefined,
+  mrVersions: SessionMrVersionSummaryDto[],
   jobs: SessionJobSummaryDto[],
 ): StepState[] {
   const discoverJob = jobs.find((job) => job.type === 'discover');
@@ -65,6 +72,26 @@ function resolveStepStates(
     return pending();
   }
 
+  if (mrVersions.some((version) => version.status === 'exploring')) {
+    return ['done', 'active', 'pending', 'pending'];
+  }
+
+  if (
+    mrVersions.length > 0 &&
+    mrVersions.some((version) => version.status === 'exploration_failed')
+  ) {
+    const allFailed = mrVersions.every(
+      (version) => version.status === 'exploration_failed',
+    );
+    if (allFailed) {
+      return ['done', 'failed', 'pending', 'pending'];
+    }
+    if (mrVersions.some((version) => version.status === 'draft_pending_hitl')) {
+      return ['done', 'done', 'active', 'pending'];
+    }
+    return ['done', 'warning', 'pending', 'pending'];
+  }
+
   switch (mr.status) {
     case 'exploring':
       return ['done', 'active', 'pending', 'pending'];
@@ -75,7 +102,17 @@ function resolveStepStates(
     case 'approved':
     case 'replayable':
     case 'stale':
-      return ['done', 'done', 'done', 'done'];
+      if (
+        mrVersions.length >= 4 &&
+        mrVersions.every((version) =>
+          ['approved', 'replayable', 'stale', 'violation_pending_triage'].includes(
+            version.status,
+          ),
+        )
+      ) {
+        return ['done', 'done', 'done', 'done'];
+      }
+      return ['done', 'done', 'active', 'pending'];
     case 'violation_pending_triage':
       return ['done', 'done', 'done', 'warning'];
     default:
@@ -102,37 +139,59 @@ function connectorStyles(leftState: StepState): string {
   return leftState === 'done' || leftState === 'warning' ? 'bg-primary/40' : 'bg-border';
 }
 
+function PhaseMessage({
+  message,
+  running = false,
+}: {
+  message: string;
+  running?: boolean;
+}) {
+  return (
+    <p className="min-h-7 py-1 text-center text-sm leading-7 text-muted-foreground">
+      {running ? `${message}...` : message}
+    </p>
+  );
+}
+
 function PipelinePhaseMessage({
   stepStates,
+  mrVersions,
 }: {
   stepStates: StepState[];
+  mrVersions: SessionMrVersionSummaryDto[];
 }) {
   const failedIndex = stepStates.findIndex((state) => state === 'failed');
   if (failedIndex !== -1) {
     const step = PIPELINE_STEPS[failedIndex];
+    const failedNames = formatFailedFamilyNames(mrVersions);
     return (
-      <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900">
-        <XCircle className="size-4 shrink-0 text-red-600" />
-        <span className="text-sm text-foreground">
-          {step.id === 'discovery'
+      <PhaseMessage
+        message={
+          step.id === 'discovery'
             ? 'Discovery failed — check session jobs or retry'
-            : 'Exploration failed — see Live Activity for the last error'}
-        </span>
-      </div>
+            : failedNames
+              ? `Exploration failed for: ${failedNames} — see Live Activity`
+              : 'Exploration failed for one or more relations — see Live Activity'
+        }
+      />
     );
   }
 
   const warningIndex = stepStates.findIndex((state) => state === 'warning');
   if (warningIndex !== -1) {
     const step = PIPELINE_STEPS[warningIndex];
+    const failedNames = formatFailedFamilyNames(mrVersions);
+    if (step.id === 'exploring' && failedNames) {
+      return (
+        <PhaseMessage
+          message={`Partial exploration failure (${failedNames}) — other families may still be exploring or ready for review`}
+        />
+      );
+    }
+
     const message = STEP_WARNING_MESSAGES[step.id];
     if (!message) return null;
-    return (
-      <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
-        <Eye className="size-4 shrink-0 text-amber-600" />
-        <span className="text-sm text-foreground">{message}</span>
-      </div>
-    );
+    return <PhaseMessage message={message} />;
   }
 
   const activeIndex = stepStates.findIndex((state) => state === 'active');
@@ -140,33 +199,119 @@ function PipelinePhaseMessage({
 
   const step = PIPELINE_STEPS[activeIndex];
   const message = STEP_MESSAGES[step.id];
-  const showSpinner = step.id === 'discovery' || step.id === 'exploring';
+  const isRunning = step.id === 'discovery' || step.id === 'exploring';
 
+  return <PhaseMessage message={message} running={isRunning} />;
+}
+
+type SessionPipelineStepperProps = {
+  mrVersions: SessionMrVersionSummaryDto[];
+  jobs: SessionJobSummaryDto[];
+  controlStatus?: string;
+  selectedFamily?: ActivitySelection;
+  onSelectFamily?: (selection: ActivitySelection) => void;
+  /**
+   * Embedded mode: renders without the "Pipeline" label and without the outer
+   * card border — for use inline inside another card (e.g. Live Activity).
+   * Also suppresses the FamilyExplorationChips strip.
+   */
+  embedded?: boolean;
+};
+
+function StepperStepsRow({
+  pausedStepStates,
+}: {
+  pausedStepStates: StepState[];
+}) {
   return (
-    <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-primary/5 border border-primary/20">
-      {showSpinner ? (
-        <Loader2 className="size-4 animate-spin shrink-0 text-primary" />
-      ) : (
-        <step.icon className="size-4 shrink-0 text-primary" />
-      )}
-      <span className="text-sm text-foreground">{message}</span>
+    <div className="flex items-start w-full">
+      {PIPELINE_STEPS.map((step, index) => {
+        const state = pausedStepStates[index];
+        const Icon = step.icon;
+        const isLast = index === PIPELINE_STEPS.length - 1;
+
+        return (
+          <div key={step.id} className={cn('flex items-start', !isLast && 'flex-1')}>
+            <div className="flex flex-col items-center gap-2 min-w-[4.5rem]">
+              <div
+                className={cn(
+                  'flex items-center justify-center size-9 rounded-full border transition-colors',
+                  stepCircleStyles(state),
+                )}
+              >
+                {state === 'active' &&
+                  (step.id === 'discovery' || step.id === 'exploring') ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : state === 'failed' ? (
+                  <XCircle className="size-4" />
+                ) : (
+                  <Icon className="size-4" />
+                )}
+              </div>
+              <span
+                className={cn(
+                  'text-xs font-medium text-center leading-tight',
+                  state === 'pending' ? 'text-muted-foreground' : 'text-foreground',
+                )}
+              >
+                {step.label}
+              </span>
+            </div>
+            {!isLast && (
+              <div
+                className={cn(
+                  'h-0.5 flex-1 mt-[1.125rem] mx-2 rounded-full transition-colors',
+                  connectorStyles(state),
+                )}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-type SessionPipelineStepperProps = {
-  mr?: SessionMrVersionSummaryDto;
-  jobs: SessionJobSummaryDto[];
-  controlStatus?: string;
-};
-
-export function SessionPipelineStepper({ mr, jobs, controlStatus }: SessionPipelineStepperProps) {
-  const stepStates = resolveStepStates(mr, jobs);
+export function SessionPipelineStepper({
+  mrVersions,
+  jobs,
+  controlStatus,
+  selectedFamily,
+  onSelectFamily,
+  embedded = false,
+}: SessionPipelineStepperProps) {
+  const mr = aggregateMrPipelineStatus(mrVersions);
+  const stepStates = resolveStepStates(mr, mrVersions, jobs);
   const pausedStepStates =
     controlStatus === 'paused'
       ? stepStates.map((state) => (state === 'active' ? 'warning' : state))
       : stepStates;
-  const hasStarted = jobs.length > 0 || mr !== undefined;
+  const hasStarted = jobs.length > 0 || mrVersions.length > 0;
+  const showFamilyStrip =
+    !embedded &&
+    mrVersions.length > 0 &&
+    (stepStates[1] === 'active' ||
+      stepStates[1] === 'failed' ||
+      stepStates[1] === 'warning');
+
+  const pausedBanner = controlStatus === 'paused' && (
+    <PhaseMessage message="Session paused — resume to continue the pipeline" />
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-3">
+        {pausedBanner}
+        {hasStarted && controlStatus !== 'paused' && (
+          <PipelinePhaseMessage
+            stepStates={stepStates}
+            mrVersions={mrVersions}
+          />
+        )}
+        {hasStarted && <StepperStepsRow pausedStepStates={pausedStepStates} />}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -175,15 +320,10 @@ export function SessionPipelineStepper({ mr, jobs, controlStatus }: SessionPipel
         <span className="text-sm font-medium text-muted-foreground">Pipeline</span>
       </div>
 
-      {controlStatus === 'paused' && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
-          <Loader2 className="size-4 shrink-0 text-amber-600" />
-          <span className="text-sm text-foreground">Session paused — resume to continue the pipeline</span>
-        </div>
-      )}
+      {pausedBanner}
 
       {hasStarted && controlStatus !== 'paused' && (
-        <PipelinePhaseMessage stepStates={stepStates} />
+        <PipelinePhaseMessage stepStates={stepStates} mrVersions={mrVersions} />
       )}
 
       {!hasStarted ? (
@@ -192,50 +332,15 @@ export function SessionPipelineStepper({ mr, jobs, controlStatus }: SessionPipel
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-card px-4 py-5 shadow-sm">
-          <div className="flex items-start w-full">
-            {PIPELINE_STEPS.map((step, index) => {
-              const state = pausedStepStates[index];
-              const Icon = step.icon;
-              const isLast = index === PIPELINE_STEPS.length - 1;
-
-              return (
-                <div key={step.id} className={cn('flex items-start', !isLast && 'flex-1')}>
-                  <div className="flex flex-col items-center gap-2 min-w-[4.5rem]">
-                    <div
-                      className={cn(
-                        'flex items-center justify-center size-9 rounded-full border transition-colors',
-                        stepCircleStyles(state),
-                      )}
-                    >
-                      {state === 'active' && (step.id === 'discovery' || step.id === 'exploring') ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : state === 'failed' ? (
-                        <XCircle className="size-4" />
-                      ) : (
-                        <Icon className="size-4" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        'text-xs font-medium text-center leading-tight',
-                        state === 'pending' ? 'text-muted-foreground' : 'text-foreground',
-                      )}
-                    >
-                      {step.label}
-                    </span>
-                  </div>
-                  {!isLast && (
-                    <div
-                      className={cn(
-                        'h-0.5 flex-1 mt-[1.125rem] mx-2 rounded-full transition-colors',
-                        connectorStyles(state),
-                      )}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <StepperStepsRow pausedStepStates={pausedStepStates} />
+          {showFamilyStrip && (
+            <FamilyExplorationChips
+              mrVersions={mrVersions}
+              controlStatus={controlStatus}
+              selected={selectedFamily}
+              onSelect={onSelectFamily}
+            />
+          )}
         </div>
       )}
     </div>

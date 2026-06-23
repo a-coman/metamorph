@@ -3,19 +3,27 @@ import {
   OBSERVATION_FIELD_TYPES,
   ObservationCatalogFieldSchema,
 } from '../../domain/schemas/observation-catalog.schema.js';
-import { renderObservationFieldExtractor } from './observation-extractors.v1.js';
+import type { ObservationAnchors } from '../../domain/schemas/generation-slots.schema.js';
+import type { PageSnapshotInventory } from '../../domain/schemas/page-snapshot.schema.js';
+import {
+  renderObservationFieldExtractor,
+  type ObservationExtractorContext,
+} from './observation-extractors.v1.js';
 
-export const PLAYBOOK_TEMPLATE_VERSION = 'playbook-template@2';
+export const PLAYBOOK_TEMPLATE_VERSION = 'playbook-template@3';
 
 export type PlaybookRenderInput = {
   observationFields: string[];
   sourceStepLines: string[];
   followUpStepLines: string[];
+  observationContext?: ObservationExtractorContext;
 };
 
 export function renderPlaybook(input: PlaybookRenderInput): string {
   const observationBody = input.observationFields
-    .map((field) => renderObservationFieldExtractor(field))
+    .map((field) =>
+      renderObservationFieldExtractor(field, input.observationContext),
+    )
     .join('\n');
 
   const sourceSteps = input.sourceStepLines.join('\n');
@@ -72,4 +80,14 @@ export function renderObservationSchema(fields: string[]): string {
     null,
     2,
   );
+}
+
+export function buildObservationExtractorContext(input: {
+  anchors?: ObservationAnchors;
+  anchorInventories?: Map<string, PageSnapshotInventory>;
+}): ObservationExtractorContext {
+  return {
+    anchors: input.anchors,
+    anchorInventories: input.anchorInventories,
+  };
 }

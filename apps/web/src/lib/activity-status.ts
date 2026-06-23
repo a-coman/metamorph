@@ -65,6 +65,10 @@ export function resolveLlmCallStatus(
     return 'done';
   }
 
+  if (purpose === 'observation_anchor') {
+    return 'done';
+  }
+
   if (purpose === 'compile_draft') {
     return 'pass';
   }

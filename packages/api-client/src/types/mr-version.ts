@@ -15,6 +15,7 @@ export type MrVersionDetailsDto = {
 
 export type ExplorationCheckpointDto = {
   id: string;
+  mrVersionId?: string | null;
   phase: string;
   sequence: number;
   snapshotId: string;

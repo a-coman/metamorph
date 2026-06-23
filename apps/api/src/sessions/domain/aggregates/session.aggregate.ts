@@ -50,7 +50,7 @@ export class SessionAggregate extends AggregateRoot<SessionProps> {
       {
         url: input.url,
         mode: input.mode ?? SessionMode.hitl,
-        generateCount: input.generateCount ?? 1,
+        generateCount: input.generateCount ?? 4,
         weakOracle: input.weakOracle ?? false,
         jobs: [initialJob],
         createdAt: now,

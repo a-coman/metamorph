@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRANSFORM_FAMILIES } from '../mr-family-profile.js';
 
 export const RelationTypeSchema = z.enum([
   'equal',
@@ -11,12 +12,14 @@ export const RelationTypeSchema = z.enum([
   'monotone_increase',
 ]);
 
+export const TransformFamilySchema = z.enum(TRANSFORM_FAMILIES);
+
 export const MrDefinitionSchema = z.object({
   precondition: z.object({
     description: z.string().min(1),
   }),
   transformation: z.object({
-    transform_family: z.literal('idempotence'),
+    transform_family: TransformFamilySchema,
     description: z.string().min(1),
   }),
   relation: z.object({
@@ -27,4 +30,5 @@ export const MrDefinitionSchema = z.object({
 });
 
 export type RelationType = z.infer<typeof RelationTypeSchema>;
+export type TransformFamily = z.infer<typeof TransformFamilySchema>;
 export type MrDefinition = z.infer<typeof MrDefinitionSchema>;

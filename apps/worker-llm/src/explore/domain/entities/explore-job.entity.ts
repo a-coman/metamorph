@@ -6,6 +6,7 @@ import {
   right,
   type DomainError,
 } from '@metamorph/utils';
+import type { TransformFamily } from '@metamorph/core';
 import { JobStatus } from '../enums/job-status.enum.js';
 import { JobType } from '../enums/job-type.enum.js';
 import { JobNotRunnableError } from '../errors/explore.errors.js';
@@ -14,6 +15,7 @@ export type ExploreJobProps = {
   sessionId: string;
   sessionUrl: string;
   pageSnapshotId: string;
+  transformFamily: TransformFamily;
   type: JobType;
   status: JobStatus;
   errorMessage?: string | null;
@@ -40,6 +42,10 @@ export class ExploreJob extends Entity<ExploreJobProps> {
 
   get pageSnapshotId(): string {
     return this.props.pageSnapshotId;
+  }
+
+  get transformFamily(): TransformFamily {
+    return this.props.transformFamily;
   }
 
   get type(): JobType {

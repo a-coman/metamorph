@@ -1,15 +1,20 @@
 import {
+  applyFamilyProfile,
   EXPLORE_VERIFY_PROMPT_VERSION,
   ExplorePlanOutputSchema,
   ExploreVerifyOutputSchema,
   MR_PLAN_PROMPT_VERSION,
+  MrDefinitionSchema,
   MrPlanOutputSchema,
+  ObservationAnchorOutputSchema,
+  OBSERVATION_ANCHOR_PROMPT_VERSION,
   PLAN_EXPLORE_PROMPT_VERSION,
   normalizeElementShortId,
   type MrIntent,
+  type ObservationAnchorOutput,
   type PageSnapshotInventory,
+  type TransformFamily,
 } from '@metamorph/core';
-import { MR_PLAN_OPTIONS } from '../../prompts/mr-vertical.config.js';
 import {
   buildExploreVerifySystemPrompt,
   buildExploreVerifyUserText,
@@ -18,6 +23,10 @@ import {
   buildMrPlanSystemPrompt,
   buildMrPlanUserText,
 } from '../../prompts/mr-plan.prompt.js';
+import {
+  buildObservationAnchorSystemPrompt,
+  buildObservationAnchorUserText,
+} from '../../prompts/observation-anchor.prompt.js';
 import {
   buildPlanExploreSystemPrompt,
   buildPlanExploreUserText,
@@ -81,16 +90,35 @@ export class ExploreOpenRouterClient {
   async mrPlan(input: {
     url: string;
     screenshotBase64: string;
+    transformFamily: TransformFamily;
   }): Promise<ExploreLlmResult<MrIntent>> {
     return this.call({
       purpose: 'mr_plan',
       promptVersion: MR_PLAN_PROMPT_VERSION,
-      system: buildMrPlanSystemPrompt(),
+      system: buildMrPlanSystemPrompt(input.transformFamily),
       userText: buildMrPlanUserText(input),
       screenshotsBase64: [input.screenshotBase64],
       schema: MrPlanOutputSchema,
       schemaName: 'mr_plan',
-      normalize: normalizeMrPlanOutput,
+      normalize: (raw) => normalizeMrPlanOutput(raw, input.transformFamily),
+    });
+  }
+
+  async observationAnchor(input: {
+    url: string;
+    screenshotBase64: string;
+    mrIntent: MrIntent;
+    inventory: PageSnapshotInventory;
+  }): Promise<ExploreLlmResult<ObservationAnchorOutput>> {
+    return this.call({
+      purpose: 'observation_anchor',
+      promptVersion: OBSERVATION_ANCHOR_PROMPT_VERSION,
+      system: buildObservationAnchorSystemPrompt(),
+      userText: buildObservationAnchorUserText(input),
+      screenshotsBase64: [input.screenshotBase64],
+      schema: ObservationAnchorOutputSchema,
+      schemaName: 'observation_anchor',
+      normalize: (raw) => normalizeObservationAnchorOutput(raw),
     });
   }
 
@@ -165,7 +193,7 @@ export class ExploreOpenRouterClient {
     system: string;
     userText: string;
     screenshotsBase64?: string[];
-    schema: { safeParse: (data: unknown) => { success: boolean; data?: T; error?: { message: string } } };
+    schema: { safeParse: (data: unknown) => { success: boolean; data?: T; error?: { message: string; issues?: readonly { message: string }[] } } };
     schemaName: string;
     normalize?: (raw: unknown) => unknown;
     maxTokens?: number;
@@ -209,8 +237,13 @@ export class ExploreOpenRouterClient {
 
     const screenshotCount = input.screenshotsBase64?.length ?? 0;
 
-    if (!validated.success || !validated.data) {
-      const promptMessage = formatLlmValidationErrorForPrompt(validated.error, normalized);
+    if (!validated.success || validated.data === undefined) {
+      const promptMessage = formatLlmValidationErrorForPrompt(
+        (validated.error ?? { issues: [{ message: 'unknown validation error', code: 'custom', path: [] }] }) as {
+          issues: readonly { code: string; path: PropertyKey[]; message: string }[];
+        },
+        normalized,
+      );
 
       logExploreLlmExchange({
         purpose: input.purpose,
@@ -229,6 +262,8 @@ export class ExploreOpenRouterClient {
       throw new ExploreLlmValidationError(promptMessage, normalized, parsed);
     }
 
+    const output = validated.data;
+
     logExploreLlmExchange({
       purpose: input.purpose,
       promptVersion: input.promptVersion,
@@ -239,11 +274,11 @@ export class ExploreOpenRouterClient {
       latencyMs: usage.latencyMs,
       tokensIn: usage.tokensIn,
       tokensOut: usage.tokensOut,
-      output: validated.data,
+      output,
     });
 
     return {
-      output: validated.data,
+      output,
       audit: {
         purpose: input.purpose,
         model: this.model,
@@ -370,38 +405,10 @@ export class ExploreOpenRouterClient {
   }
 }
 
-const DEFAULT_TRANSFORM_FAMILY = MR_PLAN_OPTIONS.transformFamilies[0];
-const DEFAULT_RELATION_TYPE = MR_PLAN_OPTIONS.relationTypes[0];
-const DEFAULT_OBSERVATION_FIELDS = [...MR_PLAN_OPTIONS.observationFields];
-
-function isAllowedTransformFamily(value: unknown): boolean {
-  return (
-    typeof value === 'string' &&
-    (MR_PLAN_OPTIONS.transformFamilies as readonly string[]).includes(value)
-  );
-}
-
-function isAllowedRelationType(value: unknown): boolean {
-  return (
-    typeof value === 'string' &&
-    (MR_PLAN_OPTIONS.relationTypes as readonly string[]).includes(value)
-  );
-}
-
-function normalizeObservationFields(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return DEFAULT_OBSERVATION_FIELDS;
-  }
-
-  const allowed = new Set(MR_PLAN_OPTIONS.observationFields as readonly string[]);
-  const filtered = value.filter(
-    (field): field is string => typeof field === 'string' && allowed.has(field),
-  );
-
-  return filtered.length > 0 ? filtered : DEFAULT_OBSERVATION_FIELDS;
-}
-
-function normalizeMrPlanOutput(raw: unknown): unknown {
+function normalizeMrPlanOutput(
+  raw: unknown,
+  lockedFamily: TransformFamily,
+): unknown {
   if (!raw || typeof raw !== 'object') {
     return raw;
   }
@@ -426,58 +433,80 @@ function normalizeMrPlanOutput(raw: unknown): unknown {
 
   if (typeof mrDefinition.transformation === 'string') {
     mrDefinition.transformation = {
-      transform_family: DEFAULT_TRANSFORM_FAMILY,
+      transform_family: lockedFamily,
       description: mrDefinition.transformation,
     };
   }
 
   if (!mrDefinition.transformation || typeof mrDefinition.transformation !== 'object') {
     mrDefinition.transformation = {
-      transform_family: DEFAULT_TRANSFORM_FAMILY,
-      description: 'Repeat the validated follow-up action.',
+      transform_family: lockedFamily,
+      description: 'Pending transformation description.',
     };
   } else {
     const transformation = {
       ...(mrDefinition.transformation as Record<string, unknown>),
+      transform_family: lockedFamily,
     };
-
-    if (!isAllowedTransformFamily(transformation.transform_family)) {
-      transformation.transform_family = DEFAULT_TRANSFORM_FAMILY;
-    }
-
     mrDefinition.transformation = transformation;
   }
 
   if (typeof mrDefinition.relation === 'string') {
     mrDefinition.relation = {
-      type: DEFAULT_RELATION_TYPE,
-      on: DEFAULT_OBSERVATION_FIELDS,
+      type: 'equal',
+      on: [],
       description: mrDefinition.relation,
     };
   }
 
   if (!mrDefinition.relation || typeof mrDefinition.relation !== 'object') {
     mrDefinition.relation = {
-      type: DEFAULT_RELATION_TYPE,
-      on: DEFAULT_OBSERVATION_FIELDS,
-      description: 'Observations remain equal after repeating the action.',
+      type: 'equal',
+      on: [],
+      description: 'Relation pending.',
     };
-  } else {
-    const relation = { ...(mrDefinition.relation as Record<string, unknown>) };
-    relation.on = normalizeObservationFields(relation.on);
-
-    if (!isAllowedRelationType(relation.type)) {
-      relation.type = DEFAULT_RELATION_TYPE;
-    }
-
-    if (typeof relation.description !== 'string' || relation.description.length === 0) {
-      relation.description = 'Observations remain equal after repeating the action.';
-    }
-
-    mrDefinition.relation = relation;
+  } else if (typeof (mrDefinition.relation as Record<string, unknown>).description !== 'string') {
+    (mrDefinition.relation as Record<string, unknown>).description =
+      'Observations must satisfy the metamorphic relation.';
   }
 
-  record.mr_definition = mrDefinition;
+  const parsed = MrDefinitionSchema.safeParse(
+    applyFamilyProfile(mrDefinition as MrIntent['mr_definition'], lockedFamily),
+  );
+
+  if (parsed.success) {
+    record.mr_definition = parsed.data;
+  } else {
+    record.mr_definition = applyFamilyProfile(
+      {
+        precondition: { description: 'Explored page satisfies the MR precondition.' },
+        transformation: {
+          transform_family: lockedFamily,
+          description: 'Exploration transformation.',
+        },
+        relation: {
+          type: 'equal',
+          on: ['applied_query'],
+          description: 'Relation enforced by family profile.',
+        },
+      },
+      lockedFamily,
+    );
+  }
+
+  return record;
+}
+
+function normalizeObservationAnchorOutput(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') {
+    return raw;
+  }
+
+  const record = { ...(raw as Record<string, unknown>) };
+  if (typeof record.container_element_id === 'string') {
+    record.container_element_id = normalizeElementShortId(record.container_element_id);
+  }
+
   return record;
 }
 
@@ -560,6 +589,12 @@ function normalizePlanStep(step: unknown, fallbackId: number): unknown {
 
   if (typeof record.element_id === 'string') {
     record.element_id = normalizeElementShortId(record.element_id);
+  }
+
+  if (record.action === 'scroll') {
+    delete record.element_id;
+    delete record.resolved_locator;
+    delete record.resolved_selector;
   }
 
   return {

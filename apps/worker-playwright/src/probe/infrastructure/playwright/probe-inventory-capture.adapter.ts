@@ -165,7 +165,10 @@ export class ProbeInventoryCaptureAdapter {
   }
 
   private async scanCurrentPage(page: Page): Promise<PageInventory> {
-    return scanAndEnrichCurrentPage(page, { maxItems: DEFAULT_MAX_ITEMS });
+    return scanAndEnrichCurrentPage(page, {
+      maxItems: DEFAULT_MAX_ITEMS,
+      preserveScrollPosition: true,
+    });
   }
 
   private async executeStep(

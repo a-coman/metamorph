@@ -154,9 +154,9 @@ export function CheckpointCard({
   const cardBody = (
     <div
       className={cn(
-        'rounded-xl border bg-card shadow-sm transition-all duration-300',
+        'rounded-xl border bg-card shadow-sm min-w-0 overflow-hidden transition-all duration-300',
         variant === 'timeline' && 'flex-1 mb-2',
-        variant === 'feed' && 'interactive-card',
+        variant === 'feed' && 'interactive-card w-full',
         isNew
           ? 'border-primary/50 shadow-lg shadow-primary/5 animate-fade-in'
           : 'border-border',
@@ -167,7 +167,7 @@ export function CheckpointCard({
         type="button"
         onClick={toggle}
         className={cn(
-          'w-full flex items-start gap-3 text-left cursor-pointer',
+          'w-full min-w-0 flex items-start gap-3 text-left cursor-pointer',
           variant === 'timeline' ? 'px-4 py-3' : 'px-3 py-2.5',
         )}
       >
@@ -200,9 +200,9 @@ export function CheckpointCard({
           {checkpoint.rationale && (
             <p
               className={cn(
-                'text-muted-foreground mt-1 leading-relaxed',
+                'mt-1 leading-relaxed break-words [overflow-wrap:anywhere] text-muted-foreground',
                 variant === 'timeline' ? 'text-sm' : 'text-xs',
-                expanded ? '' : 'line-clamp-2',
+                expanded ? '' : 'overflow-hidden line-clamp-2',
               )}
             >
               {checkpoint.rationale}

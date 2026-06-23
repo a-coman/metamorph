@@ -31,7 +31,7 @@ export function resolveStepTargets(
   const itemMap = new Map(inventory.items.map((item) => [item.shortId, item]));
 
   return steps.map((step) => {
-    if (!step.element_id) {
+    if (!step.element_id || !['click', 'fill', 'selectOption'].includes(step.action)) {
       return step;
     }
 

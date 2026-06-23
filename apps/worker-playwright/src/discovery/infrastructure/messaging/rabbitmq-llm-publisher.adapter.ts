@@ -22,6 +22,7 @@ export class RabbitMqLlmPublisherAdapter extends LlmJobPublisherPort {
     sessionId: string;
     pageSnapshotId: string;
     url: string;
+    transformFamily: string;
   }): Promise<void> {
     const connection = await amqplib.connect(this.url);
     const channel = await connection.createConfirmChannel();

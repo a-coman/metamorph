@@ -3,14 +3,19 @@ import {
   probeFailureContextSchema,
 } from '../schemas/slot-step.schema.js';
 
+export const exploreJobPayloadSchema = z.object({
+  url: z.url(),
+  transform_family: z
+    .enum(['idempotence', 'inclusion', 'permutation', 'inverse'])
+    .optional(),
+});
+
 export const llmExploreJobMessageSchema = z.object({
   job_id: z.uuid(),
   session_id: z.uuid(),
   type: z.literal('explore'),
   page_snapshot_id: z.uuid(),
-  payload: z.object({
-    url: z.url(),
-  }),
+  payload: exploreJobPayloadSchema,
 });
 
 export type LlmExploreJobMessage = z.infer<typeof llmExploreJobMessageSchema>;
@@ -51,3 +56,11 @@ export const llmJobMessageSchema = z.discriminatedUnion('type', [
 ]);
 
 export type LlmJobMessage = z.infer<typeof llmJobMessageSchema>;
+
+export const exploreJobDbPayloadSchema = z.object({
+  page_snapshot_id: z.string().uuid(),
+  parent_discover_job_id: z.string().uuid().optional(),
+  transform_family: z.enum(['idempotence', 'inclusion', 'permutation', 'inverse']),
+});
+
+export type ExploreJobDbPayload = z.infer<typeof exploreJobDbPayloadSchema>;

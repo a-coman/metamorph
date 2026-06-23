@@ -28,4 +28,4 @@ export const ExplorePlanOutputSchema = z.discriminatedUnion('action', [
 
 export type ExplorePlanOutput = z.infer<typeof ExplorePlanOutputSchema>;
 
-export const PLAN_EXPLORE_PROMPT_VERSION = 'plan-explore-v10';
+export const PLAN_EXPLORE_PROMPT_VERSION = 'plan-explore-v11';

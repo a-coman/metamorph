@@ -273,6 +273,26 @@ export function LlmResponsePanel({
       return <PlanExploreResponse response={record} />;
     case 'explore_verify':
       return <VerifyResponse response={record} checkpoint={checkpoint} />;
+    case 'observation_anchor':
+      return (
+        <div className="space-y-2">
+          {readString(record, 'container_element_id') && (
+            <InfoBlock>
+              <FieldLabel>Results container</FieldLabel>
+              <EnumBadge value={readString(record, 'container_element_id')!} />
+            </InfoBlock>
+          )}
+          {readString(record, 'item_selector_hint') && (
+            <InfoBlock>
+              <FieldLabel>Item selector hint</FieldLabel>
+              <EnumBadge value={readString(record, 'item_selector_hint')!} />
+            </InfoBlock>
+          )}
+          {readString(record, 'rationale') && (
+            <FieldValue>{readString(record, 'rationale')}</FieldValue>
+          )}
+        </div>
+      );
     default:
       return <JsonBlock value={responseJson} />;
   }

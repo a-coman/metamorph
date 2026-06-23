@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useSubscribeSessionEvents } from '@/hooks/session-events-context';
 import type {
   SessionDetailsDto,
@@ -8,6 +8,10 @@ import type {
   SessionMrVersionSummaryDto,
   SessionEvent,
 } from '@metamorph/api-client';
+import {
+  aggregateMrPipelineStatus,
+  sortMrVersionsByFamily,
+} from '@/lib/mr-versions';
 
 const ACTIVE_STATUSES = new Set(['queued', 'running']);
 
@@ -62,11 +66,15 @@ export function useSessionHubState(initial: SessionDetailsDto) {
     hasActiveJob ||
     mrVersions.some((mr) => mr.status === 'exploring') ||
     controlStatus === 'pausing';
-  const mr = mrVersions[0];
+  const sortedMrVersions = useMemo(
+    () => sortMrVersionsByFamily(mrVersions),
+    [mrVersions],
+  );
+  const mr = aggregateMrPipelineStatus(mrVersions);
 
   return {
     jobs,
-    mrVersions,
+    mrVersions: sortedMrVersions,
     controlStatus,
     setControlStatus,
     hasActiveJob,

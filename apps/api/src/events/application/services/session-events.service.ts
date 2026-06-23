@@ -10,6 +10,7 @@ import {
   mapScreenshotDto,
   mapLlmCallStatus,
 } from '../mappers/session-event.mapper.js';
+import { buildJobAttributionContext } from '../mappers/explore-job-attribution.js';
 
 const STREAM_TIMEOUT_MS = 30 * 60 * 1000;
 const POLL_INTERVAL_MS = 1000;
@@ -73,6 +74,7 @@ export class SessionEventsService {
                 id: true,
                 type: true,
                 status: true,
+                mrVersionId: true,
                 payload: true,
                 createdAt: true,
                 startedAt: true,
@@ -82,6 +84,7 @@ export class SessionEventsService {
                   select: {
                     id: true,
                     jobId: true,
+                    mrVersionId: true,
                     purpose: true,
                     model: true,
                     promptVersion: true,
@@ -147,6 +150,14 @@ export class SessionEventsService {
             .map((snapshot) => [snapshot.jobId as string, snapshot]),
         );
 
+        const mrFamilies = new Map(
+          session.mrVersions.map((mr) => [mr.id, mr.mrDefinition.transformFamily]),
+        );
+        const attributionContext = buildJobAttributionContext(
+          session.jobs,
+          mrFamilies,
+        );
+
         if (initialized && lastControlStatus !== session.controlStatus) {
           timestampedEvents.push({
             event: {
@@ -189,10 +200,13 @@ export class SessionEventsService {
             const prevProbe = lastProbeState.get(job.id);
             if (prevProbe !== probeKey) {
               const outputSnapshot = snapshotByJobId.get(job.id);
-              const probe = mapProbeDto({
-                job,
-                outputSnapshotId: outputSnapshot?.id ?? null,
-              });
+              const probe = mapProbeDto(
+                {
+                  job,
+                  outputSnapshotId: outputSnapshot?.id ?? null,
+                },
+                attributionContext,
+              );
               timestampedEvents.push({
                 event: { type: 'probe.status', probe },
                 timestamp: job.createdAt,
@@ -205,7 +219,7 @@ export class SessionEventsService {
             llmState.set(llmCall.id, llmKey);
             const prevLlm = lastLlmState.get(llmCall.id);
             if (prevLlm !== llmKey) {
-              const llmCallDto = mapLlmCallDto(llmCall);
+              const llmCallDto = mapLlmCallDto(llmCall, attributionContext);
               timestampedEvents.push({
                 event: { type: 'llm.status', llmCall: llmCallDto },
                 timestamp: llmCallDto.updatedAt,

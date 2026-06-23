@@ -4,5 +4,6 @@ export abstract class LlmJobPublisherPort {
     sessionId: string;
     pageSnapshotId: string;
     url: string;
+    transformFamily: string;
   }): Promise<void>;
 }

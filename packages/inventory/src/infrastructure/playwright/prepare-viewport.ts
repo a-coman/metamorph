@@ -25,10 +25,15 @@ export async function readPageMetrics(page: Page): Promise<PageMetrics> {
   }));
 }
 
+export type PrepareCaptureViewportOptions = {
+  preserveScrollPosition?: boolean;
+};
+
 export async function prepareCaptureViewport(
   page: Page,
   maxCaptureHeight = DEFAULT_MAX_CAPTURE_HEIGHT,
   waitAfterViewportMs = 500,
+  options?: PrepareCaptureViewportOptions,
 ): Promise<PreparedViewport> {
   const pageMetrics = await readPageMetrics(page);
   const viewportSize = page.viewportSize() ?? DEFAULT_CAPTURE_VIEWPORT;
@@ -47,7 +52,9 @@ export async function prepareCaptureViewport(
     height: captureHeight,
   });
 
-  await page.evaluate(() => window.scrollTo(0, 0));
+  if (!options?.preserveScrollPosition) {
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
   await page.waitForTimeout(waitAfterViewportMs);
 
   return {

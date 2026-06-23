@@ -3,6 +3,7 @@ import type { SessionActivityDto } from '@metamorph/api-client';
 import { JobType, JobStatus } from '../../../../generated/prisma/enums.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
 import { TracePathQuery } from '../../infrastructure/trace-path.query.js';
+import { buildJobAttributionContext } from '../mappers/explore-job-attribution.js';
 import {
   mapLlmCallDto,
   mapProbeDto,
@@ -25,6 +26,7 @@ export class SessionActivityService {
             id: true,
             type: true,
             status: true,
+            mrVersionId: true,
             payload: true,
             createdAt: true,
             startedAt: true,
@@ -34,6 +36,7 @@ export class SessionActivityService {
               select: {
                 id: true,
                 jobId: true,
+                mrVersionId: true,
                 purpose: true,
                 model: true,
                 promptVersion: true,
@@ -51,9 +54,11 @@ export class SessionActivityService {
           orderBy: { createdAt: 'asc' },
         },
         mrVersions: {
-          select: { id: true },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+          select: {
+            id: true,
+            mrDefinition: { select: { transformFamily: true } },
+          },
+          orderBy: { createdAt: 'asc' },
         },
         pageSnapshots: {
           select: {
@@ -73,6 +78,11 @@ export class SessionActivityService {
       throw new NotFoundException(`Session ${sessionId} not found`);
     }
 
+    const mrFamilies = new Map(
+      session.mrVersions.map((mr) => [mr.id, mr.mrDefinition.transformFamily]),
+    );
+    const attributionContext = buildJobAttributionContext(session.jobs, mrFamilies);
+
     const probeJobIds = new Set(
       session.jobs.filter((job) => job.type === JobType.probe).map((job) => job.id),
     );
@@ -83,17 +93,20 @@ export class SessionActivityService {
     );
 
     const llmCalls = session.jobs.flatMap((job) =>
-      job.llmCalls.map((llmCall) => mapLlmCallDto(llmCall)),
+      job.llmCalls.map((llmCall) => mapLlmCallDto(llmCall, attributionContext)),
     );
 
     const probes = session.jobs
       .filter((job) => job.type === JobType.probe)
       .map((job) => {
         const outputSnapshot = snapshotByJobId.get(job.id);
-        return mapProbeDto({
-          job,
-          outputSnapshotId: outputSnapshot?.id ?? null,
-        });
+        return mapProbeDto(
+          {
+            job,
+            outputSnapshotId: outputSnapshot?.id ?? null,
+          },
+          attributionContext,
+        );
       });
 
     const screenshots = session.pageSnapshots.flatMap((snapshot) => {
@@ -119,10 +132,11 @@ export class SessionActivityService {
       }
     }
 
-    const mrVersionId = session.mrVersions[0]?.id;
-    const checkpoints = mrVersionId
-      ? await this.loadCheckpoints(mrVersionId)
-      : [];
+    const mrVersionIds = session.mrVersions.map((mr) => mr.id);
+    const checkpoints =
+      mrVersionIds.length > 0
+        ? await this.loadCheckpointsForMrVersions(mrVersionIds)
+        : [];
 
     return {
       llmCalls,
@@ -133,12 +147,13 @@ export class SessionActivityService {
     };
   }
 
-  private async loadCheckpoints(mrVersionId: string) {
+  private async loadCheckpointsForMrVersions(mrVersionIds: string[]) {
     const checkpoints = await this.prisma.explorationCheckpoint.findMany({
-      where: { mrVersionId },
-      orderBy: { sequence: 'asc' },
+      where: { mrVersionId: { in: mrVersionIds } },
+      orderBy: [{ mrVersionId: 'asc' }, { sequence: 'asc' }],
       select: {
         id: true,
+        mrVersionId: true,
         phase: true,
         sequence: true,
         snapshotId: true,
@@ -158,6 +173,7 @@ export class SessionActivityService {
       const traceInfo = traceInfoMap.get(row.snapshotId);
       return {
         ...row,
+        mrVersionId: row.mrVersionId,
         llmCallId: row.llmCallId ?? null,
         tracePath: traceInfo?.path ?? null,
         traceArtifactId: traceInfo?.artifactId ?? null,

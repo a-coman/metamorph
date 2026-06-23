@@ -1,5 +1,10 @@
 import type { LlmCallDto, ProbeStatusDto, ScreenshotDto } from '@metamorph/api-client';
-import { JobStatus } from '../../../../generated/prisma/enums.js';
+import { JobStatus, JobType } from '../../../../generated/prisma/enums.js';
+import {
+  type JobAttributionContext,
+  resolveExploreAttribution,
+  resolveTransformFamily,
+} from './explore-job-attribution.js';
 
 export type ProbeJobPayload = {
   phase?: string;
@@ -45,25 +50,52 @@ export function mapLlmCallStatus(responseJson: unknown): LlmCallDto['status'] {
   return 'done';
 }
 
-export function mapLlmCallDto(llmCall: {
-  id: string;
-  jobId: string | null;
-  purpose: string;
-  model: string;
-  promptVersion: string;
-  tokensIn: number | null;
-  tokensOut: number | null;
-  latencyMs: number | null;
-  responseJson: unknown;
-  createdAt: Date;
-  completedAt: Date | null;
-  updatedAt: Date;
-}): LlmCallDto {
+export function mapLlmCallDto(
+  llmCall: {
+    id: string;
+    jobId: string | null;
+    mrVersionId?: string | null;
+    purpose: string;
+    model: string;
+    promptVersion: string;
+    tokensIn: number | null;
+    tokensOut: number | null;
+    latencyMs: number | null;
+    responseJson: unknown;
+    createdAt: Date;
+    completedAt: Date | null;
+    updatedAt: Date;
+  },
+  context?: JobAttributionContext,
+): LlmCallDto {
   const status = mapLlmCallStatus(llmCall.responseJson);
+
+  let mrVersionId = llmCall.mrVersionId ?? null;
+  let transformFamily: string | null = null;
+  let exploreJobId: string | null = null;
+
+  if (llmCall.jobId && context) {
+    const jobType = context.jobTypes.get(llmCall.jobId);
+    if (jobType === JobType.explore) {
+      exploreJobId = llmCall.jobId;
+      const attribution = resolveExploreAttribution(llmCall.jobId, context);
+      if (attribution) {
+        mrVersionId = mrVersionId ?? attribution.mrVersionId;
+        transformFamily = attribution.transformFamily;
+      }
+    }
+  }
+
+  if (!transformFamily && mrVersionId && context) {
+    transformFamily = resolveTransformFamily(mrVersionId, context);
+  }
 
   return {
     id: llmCall.id,
     jobId: llmCall.jobId,
+    mrVersionId,
+    transformFamily,
+    exploreJobId,
     purpose: llmCall.purpose,
     model: llmCall.model,
     promptVersion: llmCall.promptVersion,
@@ -94,25 +126,32 @@ export function mapProbeJobStatus(status: JobStatus): ProbeStatusDto['status'] {
   }
 }
 
-export function mapProbeDto(input: {
-  job: {
-    id: string;
-    status: JobStatus;
-    payload: unknown;
-    createdAt: Date;
-    startedAt: Date | null;
-    finishedAt: Date | null;
-    errorMessage: string | null;
-  };
-  outputSnapshotId: string | null;
-}): ProbeStatusDto {
+export function mapProbeDto(
+  input: {
+    job: {
+      id: string;
+      status: JobStatus;
+      payload: unknown;
+      createdAt: Date;
+      startedAt: Date | null;
+      finishedAt: Date | null;
+      errorMessage: string | null;
+    };
+    outputSnapshotId: string | null;
+  },
+  context?: JobAttributionContext,
+): ProbeStatusDto {
   const payload = input.job.payload as Record<string, unknown> | null;
   const executedSteps = resolveProbeExecutedSteps(payload);
   const probeUpdatedAt = input.job.finishedAt ?? input.job.startedAt ?? input.job.createdAt;
+  const exploreJobId = (payload?.explore_job_id as string) ?? null;
+  const attribution = context ? resolveExploreAttribution(exploreJobId, context) : null;
 
   return {
     jobId: input.job.id,
-    exploreJobId: (payload?.explore_job_id as string) ?? null,
+    exploreJobId,
+    mrVersionId: attribution?.mrVersionId ?? null,
+    transformFamily: attribution?.transformFamily ?? null,
     planLlmCallId: (payload?.plan_llm_call_id as string) ?? null,
     cycleIteration:
       typeof payload?.cycle_iteration === 'number' ? payload.cycle_iteration : null,

@@ -1,5 +1,10 @@
+#!/usr/bin/env node
+/**
+ * E2E: session → discover → 4 explore jobs → draft_pending_hitl for each family.
+ */
 const API = process.env.API ?? 'http://localhost:3001';
 const URL = process.env.E2E_URL ?? 'https://www.amazon.es/';
+const EXPECTED_FAMILIES = ['idempotence', 'inclusion', 'permutation', 'inverse'];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -50,22 +55,9 @@ function assertExplorationQuality(timeline, mrVersionId) {
     timeline.checkpoints.some((c) => c.phase === 'follow_up' && c.verdict === 'goal_reached'),
     'no follow_up checkpoint with goal_reached',
   );
-
-  if (timeline.checkpointStats) {
-    const sourceFails = timeline.checkpointStats.source?.fail ?? 0;
-    const sourceTotal =
-      (timeline.checkpointStats.source?.ok ?? 0) +
-      sourceFails +
-      (timeline.checkpointStats.source?.goal_reached ?? 0);
-    if (sourceTotal > 0 && sourceFails / sourceTotal > 0.5) {
-      console.warn(
-        `  warn: source checkpoint fail ratio high (${sourceFails}/${sourceTotal})`,
-      );
-    }
-  }
 }
 
-async function assertPlaybookSmoke(mrVersionId) {
+async function assertPlaybookSmoke(mrVersionId, transformFamily) {
   const playbook = await api('GET', `/mr-versions/${mrVersionId}/playbook`, undefined, {
     expectJson: false,
   });
@@ -73,7 +65,46 @@ async function assertPlaybookSmoke(mrVersionId) {
   assert(playbook.includes("test('source'"), "playbook missing source test");
   assert(playbook.includes("test('follow_up'"), "playbook missing follow_up test");
   assert(playbook.includes('extractObservation'), 'playbook missing observation extract');
+
+  if (transformFamily === 'inclusion') {
+    assert(playbook.includes('visible_item_count'), 'inclusion playbook missing visible_item_count');
+  }
+
   return playbook;
+}
+
+async function waitForDraftMrs(sessionId) {
+  for (let i = 1; i <= 180; i++) {
+    const session = await api('GET', `/sessions/${sessionId}`);
+    const mrVersions = session.mrVersions ?? [];
+    const byFamily = new Map(mrVersions.map((mr) => [mr.transformFamily, mr]));
+    const summary = EXPECTED_FAMILIES.map(
+      (family) => `${family}:${byFamily.get(family)?.status ?? 'missing'}`,
+    ).join(' | ');
+
+    console.log(`[${i}/180] jobs=[${jobSummary(session)}] mrs=${summary}`);
+
+    const failedJob = session.jobs.find(
+      (j) =>
+        j.status === 'failed' &&
+        (j.type === 'discover' || j.type === 'explore'),
+    );
+    if (failedJob) {
+      console.error('Job failed:', JSON.stringify(failedJob, null, 2));
+      process.exit(1);
+    }
+
+    const allDraft =
+      EXPECTED_FAMILIES.every((family) => byFamily.get(family)?.status === 'draft_pending_hitl');
+
+    if (allDraft && mrVersions.length >= EXPECTED_FAMILIES.length) {
+      return EXPECTED_FAMILIES.map((family) => byFamily.get(family));
+    }
+
+    await sleep(10_000);
+  }
+
+  throw new Error('Timeout waiting for 4 draft_pending_hitl MR versions');
 }
 
 async function main() {
@@ -82,89 +113,25 @@ async function main() {
   console.log(JSON.stringify(created, null, 2));
   const sessionId = created.sessionId;
 
-  console.log('\n=== 2. Esperar discover + explore (draft_pending_hitl) ===');
-  console.log(
-    'Requisito: API en host + docker compose up -d worker-playwright worker-llm',
-  );
-  let mrVersionId = null;
-  let mrStatus = 'none';
-  for (let i = 1; i <= 120; i++) {
-    const session = await api('GET', `/sessions/${sessionId}`);
-    const mr = session.mrVersions?.[0];
-    const status = mr?.status ?? 'none';
-    mrStatus = status;
-    mrVersionId = mr?.id ?? null;
-    console.log(`[${i}/120] jobs=[${jobSummary(session)}] mr_version_status=${status}`);
+  console.log('\n=== 2. Esperar discover + 4 explore (draft_pending_hitl) ===');
+  const mrVersions = await waitForDraftMrs(sessionId);
 
-    if (mrVersionId && (status === 'exploring' || status === 'draft_pending_hitl')) {
-      try {
-        const timeline = await api('GET', `/mr-versions/${mrVersionId}/exploration`);
-        const stats = timeline.checkpointStats;
-        const statsLine = stats
-          ? ` source=${JSON.stringify(stats.source)} follow_up=${JSON.stringify(stats.follow_up)}`
-          : '';
-        console.log(
-          `  checkpoints=${timeline.checkpoints.length} validated_source=${timeline.validatedSteps.source.length} validated_follow_up=${timeline.validatedSteps.follow_up.length}${statsLine}`,
-        );
-      } catch {
-        // exploration endpoint may not be ready yet
-      }
-    }
-
-    const failed = session.jobs.find(
-      (j) =>
-        j.status === 'failed' &&
-        (j.type === 'discover' || j.type === 'explore'),
-    );
-    if (failed) {
-      console.error('Job failed:', JSON.stringify(failed, null, 2));
-      process.exit(1);
-    }
-
-    if (status === 'exploration_failed') {
-      let failureDetail = '';
-      if (mrVersionId) {
-        try {
-          const timeline = await api('GET', `/mr-versions/${mrVersionId}/exploration`);
-          failureDetail = timeline.failureReason
-            ? `\nfailureReason: ${timeline.failureReason}`
-            : '';
-          console.error('Exploration timeline:', JSON.stringify(timeline, null, 2));
-        } catch {
-          // ignore
-        }
-      }
-      console.error('Exploration failed:', JSON.stringify(mr, null, 2), failureDetail);
-      process.exit(1);
-    }
-
-    if (status === 'draft_pending_hitl' && mrVersionId) break;
-    await sleep(10_000);
+  for (const mr of mrVersions) {
+    console.log(`\n=== 3. Quality gates for ${mr.transformFamily} (${mr.id}) ===`);
+    const timeline = await api('GET', `/mr-versions/${mr.id}/exploration`);
+    assertExplorationQuality(timeline, mr.id);
+    await assertPlaybookSmoke(mr.id, mr.transformFamily);
+    console.log('Quality gates passed');
   }
 
-  if (!mrVersionId || mrStatus !== 'draft_pending_hitl') {
-    const session = await api('GET', `/sessions/${sessionId}`);
-    console.error(
-      `Timeout esperando draft_pending_hitl (status=${mrStatus}):`,
-      JSON.stringify(session, null, 2),
-    );
-    process.exit(1);
-  }
-  console.log('MR_VERSION_ID=', mrVersionId);
+  const idempotenceMr = mrVersions.find((mr) => mr.transformFamily === 'idempotence');
+  assert(idempotenceMr, 'idempotence MR missing');
 
-  console.log('\n=== 3. Timeline exploración + quality gates ===');
-  const timeline = await api('GET', `/mr-versions/${mrVersionId}/exploration`);
-  console.log(JSON.stringify(timeline, null, 2));
-  assertExplorationQuality(timeline, mrVersionId);
-  await assertPlaybookSmoke(mrVersionId);
-  console.log('Quality gates passed');
+  console.log('\n=== 4. Approve idempotence MR ===');
+  await api('POST', `/mr-versions/${idempotenceMr.id}/approve`);
 
-  console.log('\n=== 4. Approve ===');
-  console.log(JSON.stringify(await api('POST', `/mr-versions/${mrVersionId}/approve`), null, 2));
-
-  console.log('\n=== 5. Execute ===');
-  const exec = await api('POST', `/mr-versions/${mrVersionId}/execute`);
-  console.log(JSON.stringify(exec, null, 2));
+  console.log('\n=== 5. Execute idempotence MR ===');
+  const exec = await api('POST', `/mr-versions/${idempotenceMr.id}/execute`);
   const runId = exec.runId;
 
   console.log('\n=== 6. Esperar run completado ===');
@@ -181,7 +148,6 @@ async function main() {
   }
 
   console.error('Timeout esperando run');
-  console.log(JSON.stringify(await api('GET', `/runs/${runId}`), null, 2));
   process.exit(1);
 }
 

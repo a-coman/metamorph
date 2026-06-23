@@ -108,4 +108,21 @@ describe('resolveStepTargets', () => {
     assert.equal(step.resolved_selector, '#nav-logo-sprites');
     assert.equal(step.resolved_locator, undefined);
   });
+
+  it('does not attach resolved targets to scroll steps', () => {
+    const [step] = resolveStepTargets(
+      [{ id: 1, action: 'scroll', scroll_y: 500, element_id: 'E3' }],
+      {
+        url: 'https://www.amazon.es/',
+        capturedAt: new Date().toISOString(),
+        pageMetrics: { width: 1280, height: 800 },
+        viewport: { width: 1280, height: 800 },
+        labeledCount: 1,
+        items: [baseItem()],
+      },
+    );
+
+    assert.equal(step.resolved_locator, undefined);
+    assert.equal(step.resolved_selector, undefined);
+  });
 });

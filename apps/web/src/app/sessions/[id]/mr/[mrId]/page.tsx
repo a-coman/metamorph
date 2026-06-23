@@ -3,8 +3,9 @@ import { Suspense } from 'react';
 import type { RunSummaryDto } from '@metamorph/api-client';
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/page-header';
-import { MrVersionTabs } from '@/components/mr-version-tabs';
+import { MrObservationSummary } from '@/components/mr-observation-summary';
 import { MrVersionHeader } from '@/components/mr-version-header';
+import { MrVersionTabs } from '@/components/mr-version-tabs';
 import { ExplorationTimeline, ExplorationTimelineSkeleton } from '@/components/exploration-timeline';
 import { SessionEventsProvider } from '@/hooks/session-events-context';
 import { PlaybookEditor, PlaybookSkeleton } from '@/components/playbook-editor';
@@ -128,6 +129,11 @@ export default async function MrVersionPage({ params, searchParams }: Props) {
             mrId={mrId}
             initialMrStatus={mrVersion.status}
             initialControlStatus={session.controlStatus}
+          />
+
+          <MrObservationSummary
+            mrDefinition={mrVersion.mrDefinition}
+            generationSlots={mrVersion.generationSlots}
           />
 
           <Suspense>

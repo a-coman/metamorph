@@ -4,6 +4,7 @@ import type { MrDefinition } from '../../domain/schemas/mr-definition.schema.js'
 import type { InventoryItem, PageSnapshotInventory } from '../../domain/schemas/page-snapshot.schema.js';
 import {
   PLAYBOOK_TEMPLATE_VERSION,
+  buildObservationExtractorContext,
   renderObservationSchema,
   renderPlaybook,
 } from '../../infrastructure/templates/playbook-template.v1.js';
@@ -35,11 +36,15 @@ export function compilePlaybook(
   slots: GenerationSlots,
   _mrDefinition: MrDefinition,
   inventory: PageSnapshotInventory,
-  options?: { sessionUrl?: string },
+  options?: {
+    sessionUrl?: string;
+    anchorInventories?: Map<string, PageSnapshotInventory>;
+  },
 ): CompilePlaybookResult {
   const itemMap = new Map(inventory.items.map((item) => [item.shortId, item]));
 
   validateElementIds(slots, itemMap);
+  validateObservationAnchors(slots, options?.anchorInventories);
 
   const sessionUrl = options?.sessionUrl;
   const sourceSteps =
@@ -54,10 +59,16 @@ export function compilePlaybook(
   const sourceStepLines = renderScenarioSteps(sourceSteps, itemMap);
   const followUpStepLines = renderScenarioSteps(followUpSteps, itemMap);
 
+  const observationContext = buildObservationExtractorContext({
+    anchors: slots.observation.anchors,
+    anchorInventories: options?.anchorInventories,
+  });
+
   const playbookContent = renderPlaybook({
     observationFields: slots.observation.fields,
     sourceStepLines,
     followUpStepLines,
+    observationContext,
   });
 
   const schemaContent = renderObservationSchema(slots.observation.fields);
@@ -69,6 +80,35 @@ export function compilePlaybook(
     contentHash,
     templateVersion: PLAYBOOK_TEMPLATE_VERSION,
   };
+}
+
+function validateObservationAnchors(
+  slots: GenerationSlots,
+  anchorInventories?: Map<string, PageSnapshotInventory>,
+): void {
+  const anchor = slots.observation.anchors?.visible_item_count;
+  if (!anchor) {
+    return;
+  }
+
+  if (!anchorInventories) {
+    throw new PlaybookCompileError(
+      'visible_item_count anchor requires anchorInventories at compile time',
+    );
+  }
+
+  const inventory = anchorInventories.get(anchor.inventory_snapshot_id);
+  if (!inventory) {
+    throw new PlaybookCompileError(
+      `Anchor inventory snapshot ${anchor.inventory_snapshot_id} not found`,
+    );
+  }
+
+  if (!inventory.items.some((item) => item.shortId === anchor.container_element_id)) {
+    throw new PlaybookCompileError(
+      `Anchor container_element_id ${anchor.container_element_id} not found in inventory`,
+    );
+  }
 }
 
 function validateElementIds(

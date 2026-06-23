@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { CheckCircle, XCircle, Clock, Loader2, AlertCircle, Target, Play, Eye, Pause } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, AlertCircle, Target, Play, Eye, Pause, Sparkles } from 'lucide-react';
 
 type StatusType = 'success' | 'error' | 'warning' | 'info' | 'neutral' | 'active';
 
@@ -23,19 +23,19 @@ const STATUS_MAP: Record<string, StatusConfig> = {
   // Job statuses
   pending_enqueue: { label: 'Pending', type: 'neutral', icon: Clock },
   queued: { label: 'Queued', type: 'neutral', icon: Clock },
-  running: { label: 'Running', type: 'active', icon: Loader2 },
+  running: { label: 'Running', type: 'active', icon: Play },
   done: { label: 'Done', type: 'success', icon: CheckCircle },
   completed: { label: 'Completed', type: 'success', icon: CheckCircle },
   failed: { label: 'Failed', type: 'error', icon: XCircle },
   enqueue_failed: { label: 'Failed', type: 'error', icon: XCircle },
   paused: { label: 'Paused', type: 'warning', icon: Pause },
-  pausing: { label: 'Pausing', type: 'warning', icon: Loader2 },
+  pausing: { label: 'Pausing', type: 'warning', icon: Pause },
 
   // MR version statuses
   draft_pending_hitl: { label: 'Needs Review', type: 'warning', icon: Eye },
   approved: { label: 'Approved', type: 'success', icon: CheckCircle },
   exploration_failed: { label: 'Failed', type: 'error', icon: XCircle },
-  exploring: { label: 'Exploring', type: 'active', icon: Loader2 },
+  exploring: { label: 'Exploring', type: 'active', icon: Sparkles },
   executing: { label: 'Executing', type: 'active', icon: Play },
   executed: { label: 'Executed', type: 'success', icon: CheckCircle },
 
@@ -109,7 +109,6 @@ export function StatusBadge({ status, className, size = 'sm' }: {
         <Icon className={cn(
           'shrink-0',
           size === 'sm' ? 'size-3' : 'size-3.5',
-          cfg.type === 'active' && 'animate-spin'
         )} />
       )}
       {cfg.label}

@@ -1,7 +1,9 @@
 import type {
   GenerationSlots,
   MrIntent,
+  ObservationAnchors,
   SlotStep,
+  TransformFamily,
 } from '@metamorph/core';
 import { parseObservationCatalogFields } from '@metamorph/core';
 import type { ExploreBatchLog } from './batch-log.js';
@@ -30,6 +32,7 @@ export type ExploreGraphState = {
   sessionUrl: string;
   mrVersionId: string;
   exploreJobId: string;
+  transformFamily: TransformFamily;
   phase: ExplorePhase;
   initialSnapshotId: string;
   /** Snapshot at the end of the source phase — used as reference in follow_up planning. */
@@ -50,6 +53,7 @@ export type ExploreGraphState = {
   checkpointRecoveryAttempts: number;
   mrDefinition?: MrIntent['mr_definition'];
   explorationGoals?: MrIntent['exploration'];
+  observationAnchors?: ObservationAnchors;
   probeError?: string;
   probeStatus?: 'ok' | 'failed';
   lastVerdict?: 'ok' | 'fail' | 'goal_reached';
@@ -58,6 +62,8 @@ export type ExploreGraphState = {
   awaitingSmokeReplay?: boolean;
   smokeRecoveryAttempts: number;
   maxSmokeRecoveryAttempts: number;
+  anchorRecoveryAttempts: number;
+  maxAnchorRecoveryAttempts: number;
   failed?: boolean;
   failureReason?: string;
 };
@@ -72,7 +78,13 @@ export type ProbeResumeValue = {
 
 export const DEFAULT_EXPLORE_STATE: Omit<
   ExploreGraphState,
-  'sessionId' | 'sessionUrl' | 'mrVersionId' | 'exploreJobId' | 'initialSnapshotId' | 'currentSnapshotId'
+  | 'sessionId'
+  | 'sessionUrl'
+  | 'mrVersionId'
+  | 'exploreJobId'
+  | 'transformFamily'
+  | 'initialSnapshotId'
+  | 'currentSnapshotId'
 > = {
   phase: 'source',
   validatedSteps: { source: [], follow_up: [] },
@@ -89,6 +101,8 @@ export const DEFAULT_EXPLORE_STATE: Omit<
   awaitingSmokeReplay: false,
   smokeRecoveryAttempts: 0,
   maxSmokeRecoveryAttempts: 2,
+  anchorRecoveryAttempts: 0,
+  maxAnchorRecoveryAttempts: 2,
 };
 
 export function buildGenerationSlots(state: ExploreGraphState): GenerationSlots {
@@ -99,6 +113,9 @@ export function buildGenerationSlots(state: ExploreGraphState): GenerationSlots 
   return {
     source: { steps: state.validatedSteps.source },
     follow_up: { steps: state.validatedSteps.follow_up },
-    observation: { fields: observationFields },
+    observation: {
+      fields: observationFields,
+      ...(state.observationAnchors ? { anchors: state.observationAnchors } : {}),
+    },
   };
 }

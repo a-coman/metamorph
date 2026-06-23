@@ -11,21 +11,25 @@ export class ExplorationPrismaRepository {
     pageSnapshotId: string;
     host: string;
     exploreJobId: string;
+    transformFamily: string;
   }): Promise<{ mrVersionId: string }> {
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const mrDefinition = await tx.mrDefinition.create({
         data: {
           host: input.host,
-          transformFamily: 'pending',
+          transformFamily: input.transformFamily,
           definition: {
             precondition: { description: 'Exploration in progress' },
             transformation: {
-              transform_family: 'idempotence',
+              transform_family: input.transformFamily,
               description: 'Pending exploration',
             },
             relation: {
-              type: 'equal',
-              on: ['applied_query', 'results_url'],
+              type: input.transformFamily === 'inclusion' ? 'cardinality_lte' : 'equal',
+              on:
+                input.transformFamily === 'inclusion'
+                  ? ['applied_query', 'visible_item_count']
+                  : ['applied_query', 'results_url'],
               description: 'Pending',
             },
           },

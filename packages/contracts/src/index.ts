@@ -22,6 +22,8 @@ export {
   type LlmExploreResumeMessage,
   type LlmExploreUserResumeMessage,
   type LlmJobMessage,
+  exploreJobDbPayloadSchema,
+  type ExploreJobDbPayload,
 } from './messages/llm-explore-job.message.js';
 export {
   playwrightDiscoverJobMessageSchema,

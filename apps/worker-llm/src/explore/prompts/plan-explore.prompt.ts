@@ -20,7 +20,7 @@ const PLAN_EXPLORE_EXAMPLE_TWO_STEPS = {
   rationale:
     'Searchbox is visible. Fill it from Current inventory, then press Enter to submit the search.',
   steps: [
-    { id: 1, action: 'fill', element_id: 'E1', value: 'portatil' },
+    { id: 1, action: 'fill', element_id: 'E1', value: 'laptop' },
     { id: 2, action: 'press', element_id: 'E1', key: 'Enter' },
   ],
 };
@@ -31,7 +31,7 @@ const PLAN_EXPLORE_EXAMPLE_THREE_STEPS = {
     'Cookie banner blocks the page. Click its accept/dismiss control from Current inventory, fill the searchbox from Current inventory, then press Enter.',
   steps: [
     { id: 1, action: 'click', element_id: 'E42' },
-    { id: 2, action: 'fill', element_id: 'E1', value: 'portatil' },
+    { id: 2, action: 'fill', element_id: 'E1', value: 'laptop' },
     { id: 3, action: 'press', element_id: 'E1', key: 'Enter' },
   ],
 };
@@ -96,6 +96,13 @@ export function buildCompletedSourceReferenceSection(
   ].join('\n');
 }
 
+const PLAN_EXPLORE_EXAMPLE_SCROLL = {
+  action: 'append_steps',
+  rationale:
+    'Filters below the fold are not in Current inventory. Scroll the page down to reveal sidebar filters.',
+  steps: [{ id: 1, action: 'scroll', scroll_y: 800 }],
+};
+
 export function buildPlanExploreSystemPrompt(): string {
   return [
     'You plan incremental Playwright steps for metamorphic testing exploration.',
@@ -106,11 +113,11 @@ export function buildPlanExploreSystemPrompt(): string {
     '    {',
     '      "id": number,',
     '      "action": string,',
-    '      "element_id": string,',
+    '      "element_id": string (omit for scroll),',
     '      "value": string,',
     '      "url": string,',
     '      "key": string,',
-    '      "scroll_y": number,',
+    '      "scroll_y": number (required for scroll),',
     '      "timeout_ms": number',
     '    }',
     '  ],',
@@ -125,6 +132,8 @@ export function buildPlanExploreSystemPrompt(): string {
     '- Use ONLY element_id values from the Current inventory in the user message.',
     '- element_ids in examples and source reference are NOT valid targets; never copy them — pick from Current inventory for the attached screenshot.',
     '- click, fill, and selectOption MUST include element_id.',
+    '- scroll scrolls the page viewport; include scroll_y only and omit element_id (do not attach element_id to scroll steps).',
+    '- waitFor and press omit element_id unless the action targets a specific inventory element.',
     '- fill is ONLY allowed on inventory items marked fillable.',
     '- If the target element for the phase goal is not in Current inventory, plan only steps using existing element_ids (dismiss overlays, click triggers, waitFor). Do not plan fill or click on absent elements; wait for the next snapshot.',
     '- Plan toward the current phase goal stated in the user message.',
@@ -158,6 +167,8 @@ export function buildPlanExploreSystemPrompt(): string {
     JSON.stringify(PLAN_EXPLORE_EXAMPLE_TWO_STEPS, null, 2),
     '3 steps:',
     JSON.stringify(PLAN_EXPLORE_EXAMPLE_THREE_STEPS, null, 2),
+    'scroll (no element_id):',
+    JSON.stringify(PLAN_EXPLORE_EXAMPLE_SCROLL, null, 2),
   ].join('\n');
 }
 

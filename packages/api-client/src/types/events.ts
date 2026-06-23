@@ -21,6 +21,9 @@ export type SessionMrStatusChangedEvent = {
 export type LlmCallDto = {
   id: string;
   jobId: string | null;
+  mrVersionId?: string | null;
+  transformFamily?: string | null;
+  exploreJobId?: string | null;
   purpose: string;
   model: string;
   promptVersion: string;
@@ -49,6 +52,8 @@ export type ProbeJobMode = 'incremental' | 'smoke_replay';
 export type ProbeStatusDto = {
   jobId: string;
   exploreJobId: string | null;
+  mrVersionId?: string | null;
+  transformFamily?: string | null;
   planLlmCallId: string | null;
   cycleIteration: number | null;
   status: 'queued' | 'running' | 'done' | 'failed';

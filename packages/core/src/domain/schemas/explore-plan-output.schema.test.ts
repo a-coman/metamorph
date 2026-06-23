@@ -23,6 +23,13 @@ describe('ExplorePlanOutputSchema', () => {
       steps: [{ id: 1, action: 'click', element_id: 'E1' }],
     });
     assert.equal(valid.success, true);
+
+    const scroll = ExplorePlanOutputSchema.safeParse({
+      action: 'append_steps',
+      rationale: 'Reveal filters below the fold',
+      steps: [{ id: 1, action: 'scroll', scroll_y: 800 }],
+    });
+    assert.equal(scroll.success, true);
   });
 
   it('allows scenario_complete and abort without steps', () => {

@@ -1,4 +1,5 @@
 import { Command } from '@langchain/langgraph';
+import type { TransformFamily } from '@metamorph/core';
 import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres';
 import pg from 'pg';
 import { DEFAULT_EXPLORE_STATE, type ProbeResumeValue } from '../graph/explore-state.js';
@@ -35,6 +36,7 @@ export class ExploreGraphRunner {
     sessionId: string;
     sessionUrl: string;
     pageSnapshotId: string;
+    transformFamily: TransformFamily;
   }): Promise<{ status: 'completed' | 'interrupted' | 'failed' | 'paused'; mrVersionId?: string; reason?: string }> {
     if (!this.compiled) {
       await this.setup();
@@ -48,6 +50,7 @@ export class ExploreGraphRunner {
       sessionId: input.sessionId,
       sessionUrl: input.sessionUrl,
       exploreJobId: input.exploreJobId,
+      transformFamily: input.transformFamily,
       mrVersionId: '',
       initialSnapshotId: input.pageSnapshotId,
       currentSnapshotId: input.pageSnapshotId,
@@ -58,6 +61,8 @@ export class ExploreGraphRunner {
       awaitingSmokeReplay: false,
       smokeRecoveryAttempts: 0,
       maxSmokeRecoveryAttempts: 2,
+      anchorRecoveryAttempts: 0,
+      maxAnchorRecoveryAttempts: 2,
     };
 
     const result = (await graph.invoke(initialState, config)) as Record<string, unknown>;
@@ -100,7 +105,7 @@ export class ExploreGraphRunner {
   private async interpretResult(
     result: Record<string, unknown>,
     config: { configurable: { thread_id: string } },
-    exploreJobId?: string,
+    _exploreJobId?: string,
   ): Promise<{
     status: 'completed' | 'interrupted' | 'failed' | 'paused';
     mrVersionId?: string;

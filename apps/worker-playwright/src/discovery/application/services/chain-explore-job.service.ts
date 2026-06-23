@@ -1,3 +1,4 @@
+import { TRANSFORM_FAMILIES } from '@metamorph/core';
 import { JobType as PrismaJobType, JobStatus as PrismaJobStatus, SessionControlStatus } from '../../../../../api/generated/prisma/enums.js';
 import { prisma } from '../../../shared/infrastructure/prisma/prisma-client.js';
 import { LlmJobPublisherPort } from '../ports/llm-job-publisher.port.js';
@@ -12,7 +13,7 @@ export type ChainExploreInput = {
 export class ChainExploreJobService {
   constructor(private readonly llmJobPublisher: LlmJobPublisherPort) {}
 
-  async chain(input: ChainExploreInput): Promise<{ jobId: string }> {
+  async chain(input: ChainExploreInput): Promise<{ jobIds: string[] }> {
     const session = await prisma.session.findUnique({
       where: { id: input.sessionId },
       select: { controlStatus: true },
@@ -22,9 +23,25 @@ export class ChainExploreJobService {
       console.log(
         `Skipping explore chain for session ${input.sessionId} — control status ${session?.controlStatus ?? 'missing'}`,
       );
-      return { jobId: '' };
+      return { jobIds: [] };
     }
 
+    const jobIds: string[] = [];
+
+    for (const transformFamily of TRANSFORM_FAMILIES) {
+      const jobId = await this.createAndPublishExploreJob(input, transformFamily);
+      if (jobId) {
+        jobIds.push(jobId);
+      }
+    }
+
+    return { jobIds };
+  }
+
+  private async createAndPublishExploreJob(
+    input: ChainExploreInput,
+    transformFamily: (typeof TRANSFORM_FAMILIES)[number],
+  ): Promise<string | null> {
     const job = await prisma.job.create({
       data: {
         sessionId: input.sessionId,
@@ -33,6 +50,7 @@ export class ChainExploreJobService {
         payload: {
           page_snapshot_id: input.pageSnapshotId,
           parent_discover_job_id: input.parentDiscoverJobId,
+          transform_family: transformFamily,
         },
       },
     });
@@ -48,6 +66,7 @@ export class ChainExploreJobService {
         sessionId: input.sessionId,
         pageSnapshotId: input.pageSnapshotId,
         url: input.sessionUrl,
+        transformFamily,
       });
     } catch (error) {
       const message =
@@ -65,9 +84,9 @@ export class ChainExploreJobService {
     }
 
     console.log(
-      `Chained explore job ${job.id} for snapshot ${input.pageSnapshotId}`,
+      `Chained explore job ${job.id} (${transformFamily}) for snapshot ${input.pageSnapshotId}`,
     );
 
-    return { jobId: job.id };
+    return job.id;
   }
 }

@@ -81,6 +81,7 @@ export class MrVersionEventsService {
             explorationCheckpoints: {
               select: {
                 id: true,
+                mrVersionId: true,
                 phase: true,
                 sequence: true,
                 snapshotId: true,
@@ -131,6 +132,7 @@ export class MrVersionEventsService {
                 type: 'checkpoint.created',
                 checkpoint: {
                   ...checkpoint,
+                  mrVersionId: checkpoint.mrVersionId,
                   llmCallId: checkpoint.llmCallId ?? null,
                   tracePath: traceInfo?.path ?? null,
                   traceArtifactId: traceInfo?.artifactId ?? null,

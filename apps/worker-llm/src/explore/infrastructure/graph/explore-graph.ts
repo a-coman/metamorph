@@ -55,6 +55,7 @@ const ExploreAnnotation = Annotation.Root({
   sessionUrl: Annotation<string>,
   mrVersionId: Annotation<string>,
   exploreJobId: Annotation<string>,
+  transformFamily: Annotation<ExploreGraphState['transformFamily']>,
   phase: Annotation<ExploreGraphState['phase']>,
   initialSnapshotId: Annotation<string>,
   sourceEndSnapshotId: Annotation<string | undefined>,
@@ -77,6 +78,9 @@ const ExploreAnnotation = Annotation.Root({
   checkpointRecoveryAttempts: Annotation<number>,
   mrDefinition: Annotation<ExploreGraphState['mrDefinition']>,
   explorationGoals: Annotation<ExploreGraphState['explorationGoals']>,
+  observationAnchors: Annotation<ExploreGraphState['observationAnchors']>,
+  anchorRecoveryAttempts: Annotation<number>,
+  maxAnchorRecoveryAttempts: Annotation<number>,
   probeError: Annotation<string | undefined>,
   probeFailureContext: Annotation<ProbeFailureContext | undefined>,
   probeStatus: Annotation<'ok' | 'failed' | undefined>,
@@ -274,6 +278,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       pageSnapshotId: state.initialSnapshotId,
       host: extractHostFromUrl(snapshot.url),
       exploreJobId: state.exploreJobId,
+      transformFamily: state.transformFamily,
     });
 
     return {
@@ -309,6 +314,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           deps.openRouter.mrPlan({
             url: state.sessionUrl,
             screenshotBase64,
+            transformFamily: state.transformFamily,
           }),
       );
 
@@ -976,6 +982,93 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     };
   }
 
+  async function observationAnchorNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
+    if (state.failed || state.transformFamily !== 'inclusion' || state.observationAnchors) {
+      return {};
+    }
+
+    if (!state.sourceEndSnapshotId) {
+      return {
+        failed: true,
+        failureReason: 'sourceEndSnapshotId missing for observation anchor',
+      };
+    }
+
+    const mrIntent = buildMrIntent(state);
+    if (!mrIntent) {
+      return { failed: true, failureReason: 'MR intent missing for observation anchor' };
+    }
+
+    const snapshot = await deps.snapshotRepo.findById(state.sourceEndSnapshotId);
+    if (!snapshot) {
+      return { failed: true, failureReason: 'Source end snapshot missing for observation anchor' };
+    }
+
+    try {
+      const screenshotBase64 = await loadAnnotatedBase64(state.sourceEndSnapshotId);
+      const { output } = await runTrackedLlmCall(
+        deps,
+        state,
+        { purpose: 'observation_anchor', promptVersion: 'observation-anchor-v1' },
+        () =>
+          deps.openRouter.observationAnchor({
+            url: snapshot.url,
+            screenshotBase64,
+            mrIntent,
+            inventory: snapshot.inventory,
+          }),
+      );
+
+      const containerId = output.container_element_id;
+      const itemExists = snapshot.inventory.items.some(
+        (item) => item.shortId === containerId,
+      );
+
+      if (!itemExists) {
+        const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
+        if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
+          return {
+            failed: true,
+            failureReason: `Invalid observation anchor element_id: ${containerId}`,
+            anchorRecoveryAttempts: attempts,
+          };
+        }
+
+        return {
+          anchorRecoveryAttempts: attempts,
+          failureReason: `Invalid observation anchor element_id: ${containerId}`,
+        };
+      }
+
+      logExploreGraphEvent(
+        `observation_anchor complete | container=${containerId} snapshot=${state.sourceEndSnapshotId.slice(0, 8)}`,
+      );
+
+      return {
+        observationAnchors: {
+          visible_item_count: {
+            container_element_id: containerId,
+            inventory_snapshot_id: state.sourceEndSnapshotId,
+            ...(output.item_selector_hint
+              ? { item_selector_hint: output.item_selector_hint }
+              : {}),
+          },
+        },
+        anchorRecoveryAttempts: 0,
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'observation_anchor LLM error';
+      const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
+      if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
+        return { failed: true, failureReason: message, anchorRecoveryAttempts: attempts };
+      }
+      return { anchorRecoveryAttempts: attempts, failureReason: message };
+    }
+  }
+
   async function switchPhaseNode(state: State): Promise<Partial<State>> {
     await checkUserPause(state.sessionId);
 
@@ -1016,6 +1109,16 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return {};
     }
 
+    if (
+      state.transformFamily === 'inclusion' &&
+      !state.observationAnchors?.visible_item_count
+    ) {
+      return {
+        failed: true,
+        failureReason: 'Missing observation anchor for inclusion MR compile',
+      };
+    }
+
     const snapshot = await deps.snapshotRepo.findById(state.initialSnapshotId);
     if (!snapshot) {
       return { failed: true, failureReason: 'Snapshot missing for compile' };
@@ -1031,11 +1134,26 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     });
 
     try {
+      const anchorInventories = new Map<string, import('@metamorph/core').PageSnapshotInventory>();
+      const anchorSnapshotId =
+        generationSlots.observation.anchors?.visible_item_count?.inventory_snapshot_id;
+
+      if (anchorSnapshotId) {
+        const anchorSnapshot = await deps.snapshotRepo.findById(anchorSnapshotId);
+        if (!anchorSnapshot) {
+          throw new Error(`Anchor snapshot ${anchorSnapshotId} not found for compile`);
+        }
+        anchorInventories.set(anchorSnapshotId, anchorSnapshot.inventory);
+      }
+
       const compiled = compilePlaybook(
         generationSlots,
         state.mrDefinition,
         snapshot.inventory,
-        { sessionUrl: state.sessionUrl },
+        {
+          sessionUrl: state.sessionUrl,
+          anchorInventories,
+        },
       );
 
       const mrDefinitionId = await deps.explorationRepo.findMrDefinitionId(state.mrVersionId);
@@ -1089,7 +1207,31 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return 'dispatch_smoke';
     }
 
+    if (
+      state.phase === 'source' &&
+      state.transformFamily === 'inclusion' &&
+      !state.observationAnchors
+    ) {
+      return 'observation_anchor';
+    }
+
     return state.phase === 'source' ? 'switch_phase' : 'compile_draft';
+  }
+
+  function routeAfterObservationAnchor(state: State): string {
+    if (state.failed) {
+      return 'fail';
+    }
+
+    if (state.observationAnchors) {
+      return 'switch_phase';
+    }
+
+    if ((state.anchorRecoveryAttempts ?? 0) > 0) {
+      return 'observation_anchor';
+    }
+
+    return 'fail';
   }
 
   function routeAfterPlan(state: State): string {
@@ -1175,6 +1317,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     .addNode('dispatch_smoke', dispatchSmokeNode)
     .addNode('assess_smoke', assessSmokeNode)
     .addNode('switch_phase', switchPhaseNode)
+    .addNode('observation_anchor', observationAnchorNode)
     .addNode('compile_draft', compileDraftNode)
     .addNode('fail', failNode)
     .addEdge(START, 'init')
@@ -1187,6 +1330,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       dispatch_probe: 'dispatch_probe',
       dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
+      observation_anchor: 'observation_anchor',
       compile_draft: 'compile_draft',
       plan_next: 'plan_next',
       fail: 'fail',
@@ -1202,6 +1346,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       plan_next: 'plan_next',
       dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
+      observation_anchor: 'observation_anchor',
       compile_draft: 'compile_draft',
       fail: 'fail',
     })
@@ -1209,11 +1354,17 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       plan_next: 'plan_next',
       dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
+      observation_anchor: 'observation_anchor',
       compile_draft: 'compile_draft',
       fail: 'fail',
     })
     .addConditionalEdges('switch_phase', routeAfterSwitch, {
       plan_next: 'plan_next',
+      fail: 'fail',
+    })
+    .addConditionalEdges('observation_anchor', routeAfterObservationAnchor, {
+      switch_phase: 'switch_phase',
+      observation_anchor: 'observation_anchor',
       fail: 'fail',
     })
     .addEdge('compile_draft', END)

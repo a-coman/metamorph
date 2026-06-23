@@ -31,8 +31,6 @@ import {
   type TerminalExploreJobStatus,
 } from '@/lib/activity-status';
 import {
-  buildCycleFeed,
-  buildExplorationCycles,
   type ExplorationCycle,
   type ExplorationPhase,
   type StandaloneActivity,
@@ -41,28 +39,45 @@ import {
   activityDisplayAtLlm,
   activityDisplayAtProbe,
 } from '@/lib/activity-feed';
-import { useSubscribeMrVersionEvents } from '@/hooks/mr-version-events-context';
+import { hydrateSessionActivity } from '@/lib/hydrate-session-activity';
+import { useSubscribeSessionMrVersionsEvents } from '@/hooks/session-mr-versions-events-context';
+import type { SessionMrVersionEvent } from '@/hooks/session-mr-versions-events-context';
 import {
   useSubscribeSessionEvents,
   useSessionEventsConnection,
 } from '@/hooks/session-events-context';
 import { api } from '@/lib/api';
 import type { SlotStepLike } from '@/lib/format-slot-step';
-import { hydrateSessionActivity } from '@/lib/hydrate-session-activity';
+import { FamilyActivitySummaryRow } from '@/components/family-activity-summary-row';
+import { SessionPipelineStepper } from '@/components/session-pipeline-stepper';
+import {
+  buildExploreJobAttributionFromSessionJobs,
+  buildSessionActivityByFamily,
+  resolveDefaultActivitySelection,
+  syncActivitySelection,
+  type ActivitySelection,
+  type ExploreJobAttributionMap,
+} from '@/lib/session-activity-by-family';
 import type {
   SessionEvent,
-  MrVersionEvent,
   LlmCallDto,
   ProbeStatusDto,
   ScreenshotDto,
   ExplorationCheckpointDto,
   SessionActivityDto,
+  SessionMrVersionSummaryDto,
+  SessionJobSummaryDto,
 } from '@metamorph/api-client';
 
 interface SessionLiveActivityProps {
+  sessionId: string;
   isActive: boolean;
   controlStatus?: string;
   initialActivity?: SessionActivityDto | null;
+  mrVersions: SessionMrVersionSummaryDto[];
+  jobs?: SessionJobSummaryDto[];
+  selectedFamily?: ActivitySelection;
+  onSelectFamily?: (selection: ActivitySelection) => void;
 }
 
 type RawActivityState = {
@@ -95,6 +110,10 @@ function formatPurpose(purpose: string): { label: string; description: string } 
     label: purpose.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
     description: 'Processing...',
   };
+}
+
+function formatFamilyLabel(family: string): string {
+  return family.replace(/_/g, ' ');
 }
 
 function formatScreenshotPath(url: string): string {
@@ -458,7 +477,7 @@ function ProbeCycleCard({
   return (
     <div
       className={cn(
-        'interactive-card rounded-lg border bg-card shadow-sm overflow-hidden transition-all duration-300',
+        'interactive-card rounded-lg border bg-card shadow-sm overflow-hidden min-w-0 transition-all duration-300',
         isNew ? 'border-primary/50 shadow-lg shadow-primary/5 animate-fade-in' : 'border-border',
       )}
     >
@@ -466,7 +485,7 @@ function ProbeCycleCard({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="w-full flex items-start gap-3 px-3 py-2.5 text-left cursor-pointer"
+          className="w-full min-w-0 flex items-start gap-3 px-3 py-2.5 text-left cursor-pointer"
         >
           <ProbeCycleHeader probe={probe} statusContext={statusContext} />
           <div className="shrink-0 text-muted-foreground">
@@ -474,7 +493,7 @@ function ProbeCycleCard({
           </div>
         </button>
       ) : (
-        <div className="flex items-start gap-3 px-3 py-2.5">
+        <div className="flex min-w-0 items-start gap-3 px-3 py-2.5">
           <ProbeCycleHeader probe={probe} statusContext={statusContext} />
         </div>
       )}
@@ -528,7 +547,12 @@ function ProbeCycleHeader({
           </p>
         )}
         {probe.error && (
-          <p className="text-xs text-red-600 mt-1 line-clamp-2">{probe.error}</p>
+          <p
+            className="mt-1 overflow-hidden text-xs text-red-600 [overflow-wrap:anywhere] line-clamp-3"
+            title={probe.error}
+          >
+            {probe.error}
+          </p>
         )}
       </div>
     </>
@@ -570,7 +594,7 @@ function SessionCaptureCard({
         isNew ? 'border-primary/50 shadow-lg shadow-primary/5 animate-fade-in' : 'border-border',
       )}
     >
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50">
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/60">
         <Camera className="size-3.5 text-muted-foreground" />
         <span className="text-xs font-medium text-muted-foreground">Session capture</span>
         <ActivityTimestamp value={screenshot.createdAt} />
@@ -637,7 +661,16 @@ function llmCallsEqual(a: LlmCallDto, b: LlmCallDto): boolean {
   );
 }
 
-export function SessionLiveActivity({ isActive, controlStatus = 'active', initialActivity }: SessionLiveActivityProps) {
+export function SessionLiveActivity({
+  sessionId,
+  isActive,
+  controlStatus = 'active',
+  initialActivity,
+  mrVersions,
+  jobs = [],
+  selectedFamily: selectedFamilyProp,
+  onSelectFamily,
+}: SessionLiveActivityProps) {
   const [rawState, setRawState] = useState<RawActivityState>(() => {
     if (!initialActivity) {
       return createEmptyRawState();
@@ -658,12 +691,76 @@ export function SessionLiveActivity({ isActive, controlStatus = 'active', initia
       ? hydrateSessionActivity(initialActivity).terminalExploreJobs
       : new Map(),
   );
-  const connectionState = useSessionEventsConnection();
+  const exploreJobs = useMemo(
+    () => buildExploreJobAttributionFromSessionJobs(jobs, mrVersions),
+    [jobs, mrVersions],
+  );
+  const [internalSelection, setInternalSelection] = useState<ActivitySelection>(() =>
+    resolveDefaultActivitySelection(mrVersions),
+  );
+
+  const selectedFamily = selectedFamilyProp ?? internalSelection;
+
+  const handleSelectFamily = useCallback(
+    (selection: ActivitySelection) => {
+      if (onSelectFamily) {
+        onSelectFamily(selection);
+      } else {
+        setInternalSelection(selection);
+      }
+    },
+    [onSelectFamily],
+  );
+
+  useEffect(() => {
+    if (selectedFamilyProp) return;
+    setInternalSelection((current) => syncActivitySelection(current, mrVersions));
+  }, [mrVersions, selectedFamilyProp]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hasScrolledInitiallyRef = useRef(initialActivity != null);
   const liveStreamingRef = useRef(false);
+
+  const connectionState = useSessionEventsConnection();
+
+  const hydratedState = useMemo(
+    () => ({
+      llmCalls: rawState.llmCalls,
+      probes: rawState.probes,
+      screenshots: rawState.screenshots,
+      checkpoints: rawState.checkpoints,
+      terminalExploreJobs,
+    }),
+    [rawState, terminalExploreJobs],
+  );
+
+  const activityByFamily = useMemo(
+    () => buildSessionActivityByFamily(hydratedState, mrVersions, exploreJobs),
+    [hydratedState, mrVersions, exploreJobs],
+  );
+
+  const selectedBucket =
+    selectedFamily.kind === 'family'
+      ? activityByFamily.families.find(
+        (bucket) => bucket.mrVersionId === selectedFamily.mrVersionId,
+      )
+      : null;
+
+  const cycleFeed =
+    mrVersions.length === 0
+      ? activityByFamily.session.feed
+      : (selectedBucket?.feed ?? []);
+
+  const feedItemCount = cycleFeed.length;
+
+  const selectionLabel =
+    selectedFamily.kind === 'family'
+      ? formatFamilyLabel(
+        selectedFamily.family ?? selectedBucket?.family ?? 'relation',
+      )
+      : 'Session';
 
   const statusContext = useMemo<ActivityStatusContext>(
     () => ({
@@ -675,17 +772,6 @@ export function SessionLiveActivity({ isActive, controlStatus = 'active', initia
     }),
     [terminalExploreJobs, controlStatus],
   );
-
-  const { cycles, standalone } = useMemo(
-    () => buildExplorationCycles({ ...rawState, terminalExploreJobs }),
-    [rawState, terminalExploreJobs],
-  );
-  const cycleFeed = useMemo(
-    () => buildCycleFeed(cycles, standalone),
-    [cycles, standalone],
-  );
-
-  const feedItemCount = cycleFeed.length;
 
   const scrollToBottom = useCallback((smooth: boolean) => {
     const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
@@ -752,7 +838,6 @@ export function SessionLiveActivity({ isActive, controlStatus = 'active', initia
   const handleSessionEvent = useCallback((event: SessionEvent) => {
     if (event.type === 'job.updated') {
       const { job } = event;
-      if (job.type !== 'explore') return;
       if (job.status === 'done' || job.status === 'completed') {
         setTerminalExploreJobs((prev) => {
           const next = new Map(prev);
@@ -813,20 +898,25 @@ export function SessionLiveActivity({ isActive, controlStatus = 'active', initia
     }
   }, [ingestEvent]);
 
-  const handleMrVersionEvent = useCallback((event: MrVersionEvent) => {
+  const handleMrVersionEvent = useCallback((event: SessionMrVersionEvent) => {
     if (event.type !== 'checkpoint.created') return;
 
-    const id = `checkpoint-${event.checkpoint.id}`;
+    const checkpoint = {
+      ...event.checkpoint,
+      mrVersionId: event.checkpoint.mrVersionId ?? event.mrVersionId,
+    };
+
+    const id = `checkpoint-${checkpoint.id}`;
     ingestEvent(id, (prev) => {
-      if (prev.checkpoints.has(event.checkpoint.id)) return prev;
+      if (prev.checkpoints.has(checkpoint.id)) return prev;
       const checkpoints = new Map(prev.checkpoints);
-      checkpoints.set(event.checkpoint.id, event.checkpoint);
+      checkpoints.set(checkpoint.id, checkpoint);
       return { ...prev, checkpoints };
     });
   }, [ingestEvent]);
 
   useSubscribeSessionEvents(handleSessionEvent);
-  useSubscribeMrVersionEvents(handleMrVersionEvent);
+  useSubscribeSessionMrVersionsEvents(handleMrVersionEvent);
 
   const showConnecting = connectionState === 'connecting' && feedItemCount === 0;
   const showError = connectionState === 'error' && feedItemCount === 0;
@@ -884,10 +974,15 @@ export function SessionLiveActivity({ isActive, controlStatus = 'active', initia
 
   return (
     <Card className="border-border bg-card">
-      <CardHeader className="pb-0">
+      <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
           <Activity className="size-4 text-muted-foreground" />
           Live Activity
+          {mrVersions.length > 0 && (
+            <span className="text-xs text-muted-foreground font-normal">
+              — {selectionLabel}
+            </span>
+          )}
           {controlStatus === 'paused' || controlStatus === 'pausing' ? (
             <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium ml-auto">
               <Pause className="size-3" />
@@ -906,18 +1001,52 @@ export function SessionLiveActivity({ isActive, controlStatus = 'active', initia
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {mrVersions.length > 0 && (
+          <FamilyActivitySummaryRow
+            sessionId={sessionId}
+            families={activityByFamily.families}
+            selected={selectedFamily}
+            controlStatus={controlStatus}
+            onSelect={handleSelectFamily}
+          />
+        )}
+
+        {/* Per-relation (or session-level) pipeline progress */}
+        {(() => {
+          const selectedMrVersion = selectedBucket
+            ? mrVersions.find((mr) => mr.id === selectedBucket.mrVersionId)
+            : undefined;
+          const pipelineMrVersions = selectedMrVersion ? [selectedMrVersion] : [];
+          return (
+            <div className="pt-4 pb-4 border-b border-border/60">
+              <SessionPipelineStepper
+                mrVersions={pipelineMrVersions}
+                jobs={jobs}
+                controlStatus={controlStatus}
+                embedded
+              />
+            </div>
+          );
+        })()}
+
         {feedItemCount === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="flex flex-col items-center justify-center py-6 text-center">
             <div className="p-3 rounded-full bg-muted mb-3">
               <Eye className="size-5 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium text-foreground">No activity yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Events will appear as the session runs...</p>
+            <p className="text-sm font-medium text-foreground">
+              {mrVersions.length === 0
+                ? 'No session activity yet'
+                : `No activity yet for ${selectionLabel}`}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Events will appear as this relation explores...
+            </p>
           </div>
         ) : (
           <div ref={scrollAreaRef}>
             <ScrollArea className="h-[620px]">
-              <div className="space-y-2 pr-4 pt-1 pb-1">
+              <div className="min-w-0 space-y-2 pr-4 pt-4 pb-1">
                 {cycleFeed.map((item, index) => {
                   if (item.kind === 'phase_divider') {
                     return (

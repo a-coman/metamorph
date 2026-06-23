@@ -49,6 +49,7 @@ export class ExploreJobService {
         sessionId: job.sessionId,
         sessionUrl: job.sessionUrl,
         pageSnapshotId: job.pageSnapshotId,
+        transformFamily: job.transformFamily,
       });
 
       return this.handleOutcome(jobId, job.sessionId, outcome);

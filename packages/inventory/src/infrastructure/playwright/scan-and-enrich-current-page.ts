@@ -21,7 +21,11 @@ export type ScanAndEnrichResult = {
 
 export async function scanAndEnrichCurrentPage(
   page: Page,
-  options?: { maxItems?: number; waitAfterViewportMs?: number },
+  options?: {
+    maxItems?: number;
+    waitAfterViewportMs?: number;
+    preserveScrollPosition?: boolean;
+  },
 ): Promise<ScanAndEnrichResult> {
   const maxItems = options?.maxItems ?? DEFAULT_MAX_ITEMS;
   const waitAfterViewportMs = options?.waitAfterViewportMs ?? 500;
@@ -32,6 +36,7 @@ export async function scanAndEnrichCurrentPage(
     page,
     DEFAULT_MAX_CAPTURE_HEIGHT,
     waitAfterViewportMs,
+    { preserveScrollPosition: options?.preserveScrollPosition },
   );
 
   const {
