@@ -18,6 +18,7 @@ export class SessionMapper {
       mode: PrismaSessionMode;
       generateCount: number;
       weakOracle: boolean;
+      transformFamilies: string[];
       createdAt: Date;
       updatedAt: Date;
       jobs: {
@@ -37,6 +38,7 @@ export class SessionMapper {
         mode: toDomainSessionMode(row.mode),
         generateCount: row.generateCount,
         weakOracle: row.weakOracle,
+        transformFamilies: row.transformFamilies,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         jobs: row.jobs.map((job) =>
@@ -64,6 +66,7 @@ export class SessionMapper {
       mode: toPrismaSessionMode(aggregate.mode),
       generateCount: aggregate.generateCount,
       weakOracle: aggregate.weakOracle,
+      transformFamilies: aggregate.transformFamilies,
       createdAt: aggregate.createdAt,
       updatedAt: aggregate.updatedAt,
       jobs: aggregate.jobs.map((job) => ({

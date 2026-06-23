@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/status-badge';
 import { resolveMrStatusBadge } from '@/hooks/use-session-hub-state';
-import { sortMrVersionsByFamily } from '@/lib/mr-versions';
+import { sortMrVersionsByFamily, formatFamilyLabel } from '@/lib/mr-versions';
 import type { ActivitySelection } from '@/lib/session-activity-by-family';
 import type { SessionMrVersionSummaryDto } from '@metamorph/api-client';
 
@@ -13,10 +13,6 @@ type FamilyExplorationChipsProps = {
   selected?: ActivitySelection;
   onSelect?: (selection: ActivitySelection) => void;
 };
-
-function formatFamilyLabel(family: string): string {
-  return family.replace(/_/g, ' ');
-}
 
 export function FamilyExplorationChips({
   mrVersions,

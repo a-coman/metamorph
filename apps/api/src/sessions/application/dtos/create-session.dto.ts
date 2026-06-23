@@ -5,6 +5,7 @@ export type CreateSessionDto = {
   mode?: SessionMode;
   generateCount?: number;
   weakOracle?: boolean;
+  transformFamilies?: string[];
 };
 
 export type CreateSessionResultDto = {

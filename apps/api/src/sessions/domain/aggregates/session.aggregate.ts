@@ -6,6 +6,7 @@ import {
   right,
   type DomainError,
 } from '@metamorph/utils';
+import { TRANSFORM_FAMILIES } from '@metamorph/core';
 import { Job } from '../entities/job.entity.js';
 import { SessionMode } from '../enums/session-mode.enum.js';
 import {
@@ -20,6 +21,7 @@ export type SessionProps = {
   mode: SessionMode;
   generateCount: number;
   weakOracle: boolean;
+  transformFamilies: string[];
   jobs: Job[];
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +32,7 @@ export type CreateSessionInput = {
   mode?: SessionMode;
   generateCount?: number;
   weakOracle?: boolean;
+  transformFamilies?: string[];
 };
 
 export class SessionAggregate extends AggregateRoot<SessionProps> {
@@ -52,6 +55,7 @@ export class SessionAggregate extends AggregateRoot<SessionProps> {
         mode: input.mode ?? SessionMode.hitl,
         generateCount: input.generateCount ?? 4,
         weakOracle: input.weakOracle ?? false,
+        transformFamilies: normalizeTransformFamilies(input.transformFamilies),
         jobs: [initialJob],
         createdAt: now,
         updatedAt: now,
@@ -135,6 +139,10 @@ export class SessionAggregate extends AggregateRoot<SessionProps> {
     return this.props.weakOracle;
   }
 
+  get transformFamilies(): string[] {
+    return this.props.transformFamilies;
+  }
+
   get jobs(): Job[] {
     return this.props.jobs;
   }
@@ -155,4 +163,12 @@ function isValidUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function normalizeTransformFamilies(families: string[] | undefined): string[] {
+  if (!families || families.length === 0) {
+    return [...TRANSFORM_FAMILIES];
+  }
+
+  return [...new Set(families)];
 }

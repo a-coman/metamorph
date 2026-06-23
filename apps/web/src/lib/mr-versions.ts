@@ -1,11 +1,19 @@
 import type { SessionMrVersionSummaryDto } from '@metamorph/api-client';
 
-const FAMILY_ORDER = [
+export const FAMILY_ORDER = [
   'idempotence',
   'inclusion',
   'permutation',
   'inverse',
 ] as const;
+
+export type TransformFamilyId = (typeof FAMILY_ORDER)[number];
+
+export const ALL_TRANSFORM_FAMILIES: TransformFamilyId[] = [...FAMILY_ORDER];
+
+export function formatFamilyLabel(family: string): string {
+  return family.replace(/_/g, ' ');
+}
 
 export function sortMrVersionsByFamily(
   mrVersions: SessionMrVersionSummaryDto[],

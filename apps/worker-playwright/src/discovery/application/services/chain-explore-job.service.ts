@@ -1,7 +1,8 @@
-import { TRANSFORM_FAMILIES } from '@metamorph/core';
+import type { TransformFamily } from '@metamorph/core';
 import { JobType as PrismaJobType, JobStatus as PrismaJobStatus, SessionControlStatus } from '../../../../../api/generated/prisma/enums.js';
 import { prisma } from '../../../shared/infrastructure/prisma/prisma-client.js';
 import { LlmJobPublisherPort } from '../ports/llm-job-publisher.port.js';
+import { resolveSessionTransformFamilies } from './resolve-session-transform-families.js';
 
 export type ChainExploreInput = {
   sessionId: string;
@@ -16,7 +17,7 @@ export class ChainExploreJobService {
   async chain(input: ChainExploreInput): Promise<{ jobIds: string[] }> {
     const session = await prisma.session.findUnique({
       where: { id: input.sessionId },
-      select: { controlStatus: true },
+      select: { controlStatus: true, transformFamilies: true },
     });
 
     if (!session || session.controlStatus !== SessionControlStatus.active) {
@@ -26,9 +27,11 @@ export class ChainExploreJobService {
       return { jobIds: [] };
     }
 
+    const families = resolveSessionTransformFamilies(session.transformFamilies);
+
     const jobIds: string[] = [];
 
-    for (const transformFamily of TRANSFORM_FAMILIES) {
+    for (const transformFamily of families) {
       const jobId = await this.createAndPublishExploreJob(input, transformFamily);
       if (jobId) {
         jobIds.push(jobId);
@@ -40,7 +43,7 @@ export class ChainExploreJobService {
 
   private async createAndPublishExploreJob(
     input: ChainExploreInput,
-    transformFamily: (typeof TRANSFORM_FAMILIES)[number],
+    transformFamily: TransformFamily,
   ): Promise<string | null> {
     const job = await prisma.job.create({
       data: {

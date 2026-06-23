@@ -78,6 +78,7 @@ export function createApiClient(config: ApiClientConfig) {
       mode?: string;
       generateCount?: number;
       weakOracle?: boolean;
+      transformFamilies?: string[];
     }) {
       return json<CreateSessionResultDto>('/sessions', {
         method: 'POST',

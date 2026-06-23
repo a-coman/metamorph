@@ -22,6 +22,7 @@ export class SessionPrismaRepository extends SessionRepositoryPort {
           mode: data.mode,
           generateCount: data.generateCount,
           weakOracle: data.weakOracle,
+          transformFamilies: data.transformFamilies,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         },
@@ -30,6 +31,7 @@ export class SessionPrismaRepository extends SessionRepositoryPort {
           mode: data.mode,
           generateCount: data.generateCount,
           weakOracle: data.weakOracle,
+          transformFamilies: data.transformFamilies,
           updatedAt: data.updatedAt,
         },
       });

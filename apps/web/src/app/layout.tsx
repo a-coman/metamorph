@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DM_Mono, DM_Sans } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import './globals.css';
 
 const dmSans = DM_Sans({
@@ -29,7 +30,7 @@ export default function RootLayout({
       className={`${dmSans.variable} ${dmMono.variable} h-full`}
     >
       <body className="min-h-full bg-background text-foreground antialiased">
-        {children}
+        <TooltipProvider>{children}</TooltipProvider>
         <Toaster richColors position="bottom-right" />
       </body>
     </html>

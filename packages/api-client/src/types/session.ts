@@ -27,6 +27,7 @@ export type SessionDetailsDto = {
   mode: string;
   generateCount: number;
   weakOracle: boolean;
+  transformFamilies: string[];
   controlStatus: string;
   createdAt: Date;
   updatedAt: Date;

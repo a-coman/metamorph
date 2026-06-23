@@ -9,5 +9,6 @@ export function toCreateSessionDto(
     mode: request.mode,
     generateCount: request.generateCount,
     weakOracle: request.weakOracle,
+    transformFamilies: request.transformFamilies,
   };
 }

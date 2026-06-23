@@ -103,6 +103,7 @@ export class SessionPrismaQuery extends SessionQueryPort {
       mode: session.mode,
       generateCount: session.generateCount,
       weakOracle: session.weakOracle,
+      transformFamilies: session.transformFamilies,
       controlStatus: session.controlStatus,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
