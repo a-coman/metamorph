@@ -6,7 +6,7 @@ import type { Page } from 'playwright';
  */
 export async function captureAccessibilitySnapshot(page: Page): Promise<string> {
   try {
-    return await page.locator('body').ariaSnapshot();
+    return await page.locator('body').ariaSnapshot({ mode: 'ai', boxes: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[inventory] ariaSnapshot failed: ${message}`);

@@ -1,6 +1,17 @@
 import type { SlotAction, SlotStep } from '@metamorph/core';
 import { formatStepLine } from '../graph/batch-log.js';
 
+export type ExploreLlmPromptImages = {
+  count: number;
+  labels?: string[];
+};
+
+export type ExploreLlmPromptAudit = {
+  systemPrompt: string;
+  userPrompt: string;
+  userPromptImages: ExploreLlmPromptImages | null;
+};
+
 type ZodIssueLike = {
   code: string;
   path: PropertyKey[];
@@ -17,12 +28,31 @@ type ZodErrorLike = {
 export class ExploreLlmValidationError extends Error {
   readonly normalizedOutput: unknown;
   readonly rawOutput: unknown;
+  readonly promptAudit?: ExploreLlmPromptAudit;
 
-  constructor(message: string, normalizedOutput: unknown, rawOutput: unknown) {
+  constructor(
+    message: string,
+    normalizedOutput: unknown,
+    rawOutput: unknown,
+    promptAudit?: ExploreLlmPromptAudit,
+  ) {
     super(message);
     this.name = 'ExploreLlmValidationError';
     this.normalizedOutput = normalizedOutput;
     this.rawOutput = rawOutput;
+    this.promptAudit = promptAudit;
+  }
+}
+
+export class ExploreLlmCallError extends Error {
+  readonly promptAudit: ExploreLlmPromptAudit;
+  readonly cause: unknown;
+
+  constructor(message: string, promptAudit: ExploreLlmPromptAudit, cause?: unknown) {
+    super(message);
+    this.name = 'ExploreLlmCallError';
+    this.promptAudit = promptAudit;
+    this.cause = cause;
   }
 }
 

@@ -19,4 +19,4 @@ export const MrPlanOutputSchema = z.object({
 export type MrPlanOutput = z.infer<typeof MrPlanOutputSchema>;
 export type MrIntent = MrPlanOutput;
 
-export const MR_PLAN_PROMPT_VERSION = 'mr-plan-v6';
+export const MR_PLAN_PROMPT_VERSION = 'mr-plan-v7';

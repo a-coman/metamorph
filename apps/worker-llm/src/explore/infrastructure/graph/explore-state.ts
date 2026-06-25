@@ -64,6 +64,9 @@ export type ExploreGraphState = {
   maxSmokeRecoveryAttempts: number;
   anchorRecoveryAttempts: number;
   maxAnchorRecoveryAttempts: number;
+  /** When true, replay validated prefix and capture fresh inventory before plan_next. */
+  needsPrefixInventorySync?: boolean;
+  pendingPrefixSyncJobId?: string;
   failed?: boolean;
   failureReason?: string;
 };

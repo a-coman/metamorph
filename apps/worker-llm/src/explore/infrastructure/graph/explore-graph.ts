@@ -10,6 +10,8 @@ import {
   PLAN_EXPLORE_PROMPT_VERSION,
   resolveStepTargets,
   validateInventoryElementIds,
+  validateSelectOptionSteps,
+  formatSelectOptionValidationErrors,
   type MrIntent,
   type SlotStep,
 } from '@metamorph/core';
@@ -20,6 +22,7 @@ import {
   type ExploreLlmResult,
 } from '../openrouter/explore-openrouter.client.js';
 import {
+  ExploreLlmCallError,
   ExploreLlmValidationError,
   extractRejectedPlanSteps,
 } from '../openrouter/explore-llm-validation.error.js';
@@ -93,6 +96,8 @@ const ExploreAnnotation = Annotation.Root({
   awaitingSmokeReplay: Annotation<boolean | undefined>,
   smokeRecoveryAttempts: Annotation<number>,
   maxSmokeRecoveryAttempts: Annotation<number>,
+  needsPrefixInventorySync: Annotation<boolean | undefined>,
+  pendingPrefixSyncJobId: Annotation<string | undefined>,
 });
 
 type State = typeof ExploreAnnotation.State;
@@ -128,13 +133,31 @@ async function runTrackedLlmCall<T>(
     return { output: result.output, llmCallId };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'LLM error';
+    const promptAudit = extractPromptAuditFromError(error);
     await deps.explorationRepo.failLlmCall({
       id: llmCallId,
       error: message,
       responseJson: meta.enrichFailureResponse?.(message),
+      ...(promptAudit
+        ? {
+            systemPrompt: promptAudit.systemPrompt,
+            userPrompt: promptAudit.userPrompt,
+            userPromptImages: promptAudit.userPromptImages,
+          }
+        : {}),
     });
     throw error;
   }
+}
+
+function extractPromptAuditFromError(error: unknown) {
+  if (error instanceof ExploreLlmValidationError && error.promptAudit) {
+    return error.promptAudit;
+  }
+  if (error instanceof ExploreLlmCallError) {
+    return error.promptAudit;
+  }
+  return undefined;
 }
 
 async function resolveSourceReference(
@@ -494,6 +517,19 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         );
       }
 
+      const selectOptionErrors = validateSelectOptionSteps(steps, snapshot.inventory);
+      if (selectOptionErrors.length > 0) {
+        return rejectPlan(
+          deps,
+          state,
+          steps,
+          formatSelectOptionValidationErrors(selectOptionErrors),
+          nextIteration,
+          planLlmCallId,
+          planResponse,
+        );
+      }
+
       if (steps.length === 0) {
         return rejectPlan(
           deps,
@@ -820,6 +856,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         checkpointRecoveryAttempts: 0,
         recoveryAttempts: 0,
         planRecoveryAttempts: 0,
+        needsPrefixInventorySync: updatedPhaseSteps.length > 0,
         batchLog: withBatchFinalized(state, 'committed'),
       };
     }
@@ -859,12 +896,91 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         recoveryAttempts: state.recoveryAttempts + 1,
         currentSnapshotId: revertedSnapshotId,
         snapshotBeforeId: undefined,
+        needsPrefixInventorySync: committedStepCount > 0,
         batchLog,
         ...(backtrackHint ? { probeError: backtrackHint } : {}),
       };
     }
 
     return {};
+  }
+
+  async function syncPrefixSnapshotNode(state: State): Promise<Partial<State>> {
+    await checkUserPause(state.sessionId);
+
+    if (state.failed) {
+      return {};
+    }
+
+    const prefix = state.validatedSteps[state.phase];
+    if (!state.needsPrefixInventorySync || prefix.length === 0) {
+      return {};
+    }
+
+    if (state.pendingPrefixSyncJobId) {
+      return {};
+    }
+
+    const jobId = await deps.probePublisher.publishPrefixSync({
+      sessionId: state.sessionId,
+      mrVersionId: state.mrVersionId,
+      exploreJobId: state.exploreJobId,
+      phase: state.phase,
+      inventorySnapshotId: state.initialSnapshotId,
+      resumeUrl: state.sessionUrl,
+      validatedPrefix: prefix,
+      cycleIteration: state.iteration,
+    });
+
+    logExploreGraphEvent(
+      `prefix_sync queued job=${jobId.slice(0, 8)} | prefix=${prefix.length} steps`,
+    );
+
+    return { pendingPrefixSyncJobId: jobId };
+  }
+
+  async function awaitPrefixSyncNode(state: State): Promise<Partial<State>> {
+    if (state.failed || !state.pendingPrefixSyncJobId) {
+      return {};
+    }
+
+    const prefix = state.validatedSteps[state.phase];
+    if (!state.needsPrefixInventorySync || prefix.length === 0) {
+      return { pendingPrefixSyncJobId: undefined };
+    }
+
+    const resumeValue = interrupt({
+      probeJobId: state.pendingPrefixSyncJobId,
+    }) as ProbeResumeValue;
+
+    logExploreGraphEvent(
+      `prefix_sync ${resumeValue.probe_status}${resumeValue.snapshot_id ? ` snapshot=${resumeValue.snapshot_id.slice(0, 8)}` : ''}${resumeValue.error ? ` err=${resumeValue.error.slice(0, 60)}` : ''}`,
+    );
+
+    if (resumeValue.probe_status === 'failed') {
+      return {
+        failed: true,
+        failureReason: resumeValue.error ?? 'Prefix inventory sync failed',
+        pendingPrefixSyncJobId: undefined,
+        needsPrefixInventorySync: false,
+      };
+    }
+
+    if (!resumeValue.snapshot_id) {
+      return {
+        failed: true,
+        failureReason: 'Prefix inventory sync completed without a snapshot',
+        pendingPrefixSyncJobId: undefined,
+        needsPrefixInventorySync: false,
+      };
+    }
+
+    return {
+      currentSnapshotId: resumeValue.snapshot_id,
+      pendingPrefixSyncJobId: undefined,
+      needsPrefixInventorySync: false,
+      snapshotBeforeId: undefined,
+    };
   }
 
   async function dispatchSmokeNode(state: State): Promise<Partial<State>> {
@@ -964,6 +1080,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         probeStatus: undefined,
         smokeRecoveryAttempts: nextSmokeRecovery,
         validatedSteps,
+        needsPrefixInventorySync: current.length > 0,
         probeError: smokeError,
       };
     }
@@ -1179,6 +1296,9 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           tokensIn: null,
           tokensOut: null,
           latencyMs: 0,
+          systemPrompt: '',
+          userPrompt: '',
+          userPromptImages: null,
         },
         responseJson: { compiled: true },
       });
@@ -1267,7 +1387,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return routeAfterGoalReached(state);
     }
 
-    return 'plan_next';
+    return 'sync_prefix_snapshot';
   }
 
   function routeAfterAwaitProbe(state: State): string {
@@ -1287,6 +1407,31 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return routeAfterGoalReached(state);
     }
 
+    return 'sync_prefix_snapshot';
+  }
+
+  function routeAfterSyncPrefix(state: State): string {
+    if (state.failed) {
+      return 'fail';
+    }
+
+    const prefix = state.validatedSteps[state.phase];
+    if (!state.needsPrefixInventorySync || prefix.length === 0) {
+      return 'plan_next';
+    }
+
+    if (state.pendingPrefixSyncJobId) {
+      return 'await_prefix_sync';
+    }
+
+    return 'sync_prefix_snapshot';
+  }
+
+  function routeAfterAwaitPrefixSync(state: State): string {
+    if (state.failed) {
+      return 'fail';
+    }
+
     return 'plan_next';
   }
 
@@ -1295,7 +1440,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return 'fail';
     }
 
-    return 'plan_next';
+    return 'sync_prefix_snapshot';
   }
 
   function routeAfterSwitch(state: State): string {
@@ -1303,12 +1448,14 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return 'fail';
     }
 
-    return 'plan_next';
+    return 'sync_prefix_snapshot';
   }
 
   const graph = new StateGraph(ExploreAnnotation)
     .addNode('init', initNode)
     .addNode('mr_plan', mrPlanNode)
+    .addNode('sync_prefix_snapshot', syncPrefixSnapshotNode)
+    .addNode('await_prefix_sync', awaitPrefixSyncNode)
     .addNode('plan_next', planNextNode)
     .addNode('dispatch_probe', dispatchProbeNode)
     .addNode('await_probe', awaitProbeNode)
@@ -1323,6 +1470,15 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     .addEdge(START, 'init')
     .addEdge('init', 'mr_plan')
     .addConditionalEdges('mr_plan', routeAfterMrPlan, {
+      sync_prefix_snapshot: 'sync_prefix_snapshot',
+      fail: 'fail',
+    })
+    .addConditionalEdges('sync_prefix_snapshot', routeAfterSyncPrefix, {
+      await_prefix_sync: 'await_prefix_sync',
+      plan_next: 'plan_next',
+      fail: 'fail',
+    })
+    .addConditionalEdges('await_prefix_sync', routeAfterAwaitPrefixSync, {
       plan_next: 'plan_next',
       fail: 'fail',
     })
@@ -1343,7 +1499,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     })
     .addEdge('assess_checkpoint', 'commit_or_backtrack')
     .addConditionalEdges('commit_or_backtrack', routeAfterCommit, {
-      plan_next: 'plan_next',
+      sync_prefix_snapshot: 'sync_prefix_snapshot',
       dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
       observation_anchor: 'observation_anchor',
@@ -1351,7 +1507,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       fail: 'fail',
     })
     .addConditionalEdges('assess_smoke', routeAfterAssessSmoke, {
-      plan_next: 'plan_next',
+      sync_prefix_snapshot: 'sync_prefix_snapshot',
       dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
       observation_anchor: 'observation_anchor',
@@ -1359,7 +1515,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       fail: 'fail',
     })
     .addConditionalEdges('switch_phase', routeAfterSwitch, {
-      plan_next: 'plan_next',
+      sync_prefix_snapshot: 'sync_prefix_snapshot',
       fail: 'fail',
     })
     .addConditionalEdges('observation_anchor', routeAfterObservationAnchor, {

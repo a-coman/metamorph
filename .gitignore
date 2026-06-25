@@ -71,3 +71,4 @@ Thumbs.db
 docs/
 tmp/
 .pnpm-store/
+.tmp/

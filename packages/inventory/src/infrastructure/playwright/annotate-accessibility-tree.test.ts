@@ -42,16 +42,17 @@ const cookieItems: InventoryItem[] = [
 ];
 
 describe('annotateAccessibilityTree', () => {
-  it('annotates matching nodes with inventory shortIds', () => {
-    const annotated = annotateAccessibilityTree(cookieDialogSnapshot, cookieItems);
+  it('omits inventory-matched nodes from the context tree', () => {
+    const contextTree = annotateAccessibilityTree(cookieDialogSnapshot, cookieItems);
 
-    assert.match(annotated, /button "Aceptar todas" → E2/);
-    assert.match(annotated, /searchbox "¿Adónde\?" → E1/);
-    assert.doesNotMatch(annotated, /dialog "Usamos cookies" →/);
+    assert.doesNotMatch(contextTree, /→ E/);
+    assert.doesNotMatch(contextTree, /button "Aceptar todas"/);
+    assert.doesNotMatch(contextTree, /searchbox "¿Adónde\?"/);
+    assert.match(contextTree, /dialog "Usamos cookies"/);
   });
 
-  it('leaves unmatched tree nodes without annotations', () => {
-    const annotated = annotateAccessibilityTree(cookieDialogSnapshot, [
+  it('keeps unmatched nodes as structural context', () => {
+    const contextTree = annotateAccessibilityTree(cookieDialogSnapshot, [
       item({
         shortId: 'E1',
         tagName: 'input',
@@ -61,9 +62,10 @@ describe('annotateAccessibilityTree', () => {
       }),
     ]);
 
-    assert.match(annotated, /searchbox "¿Adónde\?" → E1/);
-    assert.match(annotated, /- button "Aceptar todas"\n/);
-    assert.doesNotMatch(annotated, /→ E2/);
+    assert.match(contextTree, /dialog "Usamos cookies"/);
+    assert.match(contextTree, /button "Aceptar todas"/);
+    assert.doesNotMatch(contextTree, /searchbox "¿Adónde\?"/);
+    assert.doesNotMatch(contextTree, /→ E/);
   });
 
   it('matches listbox options by role and name', () => {
@@ -90,9 +92,8 @@ describe('annotateAccessibilityTree', () => {
       }),
     ];
 
-    const annotated = annotateAccessibilityTree(snapshot, items);
-    assert.match(annotated, /option "Madrid" → E3/);
-    assert.match(annotated, /option "Barcelona" → E4/);
+    const contextTree = annotateAccessibilityTree(snapshot, items);
+    assert.equal(contextTree, '- listbox "Sugerencias"');
   });
 
   it('returns empty string for empty snapshot', () => {
@@ -100,20 +101,94 @@ describe('annotateAccessibilityTree', () => {
     assert.equal(annotateAccessibilityTree('   ', cookieItems), '');
   });
 
-  it('truncates very large trees', () => {
-    const lines = Array.from({ length: 500 }, (_, index) => `- button "Item ${index}"`);
-    const snapshot = lines.join('\n');
+  it('returns empty when every node matches inventory', () => {
+    const snapshot = `- button "Go"`;
     const items = [
       item({
         shortId: 'E1',
         role: 'button',
-        name: 'Item 0',
+        name: 'Go',
         index: 0,
       }),
     ];
 
-    const annotated = annotateAccessibilityTree(snapshot, items, { maxChars: 500 });
-    assert.ok(annotated.length <= 600);
-    assert.match(annotated, /tree truncated/);
+    assert.equal(annotateAccessibilityTree(snapshot, items), '');
+  });
+
+  it('truncates very large trees', () => {
+    const lines = Array.from({ length: 500 }, (_, index) => `- heading "Section ${index}"`);
+    const snapshot = lines.join('\n');
+    const items = [
+      item({
+        shortId: 'E1',
+        role: 'heading',
+        name: 'Section 0',
+        index: 0,
+      }),
+    ];
+
+    const contextTree = annotateAccessibilityTree(snapshot, items, { maxChars: 500 });
+    assert.ok(contextTree.length <= 600);
+    assert.match(contextTree, /tree truncated/);
+  });
+
+  it('strips Playwright ref and box metadata from context lines', () => {
+    const snapshot = `- navigation "Shortcuts" [ref=e3] [box=0,12,420,455]
+  - link "Skip" [ref=e4] [cursor=pointer] [box=0,56,124,20]`;
+
+    const contextTree = annotateAccessibilityTree(snapshot, []);
+    assert.doesNotMatch(contextTree, /\[ref=/);
+    assert.doesNotMatch(contextTree, /\[box=/);
+    assert.match(contextTree, /navigation "Shortcuts"/);
+    assert.match(contextTree, /link "Skip"/);
+  });
+
+  it('does not match generic containers to inventory without a name', () => {
+    const snapshot = `- generic [ref=e2] [box=0,0,1920,6304]
+  - button "Aceptar" [ref=e21] [box=290,988,70,30]`;
+
+    const items: InventoryItem[] = [
+      item({
+        shortId: 'E2',
+        tagName: 'input',
+        role: null,
+        name: null,
+        ariaLabel: 'Aceptar',
+        index: 1,
+      }),
+      item({
+        shortId: 'E34',
+        tagName: 'span',
+        role: null,
+        name: null,
+        textPreview: 'Aceptar',
+        boundingBox: { x: 290, y: 988, width: 70, height: 30 },
+        index: 33,
+      }),
+    ];
+
+    const contextTree = annotateAccessibilityTree(snapshot, items);
+    assert.match(contextTree, /generic/);
+    assert.doesNotMatch(contextTree, /button "Aceptar"/);
+  });
+
+  it('matches nodes using box suffixes from ai aria snapshots', () => {
+    const snapshot = `- button "Filter" [ref=e1] [box=10,20,100,30]
+- button "Filter" [ref=e2] [box=200,20,100,30]`;
+
+    const items: InventoryItem[] = [
+      item({
+        shortId: 'E9',
+        role: 'button',
+        name: 'Filter',
+        boundingBox: { x: 10, y: 20, width: 100, height: 30 },
+        index: 0,
+      }),
+    ];
+
+    const contextTree = annotateAccessibilityTree(snapshot, items);
+    assert.doesNotMatch(contextTree, /\[ref=e1\]/);
+    assert.match(contextTree, /button "Filter"/);
+    assert.equal(contextTree.split('\n').filter((line) => line.includes('Filter')).length, 1);
   });
 });

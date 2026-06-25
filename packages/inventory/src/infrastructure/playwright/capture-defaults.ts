@@ -9,11 +9,10 @@ export const DEFAULT_CAPTURE_VIEWPORT: ViewportSize = {
 /** Max visible capture height (no full-page expansion beyond the viewport cap). */
 export const DEFAULT_MAX_CAPTURE_HEIGHT = DEFAULT_CAPTURE_VIEWPORT.height;
 
-/** Max interactive elements labeled and sent to the LLM per snapshot. */
-export const DEFAULT_MAX_ITEMS = 100;
+/** No cap by default — viewport filtering limits item count. Tests/CLI may pass a finite cap. */
+export const DEFAULT_MAX_ITEMS = Number.POSITIVE_INFINITY;
 
-/** Max characters of annotated accessibility tree sent to the LLM. */
-export const DEFAULT_MAX_A11Y_TREE_CHARS = 12_000;
+export { DEFAULT_MAX_A11Y_TREE_CHARS } from '@metamorph/core';
 
 /** Browser locale for probes and inventory capture. Override with PLAYWRIGHT_LOCALE. */
 export const DEFAULT_BROWSER_LOCALE = process.env.PLAYWRIGHT_LOCALE ?? 'es-ES';

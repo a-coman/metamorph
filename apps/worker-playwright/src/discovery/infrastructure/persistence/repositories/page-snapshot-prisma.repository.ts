@@ -19,6 +19,9 @@ export class PageSnapshotPrismaRepository extends PageSnapshotRepositoryPort {
       });
 
       let rawScreenshotId: string | undefined;
+      let annotatedScreenshotId: string | undefined;
+      let primaryArtifactId: string | undefined;
+      let primaryArtifactPath: string | undefined;
 
       if (input.rawArtifactPath && input.rawScreenshot) {
         const rawArtifact = await tx.artifact.create({
@@ -32,31 +35,44 @@ export class PageSnapshotPrismaRepository extends PageSnapshotRepositoryPort {
           },
         });
         rawScreenshotId = rawArtifact.id;
+        primaryArtifactId = rawArtifact.id;
+        primaryArtifactPath = input.rawArtifactPath;
       }
 
-      const annotatedArtifact = await tx.artifact.create({
-        data: {
-          sessionId: input.sessionId,
-          pageSnapshotId: pageSnapshot.id,
-          kind: ArtifactKind.annotated_screenshot,
-          path: input.artifactPath,
-          mimeType: 'image/png',
-          sizeBytes: input.screenshot.length,
-        },
-      });
+      if (input.artifactPath && input.screenshot) {
+        const annotatedArtifact = await tx.artifact.create({
+          data: {
+            sessionId: input.sessionId,
+            pageSnapshotId: pageSnapshot.id,
+            kind: ArtifactKind.annotated_screenshot,
+            path: input.artifactPath,
+            mimeType: 'image/png',
+            sizeBytes: input.screenshot.length,
+          },
+        });
+        annotatedScreenshotId = annotatedArtifact.id;
+        if (!primaryArtifactId) {
+          primaryArtifactId = annotatedArtifact.id;
+          primaryArtifactPath = input.artifactPath;
+        }
+      }
 
       await tx.pageSnapshot.update({
         where: { id: pageSnapshot.id },
         data: {
           ...(rawScreenshotId ? { rawScreenshotId } : {}),
-          annotatedScreenshotId: annotatedArtifact.id,
+          ...(annotatedScreenshotId ? { annotatedScreenshotId } : {}),
         },
       });
 
+      if (!primaryArtifactId || !primaryArtifactPath) {
+        throw new Error('Page snapshot requires at least one screenshot artifact');
+      }
+
       return {
         pageSnapshotId: pageSnapshot.id,
-        artifactId: annotatedArtifact.id,
-        artifactPath: input.artifactPath,
+        artifactId: primaryArtifactId,
+        artifactPath: primaryArtifactPath,
       };
     });
   }

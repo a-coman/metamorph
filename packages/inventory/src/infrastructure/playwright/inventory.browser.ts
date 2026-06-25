@@ -1,7 +1,8 @@
 import type { InventoryItem } from '@metamorph/core';
 
 export type ScanPageInventoryOptions = {
-  maxItems: number;
+  maxItems?: number;
+  paintLabels?: boolean;
 };
 
 /**
@@ -9,9 +10,10 @@ export type ScanPageInventoryOptions = {
  * Must stay free of Node imports and closed-over variables.
  */
 export function scanAndLabelPage(
-  options: ScanPageInventoryOptions,
+  options: ScanPageInventoryOptions = {},
 ): InventoryItem[] {
-  const { maxItems } = options;
+  const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
+  const paintLabels = options.paintLabels ?? false;
   const overlayClassName = 'metamorph-selector-overlay';
   const highlightClassName = 'metamorph-highlight-overlay';
   const legendId = 'metamorph-selector-legend';
@@ -67,6 +69,11 @@ export function scanAndLabelPage(
   const headerNavChromeSelector =
     'header, nav, [role="navigation"], [id*="nav" i], [class*="nav" i]';
 
+  const filterPanelSelector =
+    'aside, [role="complementary"], fieldset, [role="search"]';
+
+  const isInFilterPanel = (el: Element) => Boolean(el.closest(filterPanelSelector));
+
   const isInCalendarScope = (el: Element) =>
     Boolean(el.closest(calendarScopeSelector));
 
@@ -83,10 +90,17 @@ export function scanAndLabelPage(
     return false;
   };
 
+  const rectsIntersect = (
+    a: { left: number; top: number; right: number; bottom: number },
+    b: { left: number; top: number; right: number; bottom: number },
+  ) =>
+    !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+
   const isVisibleEnough = (el: Element) => {
     const rect = el.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return false;
     if (rect.right <= 0 || rect.left >= window.innerWidth) return false;
+    if (rect.bottom <= 0 || rect.top >= window.innerHeight) return false;
 
     let curr: Element | null = el;
     while (
@@ -107,27 +121,46 @@ export function scanAndLabelPage(
       if (style.overflow !== 'visible' && style.overflow !== '') {
         const parentRect = curr.getBoundingClientRect();
         if (parentRect.width === 0 || parentRect.height === 0) return false;
-        if (
-          Math.ceil(rect.bottom) <= Math.floor(parentRect.top) ||
-          Math.floor(rect.top) >= Math.ceil(parentRect.bottom) ||
-          Math.ceil(rect.right) <= Math.floor(parentRect.left) ||
-          Math.floor(rect.left) >= Math.ceil(parentRect.right)
-        ) {
+        const elementRect = {
+          left: rect.left,
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom,
+        };
+        const clipRect = {
+          left: parentRect.left,
+          top: parentRect.top,
+          right: parentRect.right,
+          bottom: parentRect.bottom,
+        };
+        if (!rectsIntersect(elementRect, clipRect)) {
           return false;
         }
       }
       curr = curr.parentElement;
     }
 
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const topEl = document.elementFromPoint(centerX, centerY);
-    if (topEl) {
-      const className =
-        typeof topEl.className === 'string' ? topEl.className : '';
-      if (!className.includes('metamorph-')) {
-        if (!el.contains(topEl) && !topEl.contains(el)) {
-          return false;
+    const relaxHitTest = (() => {
+      const tagName = el.tagName.toLowerCase();
+      const type = (el.getAttribute('type') || '').toLowerCase();
+      const role = el.getAttribute('role') || '';
+      const isChoice =
+        ['checkbox', 'radio'].includes(role) ||
+        (tagName === 'input' && ['checkbox', 'radio'].includes(type));
+      return isChoice && isInFilterPanel(el);
+    })();
+
+    if (!relaxHitTest) {
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const topEl = document.elementFromPoint(centerX, centerY);
+      if (topEl) {
+        const className =
+          typeof topEl.className === 'string' ? topEl.className : '';
+        if (!className.includes('metamorph-')) {
+          if (!el.contains(topEl) && !topEl.contains(el)) {
+            return false;
+          }
         }
       }
     }
@@ -146,6 +179,181 @@ export function scanAndLabelPage(
     return ariaLabel || title || text;
   };
 
+  const getLabelAssociatedControl = (label: Element): Element | null => {
+    if (label.tagName.toLowerCase() !== 'label') return null;
+    const htmlFor = label.getAttribute('for');
+    if (htmlFor) {
+      return document.getElementById(htmlFor);
+    }
+    return label.querySelector('input, select, textarea');
+  };
+
+  const getLabelDisplayText = (label: Element): string => {
+    const clone = label.cloneNode(true) as Element;
+    clone.querySelectorAll('input, select, textarea').forEach((node) => node.remove());
+    return (clone.textContent || '').trim().replace(/\s+/g, ' ');
+  };
+
+  const isChoiceControl = (el: Element): boolean => {
+    const tagName = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const role = el.getAttribute('role') || '';
+    if (tagName === 'input' && ['checkbox', 'radio'].includes(type)) {
+      return true;
+    }
+    return ['checkbox', 'radio'].includes(role);
+  };
+
+  const isVisuallyHiddenChoiceControl = (el: Element): boolean => {
+    if (!isChoiceControl(el)) return false;
+    const rect = el.getBoundingClientRect();
+    const style = window.getComputedStyle(el);
+    if (
+      style.display === 'none' ||
+      style.visibility === 'hidden' ||
+      Number(style.opacity) === 0
+    ) {
+      return true;
+    }
+    const clip = style.clip || '';
+    if (
+      clip.includes('rect(0') ||
+      (style.clipPath && style.clipPath !== 'none' && style.clipPath.includes('inset'))
+    ) {
+      return true;
+    }
+    if (rect.width < 10 || rect.height < 10) {
+      return true;
+    }
+    if (
+      el.tagName.toLowerCase() === 'input' &&
+      style.position === 'absolute' &&
+      rect.width < 16 &&
+      rect.height < 16
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const isHiddenFacetCheckbox = isVisuallyHiddenChoiceControl;
+
+  const isClickableFacetTarget = (el: Element): boolean => {
+    const tagName = el.tagName.toLowerCase();
+    const role = el.getAttribute('role') || '';
+    if (tagName === 'label') return true;
+    if (tagName === 'a' && el.hasAttribute('href')) return true;
+    if (['button', 'link', 'checkbox', 'radio'].includes(role)) return true;
+    return isTopmostPointerElement(el);
+  };
+
+  const getVisibleClickTargetForHiddenControl = (
+    control: Element,
+  ): Element | null => {
+    const id = control.id;
+    if (id) {
+      const associated = document.querySelector(`label[for="${cssEscape(id)}"]`);
+      if (associated && isClickableFacetTarget(associated) && isVisibleEnough(associated)) {
+        return associated;
+      }
+    }
+
+    const parentLabel = control.closest('label');
+    if (
+      parentLabel &&
+      isClickableFacetTarget(parentLabel) &&
+      isVisibleEnough(parentLabel)
+    ) {
+      return parentLabel;
+    }
+
+    const labelledBy = control.getAttribute('aria-labelledby');
+    if (labelledBy) {
+      for (const labelId of labelledBy.split(/\s+/)) {
+        const trimmed = labelId.trim();
+        if (!trimmed) continue;
+        const labelEl = document.getElementById(trimmed);
+        if (
+          labelEl &&
+          isClickableFacetTarget(labelEl) &&
+          isVisibleEnough(labelEl)
+        ) {
+          return labelEl;
+        }
+      }
+    }
+
+    const wrappingInteractive = control.closest(
+      'a[href], button, [role="button"], [role="link"], [role="checkbox"], [role="radio"]',
+    );
+    if (
+      wrappingInteractive &&
+      wrappingInteractive !== control &&
+      isClickableFacetTarget(wrappingInteractive) &&
+      isVisibleEnough(wrappingInteractive)
+    ) {
+      return wrappingInteractive;
+    }
+
+    const row = control.closest('li, [role="listitem"]');
+    if (row) {
+      const rowSelectors = [
+        'label',
+        'a[href]',
+        '[role="checkbox"]',
+        '[role="radio"]',
+        '[role="link"]',
+        '[role="button"]',
+      ].join(', ');
+      for (const candidate of Array.from(row.querySelectorAll(rowSelectors))) {
+        if (candidate === control || control.contains(candidate)) continue;
+        if (isVisuallyHiddenChoiceControl(candidate)) continue;
+        const name = getAccessibleName(candidate).trim();
+        if (!name || name.length > 80) continue;
+        if (!isClickableFacetTarget(candidate)) continue;
+        if (isVisibleEnough(candidate)) {
+          return candidate;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const resolveChoiceClickTarget = (control: Element): Element | null => {
+    if (isVisuallyHiddenChoiceControl(control)) {
+      return getVisibleClickTargetForHiddenControl(control);
+    }
+
+    if (isClickableFacetTarget(control) && isVisibleEnough(control)) {
+      return control;
+    }
+
+    const row = control.closest('li, [role="listitem"]');
+    if (row) {
+      const rowSelectors = [
+        'label',
+        'a[href]',
+        '[role="checkbox"]',
+        '[role="radio"]',
+        '[role="link"]',
+        '[role="button"]',
+      ].join(', ');
+      for (const candidate of Array.from(row.querySelectorAll(rowSelectors))) {
+        if (candidate === control || control.contains(candidate)) continue;
+        if (isVisuallyHiddenChoiceControl(candidate)) continue;
+        if (!isClickableFacetTarget(candidate)) continue;
+        if (isVisibleEnough(candidate)) {
+          return candidate;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const getVisibleLabelForHiddenControl = getVisibleClickTargetForHiddenControl;
+
   const getImplicitRole = (el: Element): string | null => {
     const tagName = el.tagName.toLowerCase();
     if (tagName === 'a' && el.hasAttribute('href')) return 'link';
@@ -154,6 +362,7 @@ export function scanAndLabelPage(
       const type = (el.getAttribute('type') || 'text').toLowerCase();
       if (type === 'search') return 'searchbox';
       if (type === 'checkbox') return 'checkbox';
+      if (type === 'radio') return 'radio';
       return 'textbox';
     }
     if (tagName === 'select') return 'combobox';
@@ -263,6 +472,11 @@ export function scanAndLabelPage(
     const role = el.getAttribute('role');
     const accessibleName = getAccessibleName(el);
     const ariaLabel = (el.getAttribute('aria-label') || '').trim();
+    const implicitRole = getElementRole(el);
+
+    if (implicitRole && accessibleName) {
+      return `getByRole(${JSON.stringify(implicitRole)}, { name: ${JSON.stringify(accessibleName)} })`;
+    }
 
     if (role && accessibleName) {
       return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(accessibleName)} })`;
@@ -270,6 +484,18 @@ export function scanAndLabelPage(
 
     if (tagName === 'a' && accessibleName) {
       return `getByRole("link", { name: ${JSON.stringify(accessibleName)} })`;
+    }
+
+    if (tagName === 'label') {
+      const labelText = getLabelDisplayText(el);
+      const control = getLabelAssociatedControl(el);
+      if (labelText && control) {
+        const controlRole = getElementRole(control);
+        if (controlRole === 'checkbox' || controlRole === 'radio') {
+          return `getByRole(${JSON.stringify(controlRole)}, { name: ${JSON.stringify(labelText)} })`;
+        }
+        return `getByLabel(${JSON.stringify(labelText)})`;
+      }
     }
 
     if (
@@ -322,6 +548,7 @@ export function scanAndLabelPage(
         'combobox',
         'searchbox',
         'checkbox',
+        'radio',
         'menuitem',
         'tab',
         'gridcell',
@@ -414,6 +641,11 @@ export function scanAndLabelPage(
 
     if (isTopmostPointerElement(el)) return true;
     if (['button', 'input', 'select', 'textarea'].includes(tagName)) return true;
+    if (tagName === 'label') {
+      const control = getLabelAssociatedControl(el);
+      if (!control) return false;
+      return getLabelDisplayText(el).length > 0;
+    }
     if (
       role &&
       [
@@ -423,6 +655,7 @@ export function scanAndLabelPage(
         'combobox',
         'searchbox',
         'checkbox',
+        'radio',
         'menuitem',
         'tab',
         'gridcell',
@@ -448,12 +681,25 @@ export function scanAndLabelPage(
       return true;
     }
 
+    if (isHiddenFacetCheckbox(el) && getVisibleClickTargetForHiddenControl(el)) {
+      return false;
+    }
+
     return false;
+  };
+
+  const isLabelForChoiceControl = (el: Element): boolean => {
+    if (el.tagName.toLowerCase() !== 'label') return false;
+    const control = getLabelAssociatedControl(el);
+    if (!control) return false;
+    const controlRole = getElementRole(control);
+    return controlRole === 'checkbox' || controlRole === 'radio';
   };
 
   const scoreElement = (el: Element) => {
     const tagName = el.tagName.toLowerCase();
     const role = el.getAttribute('role') || '';
+    const effectiveRole = getElementRole(el) || '';
     const rect = el.getBoundingClientRect();
     const text = (el.textContent || '').trim().replace(/\s+/g, ' ');
     const inTopNav = Boolean(el.closest(headerNavChromeSelector));
@@ -475,6 +721,15 @@ export function scanAndLabelPage(
       score += 100;
     }
     if (['button', 'input', 'select', 'textarea'].includes(tagName)) score += 60;
+    if (isLabelForChoiceControl(el)) {
+      score += 60;
+    }
+    if (effectiveRole === 'checkbox' || effectiveRole === 'radio') {
+      score += 55;
+      if (isInFilterPanel(el)) {
+        score += 85;
+      }
+    }
     if (isTopmostPointerElement(el)) score += 55;
     if (el.getAttribute('role')) score += 40;
     if (inTopNav) score += 120;
@@ -498,10 +753,12 @@ export function scanAndLabelPage(
     "input",
     "select",
     "textarea",
+    "label",
     "a",
     "[role='button']",
     "[role='link']",
     "[role='checkbox']",
+    "[role='radio']",
     "[role='menuitem']",
     "[role='tab']",
     "[role='combobox']",
@@ -518,8 +775,20 @@ export function scanAndLabelPage(
     isTopmostPointerElement,
   );
 
+  const choiceClickTargets = Array.from(
+    document.querySelectorAll(
+      'input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]',
+    ),
+  )
+    .map((control) => resolveChoiceClickTarget(control))
+    .filter((target): target is Element => target !== null);
+
   const seenNodes = new Set<Element>();
-  const uniqueCandidates = [...allCandidates, ...cursorCandidates].filter((el) => {
+  const uniqueCandidates = [
+    ...allCandidates,
+    ...cursorCandidates,
+    ...choiceClickTargets,
+  ].filter((el) => {
     if (seenNodes.has(el)) return false;
     seenNodes.add(el);
     return true;
@@ -553,6 +822,9 @@ export function scanAndLabelPage(
     if (['a', 'button', 'input', 'select', 'textarea'].includes(tagName)) {
       return true;
     }
+    if (isLabelForChoiceControl(candidate.el)) {
+      return true;
+    }
     if (
       [
         'button',
@@ -561,6 +833,7 @@ export function scanAndLabelPage(
         'combobox',
         'searchbox',
         'checkbox',
+        'radio',
         'menuitem',
         'tab',
         'gridcell',
@@ -608,7 +881,26 @@ export function scanAndLabelPage(
     return true;
   });
 
-  const chosen = filteredCandidates.slice(0, maxItems);
+  const isTier1Control = (candidate: ScoredCandidate) => {
+    const tagName = candidate.el.tagName.toLowerCase();
+    const role = candidate.el.getAttribute('role') || '';
+    const effectiveRole = getElementRole(candidate.el) || '';
+    if (['select', 'input', 'textarea', 'button'].includes(tagName)) {
+      return true;
+    }
+    if (isLabelForChoiceControl(candidate.el)) {
+      return true;
+    }
+    return ['combobox', 'searchbox', 'checkbox', 'radio'].includes(role) ||
+      ['checkbox', 'radio'].includes(effectiveRole);
+  };
+
+  const tier1 = filteredCandidates.filter(isTier1Control);
+  const tier2 = filteredCandidates.filter((candidate) => !isTier1Control(candidate));
+  const orderedCandidates = [...tier1, ...tier2];
+  const chosen = Number.isFinite(maxItems)
+    ? orderedCandidates.slice(0, maxItems)
+    : orderedCandidates;
   const chosenWithCounts = chosen.map(({ el, selector, locator, score }) => {
     const selectorMatchCount = countSelectorMatches(selector);
     const locatorMatchCount = locator ? countLocatorMatches(locator) : undefined;
@@ -737,16 +1029,19 @@ export function scanAndLabelPage(
     window.innerHeight,
   );
 
-  const overlayRoot = document.createElement('div');
-  overlayRoot.id = legendId;
-  overlayRoot.style.position = 'absolute';
-  overlayRoot.style.left = '0';
-  overlayRoot.style.top = '0';
-  overlayRoot.style.width = `${pageWidth}px`;
-  overlayRoot.style.height = `${pageHeight}px`;
-  overlayRoot.style.pointerEvents = 'none';
-  overlayRoot.style.zIndex = '2147483645';
-  document.body.appendChild(overlayRoot);
+  let overlayRoot: HTMLDivElement | null = null;
+  if (paintLabels) {
+    overlayRoot = document.createElement('div');
+    overlayRoot.id = legendId;
+    overlayRoot.style.position = 'absolute';
+    overlayRoot.style.left = '0';
+    overlayRoot.style.top = '0';
+    overlayRoot.style.width = `${pageWidth}px`;
+    overlayRoot.style.height = `${pageHeight}px`;
+    overlayRoot.style.pointerEvents = 'none';
+    overlayRoot.style.zIndex = '2147483645';
+    document.body.appendChild(overlayRoot);
+  }
 
   return chosenWithCounts.map(
     ({ el, selector, locator, score, selectorMatchCount, locatorMatchCount }, index) => {
@@ -762,18 +1057,19 @@ export function scanAndLabelPage(
     };
 
     const shouldHideByElementOverlap = isOverlappingImportantElement(pageRect);
-    const position = shouldHideByElementOverlap
-      ? null
-      : placeLabel(pageRect) ?? {
-          left: Math.max(2, pageRect.left + 4),
-          top: Math.max(2, pageRect.top + 4),
-          right: Math.max(2, pageRect.left + 38),
-          bottom: Math.max(2, pageRect.top + 20),
-        };
+    const position =
+      paintLabels && !shouldHideByElementOverlap
+        ? placeLabel(pageRect) ?? {
+            left: Math.max(2, pageRect.left + 4),
+            top: Math.max(2, pageRect.top + 4),
+            right: Math.max(2, pageRect.left + 38),
+            bottom: Math.max(2, pageRect.top + 20),
+          }
+        : null;
 
     const theme = labelThemes[index % labelThemes.length]!;
 
-    if (position && !shouldHideByElementOverlap) {
+    if (paintLabels && position && !shouldHideByElementOverlap && overlayRoot) {
       labeledElementRects.push(pageRect);
 
       const highlight = document.createElement('div');
@@ -809,6 +1105,28 @@ export function scanAndLabelPage(
     }
 
     const textPreview = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+    const tagName = el.tagName.toLowerCase();
+    const associatedControl =
+      tagName === 'label' ? getLabelAssociatedControl(el) : null;
+    const labelText =
+      tagName === 'label' ? getLabelDisplayText(el) : null;
+    const effectiveRole =
+      tagName === 'label' && associatedControl
+        ? getElementRole(associatedControl)
+        : getElementRole(el);
+    const effectiveTextPreview =
+      labelText && labelText.length > 0
+        ? labelText.slice(0, 80)
+        : textPreview || null;
+    const selectOptions =
+      tagName === 'select'
+        ? Array.from(el.querySelectorAll('option'))
+            .map((option) => ({
+              value: option.value,
+              label: (option.textContent ?? '').trim(),
+            }))
+            .filter((option) => option.value.length > 0)
+        : [];
 
     return {
       index,
@@ -816,13 +1134,13 @@ export function scanAndLabelPage(
       locator,
       selector,
       score,
-      labelShown: Boolean(position && !shouldHideByElementOverlap),
-      tagName: el.tagName.toLowerCase(),
+      labelShown: Boolean(paintLabels && position && !shouldHideByElementOverlap),
+      tagName,
       id: el.id || null,
-      role: el.getAttribute('role'),
+      role: effectiveRole,
       name: el.getAttribute('name'),
       ariaLabel: el.getAttribute('aria-label'),
-      textPreview: textPreview || null,
+      textPreview: effectiveTextPreview,
       ...(selectorMatchCount !== undefined ? { selectorMatchCount } : {}),
       ...(locatorMatchCount !== undefined ? { locatorMatchCount } : {}),
       boundingBox: {
@@ -831,7 +1149,110 @@ export function scanAndLabelPage(
         width: pageRect.width,
         height: pageRect.height,
       },
+      ...(selectOptions.length > 0 ? { options: selectOptions } : {}),
     };
   },
   );
+}
+
+export type PaintAdditionalLabelItem = {
+  shortId: string;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+};
+
+/** Paints Set-of-Marks overlays for inventory items missed during the primary DOM pass. */
+export function paintAdditionalInventoryLabels(
+  items: PaintAdditionalLabelItem[],
+): string[] {
+  const overlayClassName = 'metamorph-selector-overlay';
+  const highlightClassName = 'metamorph-highlight-overlay';
+  const legendId = 'metamorph-selector-legend';
+
+  let overlayRoot = document.getElementById(legendId) as HTMLDivElement | null;
+  if (!overlayRoot) {
+    const pageWidth = Math.max(
+      document.documentElement.scrollWidth,
+      document.body.scrollWidth,
+      window.innerWidth,
+    );
+    const pageHeight = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+      window.innerHeight,
+    );
+    overlayRoot = document.createElement('div');
+    overlayRoot.id = legendId;
+    overlayRoot.style.position = 'absolute';
+    overlayRoot.style.left = '0';
+    overlayRoot.style.top = '0';
+    overlayRoot.style.width = `${pageWidth}px`;
+    overlayRoot.style.height = `${pageHeight}px`;
+    overlayRoot.style.pointerEvents = 'none';
+    overlayRoot.style.zIndex = '2147483645';
+    document.body.appendChild(overlayRoot);
+  }
+
+  const labelThemes = [
+    { border: 'rgba(0, 123, 255, 0.95)', background: 'rgba(0, 123, 255, 0.90)' },
+    { border: 'rgba(0, 168, 120, 0.95)', background: 'rgba(0, 168, 120, 0.90)' },
+    { border: 'rgba(245, 158, 11, 0.95)', background: 'rgba(245, 158, 11, 0.90)' },
+    { border: 'rgba(239, 68, 68, 0.95)', background: 'rgba(239, 68, 68, 0.90)' },
+    { border: 'rgba(14, 165, 233, 0.95)', background: 'rgba(14, 165, 233, 0.90)' },
+    { border: 'rgba(16, 185, 129, 0.95)', background: 'rgba(16, 185, 129, 0.90)' },
+    { border: 'rgba(217, 119, 6, 0.95)', background: 'rgba(217, 119, 6, 0.90)' },
+    { border: 'rgba(99, 102, 241, 0.95)', background: 'rgba(99, 102, 241, 0.90)' },
+  ];
+
+  const painted: string[] = [];
+
+  for (const [index, item] of items.entries()) {
+    const pageRect = {
+      left: item.boundingBox.x,
+      top: item.boundingBox.y,
+      right: item.boundingBox.x + item.boundingBox.width,
+      bottom: item.boundingBox.y + item.boundingBox.height,
+      width: item.boundingBox.width,
+      height: item.boundingBox.height,
+    };
+    const theme = labelThemes[index % labelThemes.length]!;
+
+    const highlight = document.createElement('div');
+    highlight.className = highlightClassName;
+    highlight.style.position = 'absolute';
+    highlight.style.left = `${Math.max(0, pageRect.left)}px`;
+    highlight.style.top = `${Math.max(0, pageRect.top)}px`;
+    highlight.style.width = `${Math.max(2, pageRect.width)}px`;
+    highlight.style.height = `${Math.max(2, pageRect.height)}px`;
+    highlight.style.border = `2px solid ${theme.border}`;
+    highlight.style.boxSizing = 'border-box';
+    highlight.style.pointerEvents = 'none';
+    highlight.style.zIndex = '2147483646';
+    overlayRoot.appendChild(highlight);
+
+    const label = document.createElement('div');
+    label.className = overlayClassName;
+    label.textContent = item.shortId;
+    label.style.position = 'absolute';
+    label.style.padding = '2px 4px';
+    label.style.borderRadius = '3px';
+    label.style.background = theme.background;
+    label.style.border = `1px solid ${theme.border}`;
+    label.style.boxShadow = `0 1px 2px rgba(15, 23, 42, 0.35), 0 0 0 1px ${theme.border}`;
+    label.style.color = '#fff';
+    label.style.font = '11px/1.1 monospace';
+    label.style.whiteSpace = 'nowrap';
+    label.style.pointerEvents = 'none';
+    label.style.zIndex = '2147483647';
+    label.style.left = `${Math.max(2, pageRect.left + 4)}px`;
+    label.style.top = `${Math.max(2, pageRect.top + 4)}px`;
+    overlayRoot.appendChild(label);
+    painted.push(item.shortId);
+  }
+
+  return painted;
 }

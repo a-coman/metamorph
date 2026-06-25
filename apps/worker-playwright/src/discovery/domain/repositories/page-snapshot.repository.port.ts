@@ -6,9 +6,9 @@ export type PersistPageSnapshotInput = {
   url: string;
   inventory: PageSnapshotInventory;
   rawArtifactPath?: string;
-  artifactPath: string;
+  artifactPath?: string;
   rawScreenshot?: Buffer;
-  screenshot: Buffer;
+  screenshot?: Buffer;
 };
 
 export type PersistPageSnapshotResult = {

@@ -274,12 +274,31 @@ function formatUserPrompt(userText: string, screenshotCount: number): string[] {
   }
 
   const inventoryCurrent =
+    extractBlock(
+      userText,
+      'Current inventory (concrete UI instances for this snapshot — use ONLY these element_ids in steps):',
+    ) ??
     extractBlock(userText, 'Current inventory (use ONLY these element_ids in steps):') ??
     extractBlock(userText, 'Current inventory:');
+  const pageStructure =
+    extractBlock(
+      userText,
+      'Page structure (accessibility tree; lines with → En map to shortIds above):',
+    ) ?? extractBlock(userText, 'Page structure (accessibility tree');
   const inventoryBefore = extractBlock(userText, 'Inventory BEFORE:');
   const inventoryAfter = extractBlock(userText, 'Inventory AFTER:');
 
   lines.push(...summarizeInventoryBlock(inventoryCurrent, 'inventory'));
+  if (pageStructure) {
+    const structureLines = pageStructure.split('\n').map((line) => line.trim()).filter(Boolean);
+    lines.push(`page_structure (${structureLines.length} lines):`);
+    for (const line of structureLines.slice(0, 4)) {
+      lines.push(`· ${truncate(line, 88)}`);
+    }
+    if (structureLines.length > 4) {
+      lines.push(`· … +${structureLines.length - 4} more`);
+    }
+  }
   lines.push(...summarizeInventoryBlock(inventoryBefore, 'inventory_before'));
   lines.push(...summarizeInventoryBlock(inventoryAfter, 'inventory_after'));
 

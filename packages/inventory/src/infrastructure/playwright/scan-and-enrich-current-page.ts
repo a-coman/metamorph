@@ -3,6 +3,7 @@ import type { InventoryItem } from '@metamorph/core';
 import { DEFAULT_MAX_CAPTURE_HEIGHT, DEFAULT_MAX_ITEMS } from './capture-defaults.js';
 import {
   captureAnnotatedScreenshot,
+  captureRawScreenshot,
   prepareCaptureViewport,
 } from './prepare-viewport.js';
 import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
@@ -13,6 +14,7 @@ export type ScanAndEnrichResult = {
   pageMetrics: { width: number; height: number };
   viewport: { width: number; height: number };
   items: InventoryItem[];
+  rawScreenshot: Buffer;
   screenshot: Buffer;
   labeledCount: number;
   accessibilitySnapshot?: string;
@@ -39,12 +41,10 @@ export async function scanAndEnrichCurrentPage(
     { preserveScrollPosition: options?.preserveScrollPosition },
   );
 
-  const {
-    items,
-    accessibilitySnapshot,
-    accessibilityTreeAnnotated,
-    labeledCount,
-  } = await scanInventoryWithAccessibility(page, maxItems);
+  const rawScreenshot = await captureRawScreenshot(page);
+
+  const { items, accessibilitySnapshot, labeledCount } =
+    await scanInventoryWithAccessibility(page, { maxItems, paintLabels: true });
 
   const screenshot = await captureAnnotatedScreenshot(page);
 
@@ -54,9 +54,9 @@ export async function scanAndEnrichCurrentPage(
     pageMetrics,
     viewport,
     items,
+    rawScreenshot,
     screenshot,
     labeledCount,
     ...(accessibilitySnapshot ? { accessibilitySnapshot } : {}),
-    ...(accessibilityTreeAnnotated ? { accessibilityTreeAnnotated } : {}),
   };
 }

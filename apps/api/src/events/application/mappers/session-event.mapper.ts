@@ -50,6 +50,26 @@ export function mapLlmCallStatus(responseJson: unknown): LlmCallDto['status'] {
   return 'done';
 }
 
+export function mapLlmPromptImages(value: unknown): LlmCallDto['userPromptImages'] {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as { count?: unknown; labels?: unknown };
+  if (typeof record.count !== 'number') {
+    return null;
+  }
+
+  const labels = Array.isArray(record.labels)
+    ? record.labels.filter((label): label is string => typeof label === 'string')
+    : undefined;
+
+  return {
+    count: record.count,
+    ...(labels && labels.length > 0 ? { labels } : {}),
+  };
+}
+
 export function mapLlmCallDto(
   llmCall: {
     id: string;
@@ -58,6 +78,9 @@ export function mapLlmCallDto(
     purpose: string;
     model: string;
     promptVersion: string;
+    systemPrompt?: string | null;
+    userPrompt?: string | null;
+    userPromptImages?: unknown;
     tokensIn: number | null;
     tokensOut: number | null;
     latencyMs: number | null;
@@ -99,6 +122,9 @@ export function mapLlmCallDto(
     purpose: llmCall.purpose,
     model: llmCall.model,
     promptVersion: llmCall.promptVersion,
+    systemPrompt: llmCall.systemPrompt ?? null,
+    userPrompt: llmCall.userPrompt ?? null,
+    userPromptImages: mapLlmPromptImages(llmCall.userPromptImages),
     status,
     tokensIn: llmCall.tokensIn,
     tokensOut: llmCall.tokensOut,

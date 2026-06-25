@@ -5,6 +5,10 @@ import pg from 'pg';
 import { DEFAULT_EXPLORE_STATE, type ProbeResumeValue } from '../graph/explore-state.js';
 import { EMPTY_BATCH_LOG } from '../graph/batch-log.js';
 import { buildExploreGraph, type ExploreGraphDeps } from '../graph/explore-graph.js';
+import {
+  interpretExploreGraphOutcome,
+  type GraphStateSnapshot,
+} from './explore-graph-outcome.js';
 
 export class ExploreGraphRunner {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,26 +115,8 @@ export class ExploreGraphRunner {
     mrVersionId?: string;
     reason?: string;
   }> {
-    const mrVersionId = result.mrVersionId as string | undefined;
-    const failed = result.failed as boolean | undefined;
-    const failureReason = result.failureReason as string | undefined;
-
-    if (failed) {
-      return { status: 'failed', mrVersionId, reason: failureReason };
-    }
-
     const graph = this.compiled!;
-    const snapshot = await graph.getState(config);
-    if (snapshot.next.length > 0) {
-      const interruptValue = snapshot.tasks?.[0]?.interrupts?.[0]?.value as
-        | { reason?: string }
-        | undefined;
-      if (interruptValue?.reason === 'user_pause') {
-        return { status: 'paused', mrVersionId };
-      }
-      return { status: 'interrupted', mrVersionId };
-    }
-
-    return { status: 'completed', mrVersionId };
+    const snapshot = (await graph.getState(config)) as GraphStateSnapshot;
+    return interpretExploreGraphOutcome(result, snapshot);
   }
 }

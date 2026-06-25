@@ -13,7 +13,7 @@ import {
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="text-xs font-mono bg-muted/40 rounded-md p-2.5 overflow-x-auto whitespace-pre-wrap break-words">
+    <pre className="text-xs font-mono bg-muted/40 rounded-md p-2.5 min-w-0 w-full overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
@@ -27,7 +27,9 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 
 function FieldValue({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs text-foreground/80 leading-relaxed">{children}</p>
+    <p className="text-xs text-foreground/80 leading-relaxed break-words [overflow-wrap:anywhere]">
+      {children}
+    </p>
   );
 }
 
@@ -178,7 +180,9 @@ function PlanExploreResponse({ response }: { response: Record<string, unknown> }
         </InfoBlock>
       )}
       {rationale && (
-        <p className="text-xs text-foreground/80 leading-relaxed">{rationale}</p>
+        <p className="text-xs text-foreground/80 leading-relaxed break-words [overflow-wrap:anywhere]">
+          {rationale}
+        </p>
       )}
       {steps.length > 0 && (
         <ol className="space-y-1 text-xs list-decimal list-inside p-2.5 rounded-lg bg-muted/30 border border-border/50">
@@ -230,7 +234,9 @@ function VerifyResponse({
   return (
     <div className="space-y-3">
       {rationale && (
-        <p className="text-xs text-foreground/80 leading-relaxed">{rationale}</p>
+        <p className="text-xs text-foreground/80 leading-relaxed break-words [overflow-wrap:anywhere]">
+          {rationale}
+        </p>
       )}
       {checkpoint?.traceArtifactId && (
         <CheckpointTraceLink artifactId={checkpoint.traceArtifactId} />

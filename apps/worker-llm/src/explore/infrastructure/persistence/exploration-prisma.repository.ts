@@ -196,6 +196,9 @@ export class ExplorationPrismaRepository {
         tokensIn: input.audit.tokensIn,
         tokensOut: input.audit.tokensOut,
         latencyMs: input.audit.latencyMs,
+        systemPrompt: input.audit.systemPrompt,
+        userPrompt: input.audit.userPrompt,
+        userPromptImages: input.audit.userPromptImages as Prisma.InputJsonValue,
         responseJson: input.responseJson as Prisma.InputJsonValue,
         completedAt: new Date(),
       },
@@ -215,10 +218,18 @@ export class ExplorationPrismaRepository {
     id: string;
     error: string;
     responseJson?: unknown;
+    systemPrompt?: string;
+    userPrompt?: string;
+    userPromptImages?: ExploreLlmAudit['userPromptImages'];
   }): Promise<void> {
     await prisma.llmCall.update({
       where: { id: input.id },
       data: {
+        ...(input.systemPrompt !== undefined ? { systemPrompt: input.systemPrompt } : {}),
+        ...(input.userPrompt !== undefined ? { userPrompt: input.userPrompt } : {}),
+        ...(input.userPromptImages !== undefined
+          ? { userPromptImages: input.userPromptImages as Prisma.InputJsonValue }
+          : {}),
         responseJson: (input.responseJson ?? { error: input.error }) as Prisma.InputJsonValue,
         completedAt: new Date(),
       },
@@ -232,5 +243,33 @@ export class ExplorationPrismaRepository {
     });
 
     return row?.mrDefinitionId ?? null;
+  }
+
+  async getMrVersionStatus(mrVersionId: string): Promise<MrVersionStatus | null> {
+    const row = await prisma.mrVersion.findUnique({
+      where: { id: mrVersionId },
+      select: { status: true },
+    });
+
+    return row?.status ?? null;
+  }
+
+  async getMrVersionForExploreJob(
+    exploreJobId: string,
+  ): Promise<{ id: string; status: MrVersionStatus } | null> {
+    const row = await prisma.job.findUnique({
+      where: { id: exploreJobId },
+      select: {
+        mrVersion: {
+          select: { id: true, status: true },
+        },
+      },
+    });
+
+    if (!row?.mrVersion) {
+      return null;
+    }
+
+    return row.mrVersion;
   }
 }

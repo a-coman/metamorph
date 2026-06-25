@@ -32,6 +32,15 @@ export const InventoryItemSchema = z.object({
     })
     .nullable()
     .optional(),
+  /** Populated for native <select> elements. */
+  options: z
+    .array(
+      z.object({
+        value: z.string(),
+        label: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const PageSnapshotInventorySchema = z.object({
@@ -41,9 +50,9 @@ export const PageSnapshotInventorySchema = z.object({
   viewport: ViewportSizeSchema,
   items: z.array(InventoryItemSchema),
   labeledCount: z.number().int().nonnegative(),
-  /** Raw Playwright ariaSnapshot YAML (captured before DOM overlays). */
+  /** Raw Playwright ariaSnapshot YAML (debug only; interactable nodes are promoted into items). */
   accessibilitySnapshot: z.string().optional(),
-  /** ariaSnapshot YAML with inventory shortIds annotated as → E{n}. */
+  /** Legacy debug tree; no longer included in LLM prompts. */
   accessibilityTreeAnnotated: z.string().optional(),
 });
 

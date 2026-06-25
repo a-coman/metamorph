@@ -83,7 +83,7 @@ describe('buildPlanExploreUserText batch log', () => {
     assert.match(text, /Timeout waiting for locator/);
     assert.match(text, /Batch 3 — Plan rejected/);
     assert.match(text, /fill not allowed on E46/);
-    assert.match(text, /1\. Current inventory screenshot/);
+    assert.match(text, /1\. Current annotated screenshot/);
     assert.match(text, /2\. Probe failure context \(Batch 2\)/);
     assert.doesNotMatch(text, /Last probe failure:/);
   });
@@ -98,13 +98,13 @@ describe('buildPlanExploreUserText batch log', () => {
     });
 
     assert.match(text, /Attached: annotated screenshot/);
-    assert.match(text, /Current inventory \(use ONLY these element_ids in steps\):/);
+    assert.match(text, /Current inventory \(concrete UI instances for this snapshot — use ONLY these element_ids in steps\):/);
     assert.doesNotMatch(text, /Page structure/);
     assert.match(text, /Errors \(do not repeat these failed approaches\):/);
     assert.match(text, /\(none yet\)/);
   });
 
-  it('includes annotated accessibility tree when present on inventory', () => {
+  it('lists inventory items without accessibility tree section', () => {
     const text = buildPlanExploreUserText({
       url: 'https://www.example.com/',
       phase: 'source',
@@ -115,25 +115,25 @@ describe('buildPlanExploreUserText batch log', () => {
           {
             index: 0,
             shortId: 'E2',
-            locator: null,
+            locator: 'getByRole("button", { name: "Aceptar todas" })',
             selector: '#accept',
             score: 1,
-            labelShown: true,
+            labelShown: false,
             tagName: 'button',
             id: null,
             role: 'button',
             name: 'Aceptar todas',
             ariaLabel: null,
+            locatorMatchCount: 1,
+            selectorMatchCount: 0,
           },
         ],
-        labeledCount: 1,
-        accessibilityTreeAnnotated: `- dialog "Usamos cookies"
-  - button "Aceptar todas" → E2`,
+        labeledCount: 0,
       },
       batchLog: { source: [], follow_up: [] },
     });
 
-    assert.match(text, /Page structure \(accessibility tree/);
-    assert.match(text, /→ E2/);
+    assert.match(text, /E2 \| button/);
+    assert.doesNotMatch(text, /Page structure/);
   });
 });

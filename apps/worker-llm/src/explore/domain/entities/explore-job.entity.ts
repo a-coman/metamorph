@@ -92,6 +92,17 @@ export class ExploreJob extends Entity<ExploreJobProps> {
     this.props.finishedAt = new Date();
   }
 
+  reopen(): void {
+    if (
+      this.props.status === JobStatus.done ||
+      this.props.status === JobStatus.failed
+    ) {
+      this.props.status = JobStatus.running;
+      this.props.finishedAt = null;
+      this.props.errorMessage = null;
+    }
+  }
+
   fail(message: string): void {
     this.props.status = JobStatus.failed;
     this.props.finishedAt = new Date();

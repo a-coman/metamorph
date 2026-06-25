@@ -14,7 +14,7 @@ type ProbePayloadJson = {
   explore_job_id: string;
   phase: 'source' | 'follow_up';
   inventory_snapshot_id: string;
-  mode?: 'incremental' | 'smoke_replay';
+  mode?: 'incremental' | 'smoke_replay' | 'prefix_sync';
   validated_prefix: SlotStep[];
   probe_steps: SlotStep[];
   resume_url: string;

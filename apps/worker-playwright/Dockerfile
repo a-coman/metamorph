@@ -1,5 +1,5 @@
-# Chromium + system deps (matches playwright@1.58.2 in workspace)
-FROM mcr.microsoft.com/playwright:v1.58.2-noble
+# Chromium + system deps (matches playwright@1.60.0 in workspace)
+FROM mcr.microsoft.com/playwright:v1.60.0-noble
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable && corepack prepare pnpm@11.5.0 --activate

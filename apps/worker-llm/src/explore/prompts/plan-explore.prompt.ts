@@ -96,11 +96,18 @@ export function buildCompletedSourceReferenceSection(
   ].join('\n');
 }
 
-const PLAN_EXPLORE_EXAMPLE_SCROLL = {
+const PLAN_EXPLORE_EXAMPLE_SCROLL_DOWN = {
   action: 'append_steps',
   rationale:
     'Filters below the fold are not in Current inventory. Scroll the page down to reveal sidebar filters.',
   steps: [{ id: 1, action: 'scroll', scroll_y: 800 }],
+};
+
+const PLAN_EXPLORE_EXAMPLE_SCROLL_UP = {
+  action: 'append_steps',
+  rationale:
+    'The search bar is above the current viewport after scrolling down. Scroll up to bring it back into view.',
+  steps: [{ id: 1, action: 'scroll', scroll_y: -600 }],
 };
 
 export function buildPlanExploreSystemPrompt(): string {
@@ -130,13 +137,18 @@ export function buildPlanExploreSystemPrompt(): string {
     '- Every enum field must use exactly one of the allowed values above; do not invent new values.',
     '- Each step MUST include "id" (positive integer, unique within the batch) and "action" (never "type").',
     '- Use ONLY element_id values from the Current inventory in the user message.',
-    '- element_ids in examples and source reference are NOT valid targets; never copy them — pick from Current inventory for the attached screenshot.',
+    '- element_ids in examples and source reference are NOT valid targets; never copy them — pick from Current inventory.',
     '- click, fill, and selectOption MUST include element_id.',
-    '- scroll scrolls the page viewport; include scroll_y only and omit element_id (do not attach element_id to scroll steps).',
+    '- scroll scrolls the page viewport relative to the current position; use positive scroll_y to scroll down and negative scroll_y to scroll up. Include scroll_y only and omit element_id (do not attach element_id to scroll steps).',
     '- waitFor and press omit element_id unless the action targets a specific inventory element.',
     '- fill is ONLY allowed on inventory items marked fillable.',
-    '- If the target element for the phase goal is not in Current inventory, plan only steps using existing element_ids (dismiss overlays, click triggers, waitFor). Do not plan fill or click on absent elements; wait for the next snapshot.',
+    '- selectOption is ONLY allowed on inventory items with an options list (native <select>) or tagName=select / role=combobox.',
+    '- selectOption value MUST be an exact value from that item options list; never invent option values.',
+    '- If a filter/sort control has no options list, use click instead of selectOption.',
+    '- If the target element for the phase goal is not in Current inventory, plan scroll or waitFor to reveal it, or use existing element_ids for dismissals — do not invent element_ids.',
     '- Plan toward the current phase goal stated in the user message.',
+    '- MR summary and phase goal describe generic intent from mr_plan; your job is to bind each step to a concrete element_id from Current inventory on this snapshot.',
+    '- When the phase goal names a control type (search box, filter chip, sort dropdown), pick the matching inventory item by role, name, or text — equivalents may differ across snapshots.',
     '- Each phase is an independent Playwright scenario replayed from the homepage with a new browser context.',
     '- Plan only toward the current phase goal; do not assume follow_up must copy or repeat source unless the follow_up phase goal explicitly requires it.',
     '- When phase is follow_up, use the source action_sequence and end_url as semantic context for what source achieved; plan follow_up in concordance with the follow_up phase goal and MR summary.',
@@ -154,12 +166,10 @@ export function buildPlanExploreSystemPrompt(): string {
     '- Keep rationale concise (about 500 characters max). Prioritize valid compact JSON with steps over long explanations.',
     '- Do not repeat batches listed under Errors in the user message.',
     '- If a batch committed overlay dismissal, plan the next sub-goal (e.g. fill destination, submit search) — do not dismiss the same overlays again.',
-    '- element_ids from failed batches or screenshots may not match Current inventory; always pick from Current inventory for the attached screenshot.',
+    '- element_ids from failed batches may not match Current inventory; always pick from Current inventory below.',
     '- After a probe failure, read Errors and the second screenshot (if present).',
-    '- The second screenshot shows the page immediately BEFORE the latest probe failure; do NOT use element_ids from that image — only Current inventory applies to the first screenshot.',
-    '- Page structure is hierarchical context only; use ONLY element_id values listed under Current inventory in steps.',
-    '- Lines marked → E{n} in Page structure link tree nodes to inventory; do not invent element_ids from unannotated tree lines.',
-    '- The annotated screenshot and Current inventory remain the visual source of truth for element selection.',
+    '- The second screenshot (raw, no labels) shows the page immediately BEFORE the latest probe failure; use Current inventory for step targets on the first annotated screenshot.',
+    '- The annotated screenshot and Current inventory are the source of truth for element_id selection; not every inventory item has a visible on-image label.',
     'Examples (plan 1, 2, or 3 steps per batch):',
     '1 step:',
     JSON.stringify(PLAN_EXPLORE_EXAMPLE_ONE_STEP, null, 2),
@@ -167,8 +177,10 @@ export function buildPlanExploreSystemPrompt(): string {
     JSON.stringify(PLAN_EXPLORE_EXAMPLE_TWO_STEPS, null, 2),
     '3 steps:',
     JSON.stringify(PLAN_EXPLORE_EXAMPLE_THREE_STEPS, null, 2),
-    'scroll (no element_id):',
-    JSON.stringify(PLAN_EXPLORE_EXAMPLE_SCROLL, null, 2),
+    'scroll down (no element_id):',
+    JSON.stringify(PLAN_EXPLORE_EXAMPLE_SCROLL_DOWN, null, 2),
+    'scroll up (no element_id):',
+    JSON.stringify(PLAN_EXPLORE_EXAMPLE_SCROLL_UP, null, 2),
   ].join('\n');
 }
 
@@ -194,7 +206,7 @@ export function buildPlanExploreUserText(input: {
     `Phase: ${input.phase}`,
     `Phase goal: ${phaseGoal}`,
     '',
-    'MR summary:',
+    'MR summary (semantic intent — map to Current inventory; do not emit observation field names as element_id):',
     buildMrSummary(input.mrIntent),
     '',
     historySection,
@@ -211,13 +223,13 @@ export function buildPlanExploreUserText(input: {
     lines.push(
       '',
       'Attached:',
-      '1. Current inventory screenshot — element_id labels match the inventory below.',
-      `2. Probe failure context (Batch ${probeFailureBatch}) — page state immediately BEFORE the failed step (labels may not apply).`,
+      '1. Current annotated screenshot — on-image E labels match items in Current inventory where labelShown.',
+      `2. Probe failure context (Batch ${probeFailureBatch}) — raw page state immediately BEFORE the failed step (no on-image labels).`,
     );
   } else {
     lines.push(
       '',
-      'Attached: annotated screenshot — element_id labels on the image match the inventory below.',
+      'Attached: annotated screenshot — element_id labels on the image match Current inventory below.',
     );
   }
 
@@ -226,7 +238,7 @@ export function buildPlanExploreUserText(input: {
 
   lines.push(
     '',
-    'Propose the next 1-3 steps, scenario_complete if the phase goal is already met, or abort only for unrecoverable blockers.',
+    'Map the phase goal to 1-3 concrete steps using element_id values from Current inventory, scenario_complete if the phase goal is already met, or abort only for unrecoverable blockers.',
   );
 
   return lines.join('\n');

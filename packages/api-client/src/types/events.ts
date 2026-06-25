@@ -18,6 +18,11 @@ export type SessionMrStatusChangedEvent = {
   status: string;
 };
 
+export type LlmPromptImagesDto = {
+  count: number;
+  labels?: string[];
+};
+
 export type LlmCallDto = {
   id: string;
   jobId: string | null;
@@ -27,6 +32,9 @@ export type LlmCallDto = {
   purpose: string;
   model: string;
   promptVersion: string;
+  systemPrompt: string | null;
+  userPrompt: string | null;
+  userPromptImages: LlmPromptImagesDto | null;
   status: 'running' | 'done' | 'failed';
   tokensIn: number | null;
   tokensOut: number | null;
@@ -47,7 +55,7 @@ export type SessionLlmStatusEvent = {
   llmCall: LlmCallDto;
 };
 
-export type ProbeJobMode = 'incremental' | 'smoke_replay';
+export type ProbeJobMode = 'incremental' | 'smoke_replay' | 'prefix_sync';
 
 export type ProbeStatusDto = {
   jobId: string;

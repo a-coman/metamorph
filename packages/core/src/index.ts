@@ -4,6 +4,8 @@ export {
   normalizeElementShortId,
 } from './domain/element-short-id.js';
 
+export { DEFAULT_MAX_A11Y_TREE_CHARS } from './domain/page-snapshot.constants.js';
+
 export {
   InventoryItemSchema,
   PageMetricsSchema,
@@ -53,6 +55,12 @@ export {
   renderObservationSchema,
   type PlaybookRenderInput,
 } from './infrastructure/templates/playbook-template.v1.js';
+
+export {
+  validateSelectOptionSteps,
+  formatSelectOptionValidationErrors,
+  type SelectOptionValidationError,
+} from './application/compiler/validate-select-option-steps.js';
 
 export {
   compilePlaybook,

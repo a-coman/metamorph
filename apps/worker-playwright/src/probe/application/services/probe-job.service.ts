@@ -67,13 +67,20 @@ export class ProbeJobService {
     }
 
     const rawSteps =
-      job.payload.mode === 'smoke_replay'
-        ? job.payload.probeSteps
-        : [...job.payload.validatedPrefix, ...job.payload.probeSteps];
+      job.payload.mode === 'prefix_sync'
+        ? job.payload.validatedPrefix
+        : job.payload.mode === 'smoke_replay'
+          ? job.payload.probeSteps
+          : [...job.payload.validatedPrefix, ...job.payload.probeSteps];
     const allSteps = withProbeGotoPrefix(rawSteps, job.payload.resumeUrl);
 
     try {
-      const maxAttempts = job.payload.mode === 'smoke_replay' ? 2 : 1;
+      const maxAttempts =
+        job.payload.mode === 'smoke_replay'
+          ? 2
+          : job.payload.mode === 'prefix_sync'
+            ? 2
+            : 1;
 
       const capture = await this.runCaptureWithRetries(
         allSteps,
@@ -112,7 +119,12 @@ export class ProbeJobService {
         probeStatus: 'ok',
       });
 
-      const modeLabel = job.payload.mode === 'smoke_replay' ? 'smoke' : 'probe';
+      const modeLabel =
+        job.payload.mode === 'smoke_replay'
+          ? 'smoke'
+          : job.payload.mode === 'prefix_sync'
+            ? 'prefix_sync'
+            : 'probe';
       console.log(
         `${modeLabel} job ${jobId} done — snapshot ${saved.pageSnapshotId} url=${capture.inventory.url}${tracePath ? ` trace=${tracePath}` : ''}`,
       );

@@ -29,9 +29,11 @@ function createExploreGraphRunner(): ExploreGraphRunner {
 }
 
 export function createExploreJobService(): ExploreJobService {
+  const explorationRepo = new ExplorationPrismaRepository();
   return new ExploreJobService(
     new ExploreJobPrismaRepository(),
     createExploreGraphRunner(),
+    explorationRepo,
   );
 }
 

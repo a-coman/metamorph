@@ -32,7 +32,12 @@ import {
   buildPlanExploreUserText,
 } from '../../prompts/plan-explore.prompt.js';
 import type { ExplorePhase, ExploreSourceReference, ExploreBatchLog } from '../graph/explore-state.js';
-import { ExploreLlmValidationError, formatLlmValidationErrorForPrompt } from './explore-llm-validation.error.js';
+import {
+  ExploreLlmCallError,
+  ExploreLlmValidationError,
+  formatLlmValidationErrorForPrompt,
+} from './explore-llm-validation.error.js';
+import type { ExploreLlmPromptAudit, ExploreLlmPromptImages } from './explore-llm-validation.error.js';
 import { logExploreLlmExchange } from './explore-llm-logger.js';
 import {
   buildOpenRouterResponseFormat,
@@ -50,6 +55,8 @@ type ChatCompletionResponse = {
   };
 };
 
+export type { ExploreLlmPromptAudit, ExploreLlmPromptImages } from './explore-llm-validation.error.js';
+
 export type ExploreLlmAudit = {
   purpose: string;
   model: string;
@@ -57,6 +64,9 @@ export type ExploreLlmAudit = {
   tokensIn: number | null;
   tokensOut: number | null;
   latencyMs: number;
+  systemPrompt: string;
+  userPrompt: string;
+  userPromptImages: ExploreLlmPromptImages | null;
 };
 
 export type ExploreLlmResult<T> = {
@@ -199,6 +209,8 @@ export class ExploreOpenRouterClient {
     maxTokens?: number;
   }): Promise<ExploreLlmResult<T>> {
     const startedAt = Date.now();
+    const screenshotCount = input.screenshotsBase64?.length ?? 0;
+    const promptAudit = buildPromptAudit(input.system, input.userText, input.purpose, screenshotCount);
 
     const userContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
       { type: 'text', text: input.userText },
@@ -216,34 +228,57 @@ export class ExploreOpenRouterClient {
       { role: 'user', content: userContent },
     ];
 
-    const completion = await this.completeWithFormatFallback(
-      messages,
-      input.schemaName,
-      input.schema,
-      input.maxTokens,
-    );
-    const { content, payload } = completion;
-
-    const parsed = parseLlmJsonContent(content);
-    const normalized = input.normalize ? input.normalize(parsed) : parsed;
-    const validated = input.schema.safeParse(normalized);
-
-    const latencyMs = Date.now() - startedAt;
-    const usage = {
-      tokensIn: payload.usage?.prompt_tokens ?? null,
-      tokensOut: payload.usage?.completion_tokens ?? null,
-      latencyMs,
-    };
-
-    const screenshotCount = input.screenshotsBase64?.length ?? 0;
-
-    if (!validated.success || validated.data === undefined) {
-      const promptMessage = formatLlmValidationErrorForPrompt(
-        (validated.error ?? { issues: [{ message: 'unknown validation error', code: 'custom', path: [] }] }) as {
-          issues: readonly { code: string; path: PropertyKey[]; message: string }[];
-        },
-        normalized,
+    try {
+      const completion = await this.completeWithFormatFallback(
+        messages,
+        input.schemaName,
+        input.schema,
+        input.maxTokens,
       );
+      const { content, payload } = completion;
+
+      const parsed = parseLlmJsonContent(content);
+      const normalized = input.normalize ? input.normalize(parsed) : parsed;
+      const validated = input.schema.safeParse(normalized);
+
+      const latencyMs = Date.now() - startedAt;
+      const usage = {
+        tokensIn: payload.usage?.prompt_tokens ?? null,
+        tokensOut: payload.usage?.completion_tokens ?? null,
+        latencyMs,
+      };
+
+      if (!validated.success || validated.data === undefined) {
+        const promptMessage = formatLlmValidationErrorForPrompt(
+          (validated.error ?? { issues: [{ message: 'unknown validation error', code: 'custom', path: [] }] }) as {
+            issues: readonly { code: string; path: PropertyKey[]; message: string }[];
+          },
+          normalized,
+        );
+
+        logExploreLlmExchange({
+          purpose: input.purpose,
+          promptVersion: input.promptVersion,
+          model: this.model,
+          userText: input.userText,
+          system: input.system,
+          screenshotCount,
+          latencyMs: usage.latencyMs,
+          tokensIn: usage.tokensIn,
+          tokensOut: usage.tokensOut,
+          output: normalized,
+          validationError: validated.error?.message ?? 'unknown',
+        });
+
+        throw new ExploreLlmValidationError(
+          promptMessage,
+          normalized,
+          parsed,
+          promptAudit,
+        );
+      }
+
+      const output = validated.data;
 
       logExploreLlmExchange({
         purpose: input.purpose,
@@ -255,39 +290,29 @@ export class ExploreOpenRouterClient {
         latencyMs: usage.latencyMs,
         tokensIn: usage.tokensIn,
         tokensOut: usage.tokensOut,
-        output: normalized,
-        validationError: validated.error?.message ?? 'unknown',
+        output,
       });
 
-      throw new ExploreLlmValidationError(promptMessage, normalized, parsed);
+      return {
+        output,
+        audit: {
+          purpose: input.purpose,
+          model: this.model,
+          promptVersion: input.promptVersion,
+          tokensIn: usage.tokensIn,
+          tokensOut: usage.tokensOut,
+          latencyMs: usage.latencyMs,
+          ...promptAudit,
+        },
+      };
+    } catch (error) {
+      if (error instanceof ExploreLlmValidationError) {
+        throw error;
+      }
+
+      const message = error instanceof Error ? error.message : 'LLM error';
+      throw new ExploreLlmCallError(message, promptAudit, error);
     }
-
-    const output = validated.data;
-
-    logExploreLlmExchange({
-      purpose: input.purpose,
-      promptVersion: input.promptVersion,
-      model: this.model,
-      userText: input.userText,
-      system: input.system,
-      screenshotCount,
-      latencyMs: usage.latencyMs,
-      tokensIn: usage.tokensIn,
-      tokensOut: usage.tokensOut,
-      output,
-    });
-
-    return {
-      output,
-      audit: {
-        purpose: input.purpose,
-        model: this.model,
-        promptVersion: input.promptVersion,
-        tokensIn: usage.tokensIn,
-        tokensOut: usage.tokensOut,
-        latencyMs: usage.latencyMs,
-      },
-    };
   }
 
   private async completeWithFormatFallback(
@@ -622,4 +647,38 @@ function parseLlmJsonContent(content: string): unknown {
 
     throw new Error('OpenRouter returned non-JSON content');
   }
+}
+
+function buildPromptImageLabels(purpose: string, count: number): string[] {
+  if (count <= 0) {
+    return [];
+  }
+
+  if (purpose === 'explore_verify') {
+    return count >= 2 ? ['before', 'after'] : ['before'];
+  }
+
+  if (purpose === 'plan_explore' && count >= 2) {
+    return ['inventory', 'failure'];
+  }
+
+  return Array.from({ length: count }, (_, index) =>
+    index === 0 ? 'inventory' : `image_${index + 1}`,
+  );
+}
+
+function buildPromptAudit(
+  system: string,
+  userText: string,
+  purpose: string,
+  screenshotCount: number,
+): ExploreLlmPromptAudit {
+  return {
+    systemPrompt: system,
+    userPrompt: userText,
+    userPromptImages:
+      screenshotCount > 0
+        ? { count: screenshotCount, labels: buildPromptImageLabels(purpose, screenshotCount) }
+        : null,
+  };
 }

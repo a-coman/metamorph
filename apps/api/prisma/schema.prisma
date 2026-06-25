@@ -362,6 +362,10 @@ model LlmCall {
   purpose       String
   model         String
   promptVersion String   @map("prompt_version")
+  systemPrompt  String?  @map("system_prompt") @db.Text
+  userPrompt    String?  @map("user_prompt") @db.Text
+  /// Image metadata for multimodal user prompts (count + labels; screenshots not stored inline)
+  userPromptImages Json?  @map("user_prompt_images")
   tokensIn      Int?     @map("tokens_in")
   tokensOut     Int?     @map("tokens_out")
   latencyMs     Int?     @map("latency_ms")

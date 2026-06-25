@@ -17,7 +17,6 @@ import {
 import {
   buildBrowserContextOptions,
   captureRawScreenshot,
-  DEFAULT_MAX_ITEMS,
   evaluateLocatorChain,
   fillWithAutocomplete,
   scanAndEnrichCurrentPage,
@@ -166,7 +165,6 @@ export class ProbeInventoryCaptureAdapter {
 
   private async scanCurrentPage(page: Page): Promise<PageInventory> {
     return scanAndEnrichCurrentPage(page, {
-      maxItems: DEFAULT_MAX_ITEMS,
       preserveScrollPosition: true,
     });
   }

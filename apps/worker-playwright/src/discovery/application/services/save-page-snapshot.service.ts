@@ -13,27 +13,23 @@ export class SavePageSnapshotService {
   async execute(dto: SavePageSnapshotDto) {
     const payload = toPageSnapshotPayload(dto.inventory);
     const snapshotKey = randomUUID();
-    const artifactPath = `sessions/${dto.sessionId}/snapshots/${snapshotKey}/annotated.png`;
+    const rawBuffer = dto.inventory.rawScreenshot ?? dto.inventory.screenshot;
+    const annotatedBuffer = dto.inventory.screenshot;
+
+    if (!rawBuffer) {
+      throw new Error('Page snapshot requires rawScreenshot');
+    }
+    if (!annotatedBuffer) {
+      throw new Error('Page snapshot requires screenshot');
+    }
+
+    const rawArtifactPath = `sessions/${dto.sessionId}/snapshots/${snapshotKey}/raw.png`;
+    const annotatedArtifactPath = `sessions/${dto.sessionId}/snapshots/${snapshotKey}/annotated.png`;
 
     const uploads: Promise<void>[] = [
-      this.artifactStorage.put(
-        artifactPath,
-        dto.inventory.screenshot,
-        'image/png',
-      ),
+      this.artifactStorage.put(rawArtifactPath, rawBuffer, 'image/png'),
+      this.artifactStorage.put(annotatedArtifactPath, annotatedBuffer, 'image/png'),
     ];
-
-    let rawArtifactPath: string | undefined;
-    if (dto.inventory.rawScreenshot) {
-      rawArtifactPath = `sessions/${dto.sessionId}/snapshots/${snapshotKey}/raw.png`;
-      uploads.push(
-        this.artifactStorage.put(
-          rawArtifactPath,
-          dto.inventory.rawScreenshot,
-          'image/png',
-        ),
-      );
-    }
 
     await Promise.all(uploads);
 
@@ -43,9 +39,9 @@ export class SavePageSnapshotService {
       url: payload.url,
       inventory: payload,
       rawArtifactPath,
-      artifactPath,
-      rawScreenshot: dto.inventory.rawScreenshot,
-      screenshot: dto.inventory.screenshot,
+      artifactPath: annotatedArtifactPath,
+      rawScreenshot: rawBuffer,
+      screenshot: annotatedBuffer,
     });
   }
 }

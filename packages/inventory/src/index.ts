@@ -40,6 +40,7 @@ export { scanAndEnrichCurrentPage } from './infrastructure/playwright/scan-and-e
 
 export { annotateAccessibilityTree } from './infrastructure/playwright/annotate-accessibility-tree.js';
 export { captureAccessibilitySnapshot } from './infrastructure/playwright/capture-accessibility-snapshot.js';
+export { promoteA11yInventoryItems } from './infrastructure/playwright/promote-a11y-inventory-items.js';
 
 export { toPageSnapshotPayload } from './application/mappers/page-snapshot.mapper.js';
 

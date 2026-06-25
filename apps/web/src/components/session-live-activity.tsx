@@ -105,6 +105,9 @@ const LLM_PURPOSES = new Set([
   'explore_verify',
 ]);
 
+const LLM_PROMPT_PRE_CLASS =
+  'text-xs bg-muted/40 rounded-md p-2 min-w-0 w-full overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere]';
+
 function formatPurpose(purpose: string): { label: string; description: string } {
   return LLM_PURPOSE_CONFIG[purpose] ?? {
     label: purpose.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -376,12 +379,13 @@ function LlmCallCard({
   const { label, description } = formatPurpose(llmCall.purpose);
   const status = resolveLlmCallStatus(llmCall, checkpoint, statusContext);
   const showModelBadge = LLM_PURPOSES.has(llmCall.purpose);
-  const canExpand = llmCall.responseJson !== null;
+  const hasPrompts = llmCall.systemPrompt || llmCall.userPrompt;
+  const canExpand = llmCall.responseJson !== null || hasPrompts;
 
   return (
     <div
       className={cn(
-        'interactive-card rounded-lg border bg-card shadow-sm',
+        'interactive-card rounded-lg border bg-card shadow-sm overflow-hidden min-w-0',
         isNew ? 'border-primary/50 shadow-lg shadow-primary/5 animate-fade-in' : 'border-border',
       )}
     >
@@ -390,7 +394,7 @@ function LlmCallCard({
         onClick={() => canExpand && setExpanded((v) => !v)}
         disabled={!canExpand}
         className={cn(
-          'w-full flex items-start gap-3 px-3 py-2.5 text-left',
+          'w-full min-w-0 flex items-start gap-3 px-3 py-2.5 text-left',
           canExpand ? 'cursor-pointer' : 'cursor-default',
         )}
       >
@@ -416,12 +420,35 @@ function LlmCallCard({
       </button>
 
       {expanded && canExpand && (
-        <div className="px-3 pb-3 pt-0 space-y-3">
-          <LlmResponsePanel
-            purpose={llmCall.purpose}
-            responseJson={llmCall.responseJson}
-            checkpoint={checkpoint}
-          />
+        <div className="min-w-0 px-3 pb-3 pt-0 space-y-3">
+          {llmCall.systemPrompt && (
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">System prompt</p>
+              <pre className={cn(LLM_PROMPT_PRE_CLASS, 'max-h-48')}>
+                {llmCall.systemPrompt}
+              </pre>
+            </div>
+          )}
+          {llmCall.userPrompt && (
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                User prompt
+                {llmCall.userPromptImages
+                  ? ` (${llmCall.userPromptImages.count} image(s))`
+                  : ''}
+              </p>
+              <pre className={cn(LLM_PROMPT_PRE_CLASS, 'max-h-64')}>
+                {llmCall.userPrompt}
+              </pre>
+            </div>
+          )}
+          {llmCall.responseJson !== null && (
+            <LlmResponsePanel
+              purpose={llmCall.purpose}
+              responseJson={llmCall.responseJson}
+              checkpoint={checkpoint}
+            />
+          )}
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground bg-muted/30 rounded-md px-2.5 py-2">
             {llmCall.tokensIn !== null && (
               <span className="flex items-center gap-1">
@@ -657,6 +684,9 @@ function llmCallsEqual(a: LlmCallDto, b: LlmCallDto): boolean {
     a.tokensIn === b.tokensIn &&
     a.tokensOut === b.tokensOut &&
     a.latencyMs === b.latencyMs &&
+    a.systemPrompt === b.systemPrompt &&
+    a.userPrompt === b.userPrompt &&
+    JSON.stringify(a.userPromptImages) === JSON.stringify(b.userPromptImages) &&
     JSON.stringify(a.responseJson) === JSON.stringify(b.responseJson)
   );
 }
@@ -1000,7 +1030,7 @@ export function SessionLiveActivity({
           ) : null}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         {mrVersions.length > 0 && (
           <FamilyActivitySummaryRow
             sessionId={sessionId}

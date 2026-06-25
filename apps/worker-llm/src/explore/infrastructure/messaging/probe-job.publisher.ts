@@ -55,9 +55,21 @@ export class ProbeJobPublisher {
     });
   }
 
+  async publishPrefixSync(input: PublishProbeInput & {
+    validatedPrefix: SlotStep[];
+    cycleIteration?: number;
+  }): Promise<string> {
+    return this.publish({
+      ...input,
+      mode: 'prefix_sync' as const,
+      validatedPrefix: input.validatedPrefix,
+      probeSteps: [],
+    });
+  }
+
   /** @deprecated Use publishIncremental */
   async publish(input: PublishProbeInput & {
-    mode?: 'incremental' | 'smoke_replay';
+    mode?: 'incremental' | 'smoke_replay' | 'prefix_sync';
     validatedPrefix: SlotStep[];
     probeSteps: SlotStep[];
     planLlmCallId?: string;
