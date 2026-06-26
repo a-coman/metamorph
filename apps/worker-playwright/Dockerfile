@@ -11,6 +11,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json .npmrc tsconfig.
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/contracts/tsconfig.json packages/contracts/
 COPY packages/core/package.json packages/core/
+COPY packages/core/tsconfig.json packages/core/
 COPY packages/inventory/package.json packages/inventory/
 COPY packages/utils/package.json packages/utils/
 COPY packages/utils/tsconfig.json packages/utils/
@@ -42,6 +43,7 @@ RUN pnpm --filter @metamorph/worker-playwright exec prisma generate \
   && pnpm --filter @metamorph/contracts build \
   && pnpm --filter @metamorph/utils build \
   && pnpm --filter @metamorph/session-control build \
+  && pnpm --filter @metamorph/core build \
   && pnpm --filter @metamorph/inventory build:browser
 
 ENTRYPOINT ["pnpm", "--filter", "@metamorph/worker-playwright", "exec", "tsx", "src/main.ts"]
