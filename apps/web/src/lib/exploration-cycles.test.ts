@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { LlmCallDto, ProbeStatusDto } from '@metamorph/api-client';
-import { buildExplorationCycles } from './exploration-cycles';
+import { buildExplorationCycles, buildTimelineFeed } from './exploration-cycles';
 
 function planLlm(
   id: string,
@@ -155,6 +155,29 @@ describe('exploration-cycles', () => {
     const smoke = result.cycles.find((cycle) => cycle.kind === 'smoke');
     assert.ok(smoke);
     assert.equal(smoke.probe?.jobId, 'probe-smoke');
+    assert.equal(smoke.plan?.id, 'plan-goal');
+  });
+
+  it('does not attach append_steps plan to smoke when planLlmCallId is not scenario_complete', () => {
+    const result = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-inc', planLlm('plan-inc', 'append_steps', '2026-06-13T09:00:00Z')],
+      ]),
+      probes: new Map([
+        [
+          'probe-smoke',
+          probe('probe-smoke', '2026-06-13T10:00:05Z', {
+            mode: 'smoke_replay',
+            planLlmCallId: 'plan-inc',
+          }),
+        ],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    const smoke = result.cycles.find((cycle) => cycle.kind === 'smoke');
+    assert.ok(smoke);
     assert.equal(smoke.plan, undefined);
   });
 
@@ -214,5 +237,164 @@ describe('exploration-cycles', () => {
     });
 
     assert.equal(result.cycles[0]?.verifySkipped, 'graph_interrupted');
+  });
+});
+
+describe('buildTimelineFeed', () => {
+  it('orders incremental cycle steps plan → probe → verify by createdAt', () => {
+    const { cycles, standalone } = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', planLlm('plan-1', 'append_steps', '2026-06-13T10:00:00Z')],
+        ['verify-1', verifyLlm('verify-1', '2026-06-13T10:00:05Z')],
+      ]),
+      probes: new Map([
+        ['probe-1', probe('probe-1', '2026-06-13T10:00:02Z', { planLlmCallId: 'plan-1' })],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    const feed = buildTimelineFeed(cycles, standalone);
+    const steps = feed
+      .filter((item) => item.kind === 'cycle_step')
+      .map((item) => item.step);
+
+    assert.deepEqual(steps, ['plan', 'probe', 'verify']);
+  });
+
+  it('places session screenshot between probe and verify by createdAt', () => {
+    const { cycles, standalone } = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', planLlm('plan-1', 'append_steps', '2026-06-13T20:40:55Z')],
+        [
+          'verify-1',
+          {
+            ...verifyLlm('verify-1', '2026-06-13T20:41:16Z'),
+            updatedAt: new Date('2026-06-13T20:41:27Z'),
+          },
+        ],
+      ]),
+      probes: new Map([
+        [
+          'probe-1',
+          {
+            ...probe('probe-1', '2026-06-13T20:40:58Z', { planLlmCallId: 'plan-1' }),
+            updatedAt: new Date('2026-06-13T20:41:10Z'),
+          },
+        ],
+      ]),
+      screenshots: new Map([
+        [
+          'ss-1',
+          {
+            id: 'ss-1',
+            snapshotId: 'ss-1',
+            jobId: 'discover-1',
+            artifactId: 'art-1',
+            url: 'https://example.com',
+            createdAt: new Date('2026-06-13T20:41:01Z'),
+          },
+        ],
+      ]),
+      checkpoints: new Map(),
+    });
+
+    const feed = buildTimelineFeed(cycles, standalone);
+    const kinds = feed.map((item) => {
+      if (item.kind === 'cycle_step') return item.step;
+      if (item.kind === 'standalone' && item.item.type === 'session_capture') {
+        return 'screenshot';
+      }
+      return item.kind;
+    });
+
+    assert.deepEqual(kinds, ['plan', 'probe', 'screenshot', 'verify']);
+  });
+
+  it('places verify_skipped after probe when createdAt matches', () => {
+    const at = '2026-06-13T10:00:02Z';
+    const { cycles, standalone } = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-1', planLlm('plan-1', 'append_steps', '2026-06-13T10:00:00Z')],
+      ]),
+      probes: new Map([
+        [
+          'probe-1',
+          probe('probe-1', at, {
+            planLlmCallId: 'plan-1',
+            status: 'failed',
+          }),
+        ],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    const feed = buildTimelineFeed(cycles, standalone);
+    const steps = feed
+      .filter((item) => item.kind === 'cycle_step')
+      .map((item) => item.step);
+
+    assert.deepEqual(steps, ['plan', 'probe', 'verify_skipped']);
+  });
+
+  it('shows scenario_complete plan before smoke replay in timeline', () => {
+    const { cycles, standalone } = buildExplorationCycles({
+      llmCalls: new Map([
+        ['plan-goal', planLlm('plan-goal', 'scenario_complete', '2026-06-13T10:00:00Z')],
+      ]),
+      probes: new Map([
+        [
+          'probe-smoke',
+          probe('probe-smoke', '2026-06-13T10:00:05Z', {
+            mode: 'smoke_replay',
+            planLlmCallId: 'plan-goal',
+          }),
+        ],
+      ]),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    const feed = buildTimelineFeed(cycles, standalone);
+    const steps = feed
+      .filter((item) => item.kind === 'cycle_step')
+      .map((item) => item.step);
+
+    assert.deepEqual(steps, ['plan', 'probe']);
+  });
+
+  it('inserts source phase divider after mr_plan standalone', () => {
+    const mrPlan: LlmCallDto = {
+      id: 'mr-plan-1',
+      jobId: null,
+      purpose: 'mr_plan',
+      model: 'test/model',
+      promptVersion: 'v1',
+      systemPrompt: null,
+      userPrompt: null,
+      userPromptImages: null,
+      status: 'done',
+      tokensIn: 1,
+      tokensOut: 1,
+      latencyMs: 100,
+      responseJson: { exploration: {} },
+      createdAt: new Date('2026-06-13T09:00:00Z'),
+      updatedAt: new Date('2026-06-13T09:00:00Z'),
+    };
+
+    const { cycles, standalone } = buildExplorationCycles({
+      llmCalls: new Map([['mr-plan-1', mrPlan]]),
+      probes: new Map(),
+      screenshots: new Map(),
+      checkpoints: new Map(),
+    });
+
+    const feed = buildTimelineFeed(cycles, standalone);
+    assert.equal(feed[0]?.kind, 'standalone');
+    assert.equal(feed[1]?.kind, 'phase_divider');
+    if (feed[1]?.kind === 'phase_divider') {
+      assert.equal(feed[1].phase, 'source');
+    }
   });
 });

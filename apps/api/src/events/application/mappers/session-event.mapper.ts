@@ -8,7 +8,7 @@ import {
 
 export type ProbeJobPayload = {
   phase?: string;
-  mode?: 'incremental' | 'smoke_replay';
+  mode?: 'incremental' | 'smoke_replay' | 'prefix_sync';
   validated_prefix?: unknown[];
   probe_steps?: unknown[];
   explore_job_id?: string;
@@ -20,7 +20,10 @@ export function resolveProbeMode(
   payload: Record<string, unknown> | null,
 ): ProbeStatusDto['mode'] {
   const mode = (payload as ProbeJobPayload | null)?.mode;
-  return mode === 'smoke_replay' ? 'smoke_replay' : 'incremental';
+  if (mode === 'smoke_replay' || mode === 'prefix_sync') {
+    return mode;
+  }
+  return 'incremental';
 }
 
 export function resolveProbeExecutedSteps(
@@ -29,6 +32,13 @@ export function resolveProbeExecutedSteps(
   const typed = payload as ProbeJobPayload | null;
   const prefix = Array.isArray(typed?.validated_prefix) ? typed.validated_prefix : [];
   const batch = Array.isArray(typed?.probe_steps) ? typed.probe_steps : [];
+  const mode = resolveProbeMode(payload);
+  if (mode === 'prefix_sync') {
+    return prefix;
+  }
+  if (mode === 'smoke_replay') {
+    return batch;
+  }
   return [...prefix, ...batch];
 }
 

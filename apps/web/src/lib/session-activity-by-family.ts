@@ -7,11 +7,11 @@ import type {
 } from '@metamorph/api-client';
 import type { HydratedActivityState } from '@/lib/hydrate-session-activity';
 import {
-  buildCycleFeed,
   buildExplorationCycles,
-  type CycleFeedItem,
+  buildTimelineFeed,
   type ExplorationCycle,
   type StandaloneActivity,
+  type TimelineFeedItem,
 } from '@/lib/exploration-cycles';
 import { sortMrVersionsByFamily } from '@/lib/mr-versions';
 
@@ -26,7 +26,7 @@ export type FamilyActivityBucket = {
   status: string;
   cycles: ExplorationCycle[];
   standalone: StandaloneActivity[];
-  feed: CycleFeedItem[];
+  feed: TimelineFeedItem[];
   eventCount: number;
   hasInFlightActivity: boolean;
 };
@@ -34,7 +34,7 @@ export type FamilyActivityBucket = {
 export type SessionActivityBucket = {
   cycles: ExplorationCycle[];
   standalone: StandaloneActivity[];
-  feed: CycleFeedItem[];
+  feed: TimelineFeedItem[];
   eventCount: number;
 };
 
@@ -206,14 +206,27 @@ function hasInFlight(
   return false;
 }
 
-function prependSessionFeed(
-  sessionFeed: CycleFeedItem[],
-  familyFeed: CycleFeedItem[],
-): CycleFeedItem[] {
-  if (sessionFeed.length === 0) {
-    return familyFeed;
+function filterActivityForFamilyView(
+  state: HydratedActivityState,
+  mr: SessionMrVersionSummaryDto,
+  exploreJobs: ExploreJobAttributionMap,
+): HydratedActivityState {
+  const family = filterActivityForMr(state, mr, exploreJobs);
+
+  const llmCalls = new Map(family.llmCalls);
+  for (const [id, llm] of state.llmCalls) {
+    if (isSessionLevelLlm(llm, exploreJobs)) {
+      llmCalls.set(id, llm);
+    }
   }
-  return [...sessionFeed, ...familyFeed];
+
+  return {
+    llmCalls,
+    probes: family.probes,
+    screenshots: state.screenshots,
+    checkpoints: family.checkpoints,
+    terminalExploreJobs: state.terminalExploreJobs,
+  };
 }
 
 export function buildSessionActivityByFamily(
@@ -229,16 +242,16 @@ export function buildSessionActivityByFamily(
     exploreJobs,
   );
   const sessionCycles = buildExplorationCycles(sessionFiltered);
-  const sessionFeed = buildCycleFeed(
+  const sessionFeed = buildTimelineFeed(
     sessionCycles.cycles,
     sessionCycles.standalone,
   );
 
   const families = sorted.map((mr) => {
-    const filtered = filterActivityForMr(state, mr, exploreJobs);
+    const filtered = filterActivityForFamilyView(state, mr, exploreJobs);
     const { cycles, standalone } = buildExplorationCycles(filtered);
-    const familyFeed = buildCycleFeed(cycles, standalone);
-    const feed = prependSessionFeed(sessionFeed, familyFeed);
+    const feed = buildTimelineFeed(cycles, standalone);
+    const familyOnly = filterActivityForMr(state, mr, exploreJobs);
 
     return {
       family: mr.transformFamily,
@@ -248,7 +261,7 @@ export function buildSessionActivityByFamily(
       standalone,
       feed,
       eventCount: feed.length,
-      hasInFlightActivity: hasInFlight(filtered.llmCalls, filtered.probes),
+      hasInFlightActivity: hasInFlight(familyOnly.llmCalls, familyOnly.probes),
     };
   });
 

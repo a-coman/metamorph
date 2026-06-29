@@ -31,13 +31,14 @@ import {
   type TerminalExploreJobStatus,
 } from '@/lib/activity-status';
 import {
-  type ExplorationCycle,
   type ExplorationPhase,
   type StandaloneActivity,
+  type TimelineFeedItem,
 } from '@/lib/exploration-cycles';
 import {
-  activityDisplayAtLlm,
-  activityDisplayAtProbe,
+  activityEventAtLlm,
+  activityEventAtProbe,
+  activityEventAtScreenshot,
 } from '@/lib/activity-feed';
 import { hydrateSessionActivity } from '@/lib/hydrate-session-activity';
 import { useSubscribeSessionMrVersionsEvents } from '@/hooks/session-mr-versions-events-context';
@@ -92,6 +93,10 @@ const LLM_PURPOSE_CONFIG: Record<string, { label: string; description: string }>
   explore_plan: { label: 'Planning Steps', description: 'Planning next exploration steps' },
   plan_explore: { label: 'Planning Steps', description: 'Planning next exploration steps' },
   explore_verify: { label: 'Verifying Checkpoint', description: 'Evaluating step execution results' },
+  observation_anchor: {
+    label: 'Observation Anchor',
+    description: 'Identifying the observable on the page',
+  },
   compile_draft: {
     label: 'Compiling Playbook',
     description: 'Building Playwright playbook from validated steps',
@@ -103,6 +108,7 @@ const LLM_PURPOSES = new Set([
   'explore_plan',
   'plan_explore',
   'explore_verify',
+  'observation_anchor',
 ]);
 
 const LLM_PROMPT_PRE_CLASS =
@@ -254,64 +260,84 @@ function renderStandalone(
   }
 }
 
-function renderExplorationCycle(
-  cycle: ExplorationCycle,
+function renderTimelineItem(
+  item: TimelineFeedItem,
   isNewFor: (id: string) => boolean,
   statusContext: ActivityStatusContext,
-) {
-  const cards: ReactNode[] = [];
-
-  if (cycle.plan && cycle.kind !== 'smoke') {
-    cards.push(
-      <LlmCallCard
-        key={`llm-${cycle.plan.id}`}
-        llmCall={cycle.plan}
-        isNew={isNewFor(`llm-${cycle.plan.id}`)}
-        statusContext={statusContext}
-      />,
-    );
+): ReactNode {
+  if (item.kind === 'phase_divider') {
+    return <ActivityPhaseDivider phase={item.phase} />;
   }
 
-  if (cycle.probe) {
-    cards.push(
-      <ProbeCycleCard
-        key={`probe-${cycle.probe.jobId}`}
-        probe={cycle.probe}
-        isNew={isNewFor(`probe-${cycle.probe.jobId}`)}
-        statusContext={statusContext}
-      />,
-    );
+  if (item.kind === 'standalone') {
+    const standaloneId =
+      item.item.type === 'llm'
+        ? `llm-${item.item.llm.id}`
+        : item.item.type === 'compile'
+          ? `compile-${item.item.record.id}`
+          : item.item.type === 'session_capture'
+            ? `screenshot-${item.item.screenshot.id}`
+            : `checkpoint-${item.item.checkpoint.id}`;
+
+    return renderStandalone(item.item, isNewFor(standaloneId), statusContext);
   }
 
-  if (cycle.verify) {
-    cards.push(
-      <LlmCallCard
-        key={`llm-${cycle.verify.id}`}
-        llmCall={cycle.verify}
-        checkpoint={cycle.checkpoint}
-        isNew={isNewFor(`llm-${cycle.verify.id}`)}
-        statusContext={statusContext}
-      />,
-    );
-  }
+  const { cycle, step } = item;
 
-  if (cycle.verifySkipped) {
-    const skippedId = `${cycle.id}-verify-skipped`;
-    cards.push(
-      <VerifySkippedCard
-        key={skippedId}
-        id={skippedId}
-        reason={cycle.verifySkipped}
-        isNew={isNewFor(skippedId)}
-      />,
-    );
+  switch (step) {
+    case 'plan':
+      if (!cycle.plan) return null;
+      return (
+        <LlmCallCard
+          llmCall={cycle.plan}
+          isNew={isNewFor(`llm-${cycle.plan.id}`)}
+          statusContext={statusContext}
+        />
+      );
+    case 'probe':
+      if (!cycle.probe) return null;
+      return (
+        <ProbeCycleCard
+          probe={cycle.probe}
+          isNew={isNewFor(`probe-${cycle.probe.jobId}`)}
+          statusContext={statusContext}
+        />
+      );
+    case 'verify':
+      if (!cycle.verify) return null;
+      return (
+        <LlmCallCard
+          llmCall={cycle.verify}
+          checkpoint={cycle.checkpoint}
+          isNew={isNewFor(`llm-${cycle.verify.id}`)}
+          statusContext={statusContext}
+        />
+      );
+    case 'verify_skipped': {
+      if (!cycle.verifySkipped) return null;
+      const skippedId = `${cycle.id}-verify-skipped`;
+      return (
+        <VerifySkippedCard
+          id={skippedId}
+          reason={cycle.verifySkipped}
+          isNew={isNewFor(skippedId)}
+        />
+      );
+    }
   }
+}
 
-  return (
-    <div className="space-y-2">
-      {cards}
-    </div>
-  );
+function timelineItemKey(item: TimelineFeedItem, index: number): string {
+  if (item.kind === 'phase_divider') {
+    return `phase-divider-${item.phase}-${index}`;
+  }
+  if (item.kind === 'standalone') {
+    if (item.item.type === 'llm') return `llm-${item.item.llm.id}`;
+    if (item.item.type === 'compile') return `compile-${item.item.record.id}`;
+    if (item.item.type === 'session_capture') return `screenshot-${item.item.screenshot.id}`;
+    return `checkpoint-${item.item.checkpoint.id}`;
+  }
+  return `${item.cycle.id}-${item.step}`;
 }
 
 function CompileDraftCard({
@@ -408,7 +434,7 @@ function LlmCallCard({
                 {llmCall.model.split('/').pop()}
               </span>
             )}
-            <ActivityTimestamp value={activityDisplayAtLlm(llmCall)} />
+            <ActivityTimestamp value={activityEventAtLlm(llmCall)} />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
@@ -482,8 +508,14 @@ function isSmokeProbe(probe: ProbeStatusDto): boolean {
   return probe.mode === 'smoke_replay';
 }
 
+function isPrefixSyncProbe(probe: ProbeStatusDto): boolean {
+  return probe.mode === 'prefix_sync';
+}
+
 function probeActivityLabel(probe: ProbeStatusDto): string {
-  return isSmokeProbe(probe) ? 'Smoke replay' : 'Probe';
+  if (isSmokeProbe(probe)) return 'Smoke replay';
+  if (isPrefixSyncProbe(probe)) return 'Smoke Probe';
+  return 'Probe';
 }
 
 function ProbeCycleCard({
@@ -497,6 +529,7 @@ function ProbeCycleCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const smoke = isSmokeProbe(probe);
+  const prefixSync = isPrefixSyncProbe(probe);
   const steps = (probe.executedSteps ?? []) as SlotStepLike[];
   const outputSnapshotId = probe.outputSnapshotId ?? probe.snapshotId;
   const canExpand = steps.length > 0 || outputSnapshotId !== null;
@@ -531,7 +564,11 @@ function ProbeCycleCard({
           {outputSnapshotId && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5 px-0.5">
-                {smoke ? 'Screenshot after smoke replay' : 'Screenshot after probe'}
+                {smoke
+                  ? 'Screenshot after smoke replay'
+                  : prefixSync
+                    ? 'Screenshot after smoke probe'
+                    : 'Screenshot after probe'}
               </p>
               <CheckpointScreenshot snapshotId={outputSnapshotId} />
             </div>
@@ -550,6 +587,8 @@ function ProbeCycleHeader({
   statusContext?: ActivityStatusContext;
 }) {
   const smoke = isSmokeProbe(probe);
+  const prefixSync = isPrefixSyncProbe(probe);
+  const replayFromHomepage = smoke || prefixSync;
   const ProbeKindIcon = smoke ? Flame : Crosshair;
   const status = resolveProbeBadgeStatus(probe, statusContext);
 
@@ -564,11 +603,11 @@ function ProbeCycleHeader({
             {probeActivityLabel(probe)}
           </span>
           <StatusBadge status={status} />
-          <ActivityTimestamp value={activityDisplayAtProbe(probe)} />
+          <ActivityTimestamp value={activityEventAtProbe(probe)} />
         </div>
         {probe.stepCount !== null && (
           <p className="text-xs text-muted-foreground mt-0.5">
-            {smoke
+            {replayFromHomepage
               ? `Replaying ${probe.stepCount} step${probe.stepCount !== 1 ? 's' : ''} from homepage`
               : `Executing ${probe.stepCount} step${probe.stepCount !== 1 ? 's' : ''}`}
           </p>
@@ -624,7 +663,7 @@ function SessionCaptureCard({
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/60">
         <Camera className="size-3.5 text-muted-foreground" />
         <span className="text-xs font-medium text-muted-foreground">Session capture</span>
-        <ActivityTimestamp value={screenshot.createdAt} />
+        <ActivityTimestamp value={activityEventAtScreenshot(screenshot)} />
         {screenshot.url && (
           <span className="text-xs text-muted-foreground/50 truncate ml-auto max-w-[150px]">
             {formatScreenshotPath(screenshot.url)}
@@ -1077,47 +1116,15 @@ export function SessionLiveActivity({
           <div ref={scrollAreaRef}>
             <ScrollArea className="h-[620px]">
               <div className="min-w-0 space-y-2 pr-4 pt-4 pb-1">
-                {cycleFeed.map((item, index) => {
-                  if (item.kind === 'phase_divider') {
-                    return (
-                      <ActivityPhaseDivider
-                        key={`phase-divider-${item.phase}-${index}`}
-                        phase={item.phase}
-                      />
-                    );
-                  }
-
-                  if (item.kind === 'standalone') {
-                    const standaloneId =
-                      item.item.type === 'llm'
-                        ? `llm-${item.item.llm.id}`
-                        : item.item.type === 'compile'
-                          ? `compile-${item.item.record.id}`
-                          : item.item.type === 'session_capture'
-                            ? `screenshot-${item.item.screenshot.id}`
-                            : `checkpoint-${item.item.checkpoint.id}`;
-
-                    return (
-                      <Fragment key={standaloneId}>
-                        {renderStandalone(
-                          item.item,
-                          newIds.has(standaloneId),
-                          statusContext,
-                        )}
-                      </Fragment>
-                    );
-                  }
-
-                  return (
-                    <Fragment key={item.cycle.id}>
-                      {renderExplorationCycle(
-                        item.cycle,
-                        (id) => newIds.has(id),
-                        statusContext,
-                      )}
-                    </Fragment>
-                  );
-                })}
+                {cycleFeed.map((item, index) => (
+                  <Fragment key={timelineItemKey(item, index)}>
+                    {renderTimelineItem(
+                      item,
+                      (id) => newIds.has(id),
+                      statusContext,
+                    )}
+                  </Fragment>
+                ))}
               </div>
               <div ref={bottomRef} />
             </ScrollArea>

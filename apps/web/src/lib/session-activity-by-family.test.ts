@@ -109,41 +109,111 @@ describe('buildSessionActivityByFamily', () => {
     assert.ok(idemBucket);
     assert.ok(permBucket);
     assert.equal(idemBucket.eventCount, 1);
-    assert.equal(permBucket.eventCount, 1);
+    assert.equal(permBucket.eventCount, 2);
     assert.equal(permBucket.cycles[0]?.plan?.id, 'llm-perm');
     assert.equal(permBucket.cycles[0]?.probe?.jobId, 'probe-perm');
   });
 
-  it('prepends session screenshots to each family feed', () => {
+  it('interleaves session screenshots chronologically in family feed', () => {
     const screenshot = {
       id: 'ss-1',
       snapshotId: 'ss-1',
       jobId: 'discover-1',
       artifactId: 'art-1',
       url: 'https://example.com',
-      createdAt: new Date('2026-01-01T11:59:00Z'),
+      createdAt: new Date('2026-01-01T12:00:02Z'),
     };
+
+    const planPerm = makeLlm('llm-perm', {
+      jobId: 'explore-perm',
+      exploreJobId: 'explore-perm',
+      mrVersionId: 'mr-perm',
+      transformFamily: 'permutation',
+      createdAt: new Date('2026-01-01T12:00:00Z'),
+      updatedAt: new Date('2026-01-01T12:00:00Z'),
+    });
+    const probePerm = makeProbe('probe-perm', {
+      planLlmCallId: 'llm-perm',
+      mrVersionId: 'mr-perm',
+      transformFamily: 'permutation',
+      createdAt: new Date('2026-01-01T12:00:01Z'),
+      startedAt: new Date('2026-01-01T12:00:01Z'),
+      updatedAt: new Date('2026-01-01T12:00:01Z'),
+    });
+
+    const exploreJobs: ExploreJobAttributionMap = new Map([
+      ['explore-perm', { mrVersionId: 'mr-perm', transformFamily: 'permutation' }],
+    ]);
 
     const result = buildSessionActivityByFamily(
       {
-        llmCalls: new Map(),
-        probes: new Map(),
+        llmCalls: new Map([['llm-perm', planPerm]]),
+        probes: new Map([['probe-perm', probePerm]]),
         screenshots: new Map([['ss-1', screenshot]]),
         checkpoints: new Map(),
         terminalExploreJobs: new Map(),
       },
       [...mrVersions],
-      new Map(),
+      exploreJobs,
     );
 
-    for (const bucket of result.families) {
-      assert.equal(bucket.feed.length, 1);
-      assert.equal(bucket.feed[0]?.kind, 'standalone');
-      if (bucket.feed[0]?.kind === 'standalone') {
-        assert.equal(bucket.feed[0].item.type, 'session_capture');
+    const permBucket = result.families.find((f) => f.family === 'permutation');
+    assert.ok(permBucket);
+    assert.equal(permBucket.eventCount, 3);
+
+    const kinds = permBucket.feed.map((item) => {
+      if (item.kind === 'cycle_step') return item.step;
+      if (item.kind === 'standalone' && item.item.type === 'session_capture') {
+        return 'screenshot';
       }
-      assert.equal(bucket.eventCount, 1);
+      return item.kind;
+    });
+
+    assert.deepEqual(kinds, ['plan', 'probe', 'screenshot']);
+  });
+
+  it('places family events before later session screenshots', () => {
+    const screenshot = {
+      id: 'ss-late',
+      snapshotId: 'ss-late',
+      jobId: 'discover-1',
+      artifactId: 'art-1',
+      url: 'https://example.com',
+      createdAt: new Date('2026-01-01T12:00:05Z'),
+    };
+
+    const planPerm = makeLlm('llm-perm', {
+      jobId: 'explore-perm',
+      exploreJobId: 'explore-perm',
+      mrVersionId: 'mr-perm',
+      transformFamily: 'permutation',
+      createdAt: new Date('2026-01-01T12:00:00Z'),
+      updatedAt: new Date('2026-01-01T12:00:00Z'),
+    });
+
+    const exploreJobs: ExploreJobAttributionMap = new Map([
+      ['explore-perm', { mrVersionId: 'mr-perm', transformFamily: 'permutation' }],
+    ]);
+
+    const result = buildSessionActivityByFamily(
+      {
+        llmCalls: new Map([['llm-perm', planPerm]]),
+        probes: new Map(),
+        screenshots: new Map([['ss-late', screenshot]]),
+        checkpoints: new Map(),
+        terminalExploreJobs: new Map(),
+      },
+      [...mrVersions],
+      exploreJobs,
+    );
+
+    const permBucket = result.families.find((f) => f.family === 'permutation');
+    assert.ok(permBucket);
+    assert.equal(permBucket.feed[0]?.kind, 'cycle_step');
+    if (permBucket.feed[0]?.kind === 'cycle_step') {
+      assert.equal(permBucket.feed[0].step, 'plan');
     }
+    assert.equal(permBucket.feed[1]?.kind, 'standalone');
   });
 
   it('groups checkpoints by mrVersionId', () => {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { JobStatus, JobType } from '../../../../generated/prisma/enums.js';
 import { buildJobAttributionContext } from './explore-job-attribution.js';
-import { mapLlmCallDto, mapProbeDto } from './session-event.mapper.js';
+import { mapLlmCallDto, mapProbeDto, resolveProbeMode } from './session-event.mapper.js';
 
 describe('session-event attribution mappers', () => {
   const mrFamilies = new Map([
@@ -57,6 +57,39 @@ describe('session-event attribution mappers', () => {
     assert.equal(probe.exploreJobId, 'explore-perm');
     assert.equal(probe.mrVersionId, 'mr-perm');
     assert.equal(probe.transformFamily, 'permutation');
+  });
+
+  it('mapProbeDto preserves prefix_sync mode and prefix-only executed steps', () => {
+    const probe = mapProbeDto(
+      {
+        job: {
+          id: 'probe-prefix',
+          status: JobStatus.done,
+          payload: {
+            explore_job_id: 'explore-perm',
+            mode: 'prefix_sync',
+            validated_prefix: [{ id: 1, action: 'click', element_id: 'E1' }],
+            probe_steps: [],
+          },
+          createdAt: new Date('2026-01-01T12:00:00Z'),
+          startedAt: new Date('2026-01-01T12:00:01Z'),
+          finishedAt: new Date('2026-01-01T12:00:05Z'),
+          errorMessage: null,
+        },
+        outputSnapshotId: 'snap-prefix',
+      },
+      context,
+    );
+
+    assert.equal(probe.mode, 'prefix_sync');
+    assert.equal(probe.stepCount, 1);
+  });
+
+  it('resolveProbeMode defaults unknown modes to incremental', () => {
+    assert.equal(resolveProbeMode({ mode: 'prefix_sync' }), 'prefix_sync');
+    assert.equal(resolveProbeMode({ mode: 'smoke_replay' }), 'smoke_replay');
+    assert.equal(resolveProbeMode({}), 'incremental');
+    assert.equal(resolveProbeMode(null), 'incremental');
   });
 
   it('mapLlmCallDto resolves explore job attribution', () => {

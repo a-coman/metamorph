@@ -9,6 +9,10 @@ import {
   activitySortAtLlm,
   activitySortAtProbe,
   activitySortAtScreenshot,
+  compareActivityTimeline,
+  timelineSortKeyForCycleStep,
+  timelineSortKeyForStandalone,
+  type TimelineStepKind,
 } from './activity-feed';
 
 export type ExplorationPhase = 'source' | 'follow_up';
@@ -37,10 +41,13 @@ export type StandaloneActivity =
   | { type: 'session_capture'; screenshot: ScreenshotDto }
   | { type: 'checkpoint_orphan'; checkpoint: ExplorationCheckpointDto };
 
-export type CycleFeedItem =
-  | { kind: 'cycle'; cycle: ExplorationCycle }
+export type TimelineFeedItem =
+  | { kind: 'cycle_step'; cycle: ExplorationCycle; step: TimelineStepKind }
   | { kind: 'standalone'; item: StandaloneActivity }
   | { kind: 'phase_divider'; phase: ExplorationPhase };
+
+/** @deprecated Use TimelineFeedItem */
+export type CycleFeedItem = TimelineFeedItem;
 
 import type { TerminalExploreJobStatus } from './activity-status';
 
@@ -140,7 +147,6 @@ function findScenarioCompletePlanForSmoke(
   if (probe.planLlmCallId) {
     const linked = plans.find((plan) => plan.id === probe.planLlmCallId);
     if (linked && getPlanAction(linked) === 'scenario_complete') return linked;
-    if (linked) return linked;
   }
 
   const probeAt = activitySortAtProbe(probe);
@@ -187,8 +193,11 @@ export function buildExplorationCycles(input: ExplorationActivityInput): {
       cycles.push({
         id: `smoke-${probe.jobId}`,
         kind: 'smoke',
-        sortAt: activitySortAtProbe(probe),
+        sortAt: linkedPlan
+          ? activitySortAtLlm(linkedPlan)
+          : activitySortAtProbe(probe),
         phase: normalizePhase(probe.phase),
+        plan: linkedPlan,
         probe,
       });
       continue;
@@ -291,42 +300,122 @@ function standaloneSortAt(item: StandaloneActivity): number {
   }
 }
 
-export function buildCycleFeed(
+function standaloneTimelineId(item: StandaloneActivity): string {
+  switch (item.type) {
+    case 'llm':
+      return `llm-${item.llm.id}`;
+    case 'compile':
+      return `compile-${item.record.id}`;
+    case 'session_capture':
+      return `screenshot-${item.screenshot.id}`;
+    case 'checkpoint_orphan':
+      return `checkpoint-${item.checkpoint.id}`;
+  }
+}
+
+function standaloneEventAt(item: StandaloneActivity): number {
+  return standaloneSortAt(item);
+}
+
+function timelinePhaseForItem(item: TimelineFeedItem): ExplorationPhase | null {
+  if (item.kind === 'cycle_step') {
+    return item.cycle.phase;
+  }
+  if (item.kind === 'standalone') {
+    if (item.item.type === 'checkpoint_orphan') {
+      return normalizePhase(item.item.checkpoint.phase);
+    }
+    if (item.item.type === 'llm' && item.item.checkpoint) {
+      return normalizePhase(item.item.checkpoint.phase);
+    }
+  }
+  return null;
+}
+
+export function expandCycleToTimelineEntries(cycle: ExplorationCycle): TimelineFeedItem[] {
+  const entries: TimelineFeedItem[] = [];
+
+  if (cycle.kind === 'smoke') {
+    if (cycle.plan) {
+      entries.push({ kind: 'cycle_step', cycle, step: 'plan' });
+    }
+    if (cycle.probe) {
+      entries.push({ kind: 'cycle_step', cycle, step: 'probe' });
+    }
+    return entries;
+  }
+
+  if (cycle.kind === 'goal_complete' || cycle.kind === 'plan_recovery') {
+    if (cycle.plan) {
+      entries.push({ kind: 'cycle_step', cycle, step: 'plan' });
+    }
+    return entries;
+  }
+
+  if (cycle.plan) {
+    entries.push({ kind: 'cycle_step', cycle, step: 'plan' });
+  }
+  if (cycle.probe) {
+    entries.push({ kind: 'cycle_step', cycle, step: 'probe' });
+  }
+  if (cycle.verify) {
+    entries.push({ kind: 'cycle_step', cycle, step: 'verify' });
+  }
+  if (cycle.verifySkipped) {
+    entries.push({ kind: 'cycle_step', cycle, step: 'verify_skipped' });
+  }
+
+  return entries;
+}
+
+function cycleStepEventAt(cycle: ExplorationCycle, step: TimelineStepKind): number {
+  switch (step) {
+    case 'plan':
+      return activitySortAtLlm(cycle.plan!);
+    case 'probe':
+      return activitySortAtProbe(cycle.probe!);
+    case 'verify':
+      return activitySortAtLlm(cycle.verify!);
+    case 'verify_skipped':
+      return activitySortAtProbe(cycle.probe!);
+  }
+}
+
+export function buildTimelineFeed(
   cycles: ExplorationCycle[],
   standalone: StandaloneActivity[],
-): CycleFeedItem[] {
-  type Sortable =
-    | { sortAt: number; item: CycleFeedItem };
+): TimelineFeedItem[] {
+  type Sortable = { sortKey: ReturnType<typeof timelineSortKeyForCycleStep>; item: TimelineFeedItem };
 
   const sortables: Sortable[] = [
-    ...cycles.map((cycle) => ({
-      sortAt: cycle.sortAt,
-      item: { kind: 'cycle' as const, cycle },
-    })),
-    ...standalone.map((standaloneItem) => ({
-      sortAt: standaloneSortAt(standaloneItem),
-      item: { kind: 'standalone' as const, item: standaloneItem },
-    })),
+    ...cycles.flatMap((cycle) =>
+      expandCycleToTimelineEntries(cycle).map((entry) => ({
+        sortKey: timelineSortKeyForCycleStep(
+          cycle.id,
+          entry.step,
+          cycleStepEventAt(cycle, entry.step),
+        ),
+        item: entry,
+      })),
+    ),
+    ...standalone.map((standaloneItem) => {
+      const id = standaloneTimelineId(standaloneItem);
+      return {
+        sortKey: timelineSortKeyForStandalone(id, standaloneEventAt(standaloneItem)),
+        item: { kind: 'standalone' as const, item: standaloneItem },
+      };
+    }),
   ];
 
-  sortables.sort((a, b) => a.sortAt - b.sortAt);
+  sortables.sort((a, b) => compareActivityTimeline(a.sortKey, b.sortKey));
 
-  const feed: CycleFeedItem[] = [];
+  const feed: TimelineFeedItem[] = [];
   let currentPhase: ExplorationPhase | null = null;
   let sourceDividerInserted = false;
   let followUpDividerInserted = false;
 
   for (const { item } of sortables) {
-    let phase: ExplorationPhase | null = null;
-    if (item.kind === 'cycle') {
-      phase = item.cycle.phase;
-    } else if (item.kind === 'standalone') {
-      if (item.item.type === 'checkpoint_orphan') {
-        phase = normalizePhase(item.item.checkpoint.phase);
-      } else if (item.item.type === 'llm' && item.item.checkpoint) {
-        phase = normalizePhase(item.item.checkpoint.phase);
-      }
-    }
+    const phase = timelinePhaseForItem(item);
 
     if (
       !followUpDividerInserted &&
@@ -355,6 +444,14 @@ export function buildCycleFeed(
   }
 
   return feed;
+}
+
+/** @deprecated Use buildTimelineFeed */
+export function buildCycleFeed(
+  cycles: ExplorationCycle[],
+  standalone: StandaloneActivity[],
+): TimelineFeedItem[] {
+  return buildTimelineFeed(cycles, standalone);
 }
 
 export function cycleCardIds(cycle: ExplorationCycle): string[] {
