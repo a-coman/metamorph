@@ -17,6 +17,11 @@ import {
 } from './step-execution-policy.js';
 import { withProbeGotoPrefix } from './probe-spec-compiler.js';
 import { resolveStepTargetExpression } from './resolve-inventory-target.js';
+import { parseLocalizedNumbers } from '../../domain/parse-localized-numbers.js';
+import {
+  findObservationItem,
+  observationLabelText,
+} from '../../domain/observation-inventory.js';
 
 export type CompilePlaybookResult = {
   playbookContent: string;
@@ -86,14 +91,14 @@ function validateObservationAnchors(
   slots: GenerationSlots,
   anchorInventories?: Map<string, PageSnapshotInventory>,
 ): void {
-  const anchor = slots.observation.anchors?.visible_item_count;
+  const anchor = slots.observation.anchors?.reported_total_results;
   if (!anchor) {
     return;
   }
 
   if (!anchorInventories) {
     throw new PlaybookCompileError(
-      'visible_item_count anchor requires anchorInventories at compile time',
+      'reported_total_results anchor requires anchorInventories at compile time',
     );
   }
 
@@ -104,9 +109,18 @@ function validateObservationAnchors(
     );
   }
 
-  if (!inventory.items.some((item) => item.shortId === anchor.container_element_id)) {
+  const labelItem = findObservationItem(inventory, anchor.label_element_id);
+  if (!labelItem) {
     throw new PlaybookCompileError(
-      `Anchor container_element_id ${anchor.container_element_id} not found in inventory`,
+      `Anchor label_element_id ${anchor.label_element_id} not found in observation inventory`,
+    );
+  }
+
+  const labelText = observationLabelText(labelItem);
+  const numbers = parseLocalizedNumbers(labelText);
+  if (anchor.number_index >= numbers.length) {
+    throw new PlaybookCompileError(
+      `Anchor number_index ${anchor.number_index} out of range for label text (${numbers.length} numbers)`,
     );
   }
 }

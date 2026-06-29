@@ -35,14 +35,14 @@ export const ScenarioSlotsSchema = z.object({
   steps: z.array(SlotStepSchema).min(1),
 });
 
-export const VisibleItemCountAnchorSchema = z.object({
-  container_element_id: z.string().regex(ELEMENT_SHORT_ID_PATTERN),
+export const ReportedTotalResultsAnchorSchema = z.object({
+  label_element_id: z.string().regex(ELEMENT_SHORT_ID_PATTERN),
   inventory_snapshot_id: z.string().uuid(),
-  item_selector_hint: z.enum(['listitem', 'article', 'li']).optional(),
+  number_index: z.number().int().nonnegative(),
 });
 
 export const ObservationAnchorsSchema = z.object({
-  visible_item_count: VisibleItemCountAnchorSchema.optional(),
+  reported_total_results: ReportedTotalResultsAnchorSchema.optional(),
 });
 
 export const GenerationSlotsSchema = z.object({
@@ -57,6 +57,6 @@ export const GenerationSlotsSchema = z.object({
 export type SlotAction = z.infer<typeof SlotActionSchema>;
 export type SlotStep = z.infer<typeof SlotStepSchema>;
 export type ScenarioSlots = z.infer<typeof ScenarioSlotsSchema>;
-export type VisibleItemCountAnchor = z.infer<typeof VisibleItemCountAnchorSchema>;
+export type ReportedTotalResultsAnchor = z.infer<typeof ReportedTotalResultsAnchorSchema>;
 export type ObservationAnchors = z.infer<typeof ObservationAnchorsSchema>;
 export type GenerationSlots = z.infer<typeof GenerationSlotsSchema>;

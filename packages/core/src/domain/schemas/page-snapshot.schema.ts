@@ -49,6 +49,8 @@ export const PageSnapshotInventorySchema = z.object({
   pageMetrics: PageMetricsSchema,
   viewport: ViewportSizeSchema,
   items: z.array(InventoryItemSchema),
+  /** Broad DOM inventory for observation anchors (separate shortId namespace from items). */
+  observationItems: z.array(InventoryItemSchema).optional(),
   labeledCount: z.number().int().nonnegative(),
   /** Raw Playwright ariaSnapshot YAML (debug only; interactable nodes are promoted into items). */
   accessibilitySnapshot: z.string().optional(),

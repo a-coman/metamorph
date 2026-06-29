@@ -16,7 +16,7 @@ export function MrObservationSummary({
   const relation = asRecord(definition?.relation);
   const observation = asRecord(slots?.observation);
   const anchors = asRecord(observation?.anchors);
-  const visibleAnchor = asRecord(anchors?.visible_item_count);
+  const resultsAnchor = asRecord(anchors?.reported_total_results);
 
   const relationType =
     typeof relation?.type === 'string' ? relation.type : null;
@@ -24,7 +24,7 @@ export function MrObservationSummary({
     ? relation.on.filter((item): item is string => typeof item === 'string')
     : [];
 
-  if (!relationType && relationOn.length === 0 && !visibleAnchor) {
+  if (!relationType && relationOn.length === 0 && !resultsAnchor) {
     return null;
   }
 
@@ -43,17 +43,17 @@ export function MrObservationSummary({
           )}
         </div>
       )}
-      {visibleAnchor && (
+      {resultsAnchor && (
         <div className="text-xs text-muted-foreground space-y-1 font-mono">
           <div>
-            container: {String(visibleAnchor.container_element_id ?? 'n/a')}
+            label: {String(resultsAnchor.label_element_id ?? 'n/a')}
           </div>
           <div>
-            snapshot: {String(visibleAnchor.inventory_snapshot_id ?? 'n/a').slice(0, 8)}…
+            number_index: {String(resultsAnchor.number_index ?? 'n/a')}
           </div>
-          {typeof visibleAnchor.item_selector_hint === 'string' && (
-            <div>item hint: {visibleAnchor.item_selector_hint}</div>
-          )}
+          <div>
+            snapshot: {String(resultsAnchor.inventory_snapshot_id ?? 'n/a').slice(0, 8)}…
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { isFillableInventoryItem, type PageSnapshotInventory, DEFAULT_MAX_A11Y_TREE_CHARS } from '@metamorph/core';
+import { isFillableInventoryItem, type PageSnapshotInventory, type InventoryItem, DEFAULT_MAX_A11Y_TREE_CHARS } from '@metamorph/core';
 
 const MAX_OPTION_LABEL_CHARS = 40;
 const MAX_OPTIONS_IN_PROMPT = 8;
@@ -23,8 +23,8 @@ function formatSelectOptions(
   return `options=[${shown.join(',')},...] values=[${allValues}]`;
 }
 
-export function buildInventorySummary(inventory: PageSnapshotInventory): string {
-  return inventory.items
+export function buildInventoryItemsSummary(items: InventoryItem[]): string {
+  return items
     .map((item) => {
       const parts = [
         item.shortId,
@@ -40,6 +40,10 @@ export function buildInventorySummary(inventory: PageSnapshotInventory): string 
       return `- ${parts.join(' | ')}`;
     })
     .join('\n');
+}
+
+export function buildInventorySummary(inventory: PageSnapshotInventory): string {
+  return buildInventoryItemsSummary(inventory.items);
 }
 
 /** @deprecated Tree is no longer sent to the LLM; kept for callers that truncate stored debug trees. */

@@ -11,6 +11,7 @@ import {
   prepareCaptureViewport,
 } from './prepare-viewport.js';
 import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
+import { scanObservationInventory } from './scan-observation-inventory.js';
 import { annotateAccessibilityTree } from './annotate-accessibility-tree.js';
 
 export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort {
@@ -40,6 +41,8 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
 
     const rawScreenshot = await captureRawScreenshot(page);
 
+    const observationItems = await scanObservationInventory(page, { maxItems });
+
     const { items, accessibilitySnapshot, labeledCount } =
       await scanInventoryWithAccessibility(page, { maxItems, paintLabels: true });
 
@@ -55,6 +58,7 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
       pageMetrics,
       viewport,
       items,
+      observationItems,
       rawScreenshot,
       screenshot,
       labeledCount,

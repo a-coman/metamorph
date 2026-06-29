@@ -29,7 +29,7 @@ const FAMILY_PROFILES: Record<TransformFamily, FamilyProfile> = {
   inclusion: {
     transformFamily: 'inclusion',
     relationType: 'cardinality_lte',
-    observationFields: ['applied_query', 'visible_item_count'],
+    observationFields: ['applied_query', 'reported_total_results'],
   },
   permutation: {
     transformFamily: 'permutation',

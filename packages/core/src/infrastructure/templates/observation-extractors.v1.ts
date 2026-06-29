@@ -1,7 +1,9 @@
 import type { ObservationAnchors } from '../../domain/schemas/generation-slots.schema.js';
 import type { PageSnapshotInventory } from '../../domain/schemas/page-snapshot.schema.js';
+import { findObservationItem } from '../../domain/observation-inventory.js';
 import { ObservationCatalogFieldSchema } from '../../domain/schemas/observation-catalog.schema.js';
 import { resolveInventoryItemTarget, renderTargetExpression } from '../../application/compiler/resolve-inventory-target.js';
+import { PARSE_LOCALIZED_NUMBERS_FN_SOURCE } from '../../domain/parse-localized-numbers.js';
 
 export const STABLE_RESULTS_URL_PARAMS = [
   'search_type',
@@ -15,8 +17,8 @@ export type ObservationExtractorContext = {
   anchorInventories?: Map<string, PageSnapshotInventory>;
 };
 
-function resolveAnchorContainerTarget(
-  anchor: NonNullable<ObservationAnchors['visible_item_count']>,
+function resolveAnchorElementTarget(
+  anchor: NonNullable<ObservationAnchors['reported_total_results']>,
   anchorInventories: Map<string, PageSnapshotInventory>,
 ): string {
   const inventory = anchorInventories.get(anchor.inventory_snapshot_id);
@@ -26,29 +28,15 @@ function resolveAnchorContainerTarget(
     );
   }
 
-  const item = inventory.items.find(
-    (candidate) => candidate.shortId === anchor.container_element_id,
-  );
+  const item = findObservationItem(inventory, anchor.label_element_id);
 
   if (!item) {
     throw new Error(
-      `Anchor container_element_id ${anchor.container_element_id} not found in inventory`,
+      `Anchor label_element_id ${anchor.label_element_id} not found in observation inventory`,
     );
   }
 
   return renderTargetExpression(resolveInventoryItemTarget(item));
-}
-
-function itemSelectorExpression(hint?: 'listitem' | 'article' | 'li'): string {
-  switch (hint) {
-    case 'article':
-      return 'article';
-    case 'li':
-      return 'li';
-    case 'listitem':
-    default:
-      return '[role="listitem"], article, li';
-  }
 }
 
 export function renderObservationFieldExtractor(
@@ -111,40 +99,35 @@ export function renderObservationFieldExtractor(
       return query ? \`\${u.pathname}?\${query}\` : u.pathname;
     })(),`;
 
-    case 'visible_item_count': {
-      const anchor = context?.anchors?.visible_item_count;
+    case 'reported_total_results': {
+      const anchor = context?.anchors?.reported_total_results;
       const anchorInventories = context?.anchorInventories;
 
       if (!anchor || !anchorInventories) {
-        return `    visible_item_count: null,`;
+        return `    reported_total_results: null,`;
       }
 
-      const containerTarget = resolveAnchorContainerTarget(anchor, anchorInventories);
-      const itemSelector = itemSelectorExpression(anchor.item_selector_hint);
+      const labelTarget = resolveAnchorElementTarget(anchor, anchorInventories);
+      const numberIndex = anchor.number_index;
 
-      return `    visible_item_count: await (async () => {
-      const container = ${containerTarget};
+      return `    reported_total_results: await (async () => {
+      ${PARSE_LOCALIZED_NUMBERS_FN_SOURCE}
+      const label = ${labelTarget};
       try {
-        if ((await container.count()) === 0) return null;
+        if ((await label.count()) === 0) return null;
       } catch {
         return null;
       }
-      const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
-      const items = container.locator(${JSON.stringify(itemSelector)});
-      const total = await items.count();
-      let visible = 0;
-      for (let index = 0; index < total; index += 1) {
-        const item = items.nth(index);
-        try {
-          const box = await item.boundingBox();
-          if (!box || box.height < 40) continue;
-          if (box.y + box.height < 0 || box.y > viewport.height) continue;
-          visible += 1;
-        } catch {
-          /* skip item */
-        }
+      let text = '';
+      try {
+        text = (await label.textContent({ timeout: 2000 })) ?? '';
+      } catch {
+        return null;
       }
-      return visible;
+      const numbers = parseLocalizedNumbers(text);
+      const index = ${numberIndex};
+      if (index < 0 || index >= numbers.length) return null;
+      return numbers[index] ?? null;
     })(),`;
     }
   }

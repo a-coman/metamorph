@@ -18,6 +18,12 @@ export {
 } from './domain/schemas/page-snapshot.schema.js';
 
 export {
+  requireObservationItems,
+  findObservationItem,
+  observationLabelText,
+} from './domain/observation-inventory.js';
+
+export {
   RelationTypeSchema,
   TransformFamilySchema,
   MrDefinitionSchema,
@@ -38,13 +44,13 @@ export {
   SlotActionSchema,
   SlotStepSchema,
   ScenarioSlotsSchema,
-  VisibleItemCountAnchorSchema,
+  ReportedTotalResultsAnchorSchema,
   ObservationAnchorsSchema,
   GenerationSlotsSchema,
   type SlotAction,
   type SlotStep,
   type ScenarioSlots,
-  type VisibleItemCountAnchor,
+  type ReportedTotalResultsAnchor,
   type ObservationAnchors,
   type GenerationSlots,
 } from './domain/schemas/generation-slots.schema.js';
@@ -140,5 +146,13 @@ export {
 export {
   ObservationAnchorOutputSchema,
   OBSERVATION_ANCHOR_PROMPT_VERSION,
+  MIN_RESULT_LABEL_ELEMENT_AREA_PX,
   type ObservationAnchorOutput,
 } from './domain/schemas/observation-anchor-output.schema.js';
+
+export {
+  parseLocalizedNumbers,
+  parseLocalizedNumberToken,
+  pickNumberAtIndex,
+  PARSE_LOCALIZED_NUMBERS_FN_SOURCE,
+} from './domain/parse-localized-numbers.js';

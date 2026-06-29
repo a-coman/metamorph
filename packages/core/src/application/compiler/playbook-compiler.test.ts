@@ -14,20 +14,6 @@ const inventory: PageSnapshotInventory = {
     {
       index: 0,
       shortId: 'E1',
-      locator: null,
-      selector: '#results',
-      score: 1,
-      labelShown: true,
-      tagName: 'div',
-      id: 'results',
-      role: null,
-      name: null,
-      ariaLabel: null,
-      selectorMatchCount: 1,
-    },
-    {
-      index: 1,
-      shortId: 'E2',
       locator: 'getByRole("searchbox")',
       selector: 'input',
       score: 1,
@@ -40,29 +26,60 @@ const inventory: PageSnapshotInventory = {
       locatorMatchCount: 1,
     },
   ],
+  observationItems: [
+    {
+      index: 0,
+      shortId: 'E1',
+      locator: null,
+      selector: '.s-breadcrumb-header-text',
+      score: 0,
+      labelShown: false,
+      tagName: 'div',
+      id: null,
+      role: null,
+      name: null,
+      ariaLabel: null,
+      textPreview: '1-48 de más de 30.000 resultados',
+      selectorMatchCount: 1,
+    },
+    {
+      index: 1,
+      shortId: 'E2',
+      locator: 'getByRole("searchbox")',
+      selector: 'input',
+      score: 0,
+      labelShown: false,
+      tagName: 'input',
+      id: null,
+      role: 'searchbox',
+      name: 'Search',
+      ariaLabel: null,
+      locatorMatchCount: 1,
+    },
+  ],
 };
 
 const slots: GenerationSlots = {
   source: {
-    steps: [{ id: 1, action: 'click', element_id: 'E2' }],
+    steps: [{ id: 1, action: 'click', element_id: 'E1' }],
   },
   follow_up: {
-    steps: [{ id: 1, action: 'click', element_id: 'E2' }],
+    steps: [{ id: 1, action: 'click', element_id: 'E1' }],
   },
   observation: {
-    fields: ['applied_query', 'visible_item_count'],
+    fields: ['applied_query', 'reported_total_results'],
     anchors: {
-      visible_item_count: {
-        container_element_id: 'E1',
+      reported_total_results: {
+        label_element_id: 'E1',
         inventory_snapshot_id: '00000000-0000-4000-8000-000000000001',
-        item_selector_hint: 'listitem',
+        number_index: 2,
       },
     },
   },
 };
 
 describe('compilePlaybook with observation anchors', () => {
-  it('embeds anchored visible_item_count extractor', () => {
+  it('embeds anchored reported_total_results extractor', () => {
     const anchorInventories = new Map([
       ['00000000-0000-4000-8000-000000000001', inventory],
     ]);
@@ -77,7 +94,7 @@ describe('compilePlaybook with observation anchors', () => {
         },
         relation: {
           type: 'cardinality_lte',
-          on: ['applied_query', 'visible_item_count'],
+          on: ['applied_query', 'reported_total_results'],
           description: 'count',
         },
       },
@@ -85,8 +102,10 @@ describe('compilePlaybook with observation anchors', () => {
       { anchorInventories },
     );
 
-    assert.match(compiled.playbookContent, /visible_item_count:/);
-    assert.match(compiled.playbookContent, /#results/);
-    assert.equal(compiled.templateVersion, 'playbook-template@3');
+    assert.match(compiled.playbookContent, /reported_total_results:/);
+    assert.match(compiled.playbookContent, /\.s-breadcrumb-header-text/);
+    assert.match(compiled.playbookContent, /textContent/);
+    assert.match(compiled.playbookContent, /parseLocalizedNumbers/);
+    assert.equal(compiled.templateVersion, 'playbook-template@4');
   });
 });

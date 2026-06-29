@@ -528,8 +528,8 @@ function normalizeObservationAnchorOutput(raw: unknown): unknown {
   }
 
   const record = { ...(raw as Record<string, unknown>) };
-  if (typeof record.container_element_id === 'string') {
-    record.container_element_id = normalizeElementShortId(record.container_element_id);
+  if (typeof record.label_element_id === 'string') {
+    record.label_element_id = normalizeElementShortId(record.label_element_id);
   }
 
   return record;

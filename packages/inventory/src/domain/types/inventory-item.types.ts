@@ -13,6 +13,7 @@ export type PageInventory = {
   pageMetrics: PageMetrics;
   viewport: ViewportSize;
   items: InventoryItem[];
+  observationItems?: InventoryItem[];
   /** Required for initial discover capture; optional for probe snapshots. */
   rawScreenshot?: Buffer;
   screenshot: Buffer;

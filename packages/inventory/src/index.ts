@@ -12,7 +12,12 @@ export {
 
 export { PlaywrightInventoryBuilderAdapter } from './infrastructure/playwright/inventory-builder.adapter.js';
 
-export { scanAndLabelPage } from './infrastructure/playwright/inventory.browser.js';
+export {
+  scanAndLabelPage,
+  scanObservationPage,
+} from './infrastructure/playwright/inventory.browser.js';
+
+export { scanObservationInventory } from './infrastructure/playwright/scan-observation-inventory.js';
 
 export {
   DEFAULT_CAPTURE_VIEWPORT,

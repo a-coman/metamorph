@@ -5,7 +5,13 @@ import {
   EXPLORE_VERIFY_PROMPT_VERSION,
   extractHostFromUrl,
   isFillableInventoryItem,
+  MIN_RESULT_LABEL_ELEMENT_AREA_PX,
   MR_PLAN_PROMPT_VERSION,
+  OBSERVATION_ANCHOR_PROMPT_VERSION,
+  findObservationItem,
+  observationLabelText,
+  requireObservationItems,
+  parseLocalizedNumbers,
   parseObservationCatalogFields,
   PLAN_EXPLORE_PROMPT_VERSION,
   resolveStepTargets,
@@ -1106,10 +1112,11 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return {};
     }
 
-    if (!state.sourceEndSnapshotId) {
+    const anchorSnapshotId = state.sourceEndSnapshotId ?? state.currentSnapshotId;
+    if (!anchorSnapshotId) {
       return {
         failed: true,
-        failureReason: 'sourceEndSnapshotId missing for observation anchor',
+        failureReason: 'Source end snapshot missing for observation anchor',
       };
     }
 
@@ -1118,17 +1125,28 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return { failed: true, failureReason: 'MR intent missing for observation anchor' };
     }
 
-    const snapshot = await deps.snapshotRepo.findById(state.sourceEndSnapshotId);
+    const snapshot = await deps.snapshotRepo.findById(anchorSnapshotId);
     if (!snapshot) {
       return { failed: true, failureReason: 'Source end snapshot missing for observation anchor' };
     }
 
+    let observationItems;
     try {
-      const screenshotBase64 = await loadAnnotatedBase64(state.sourceEndSnapshotId);
+      observationItems = requireObservationItems(snapshot.inventory);
+    } catch {
+      return {
+        failed: true,
+        failureReason:
+          'Snapshot has no observationItems; re-run explore to capture observation inventory',
+      };
+    }
+
+    try {
+      const screenshotBase64 = await loadRawBase64(anchorSnapshotId);
       const { output } = await runTrackedLlmCall(
         deps,
         state,
-        { purpose: 'observation_anchor', promptVersion: 'observation-anchor-v1' },
+        { purpose: 'observation_anchor', promptVersion: OBSERVATION_ANCHOR_PROMPT_VERSION },
         () =>
           deps.openRouter.observationAnchor({
             url: snapshot.url,
@@ -1138,39 +1156,70 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           }),
       );
 
-      const containerId = output.container_element_id;
-      const itemExists = snapshot.inventory.items.some(
-        (item) => item.shortId === containerId,
-      );
+      const labelElementId = output.label_element_id;
+      const anchorItem = findObservationItem(snapshot.inventory, labelElementId);
 
-      if (!itemExists) {
+      if (!anchorItem) {
         const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
         if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
           return {
             failed: true,
-            failureReason: `Invalid observation anchor element_id: ${containerId}`,
+            failureReason: `Invalid observation anchor label_element_id: ${labelElementId} (not in observation inventory of ${observationItems.length} items)`,
             anchorRecoveryAttempts: attempts,
           };
         }
 
         return {
           anchorRecoveryAttempts: attempts,
-          failureReason: `Invalid observation anchor element_id: ${containerId}`,
+          failureReason: `Invalid observation anchor label_element_id: ${labelElementId}`,
         };
       }
 
+      const labelText = observationLabelText(anchorItem);
+      const parsedNumbers = parseLocalizedNumbers(labelText);
+      if (output.number_index >= parsedNumbers.length) {
+        const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
+        const reason = `number_index ${output.number_index} out of range for label text (${parsedNumbers.length} numbers)`;
+        if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
+          return {
+            failed: true,
+            failureReason: reason,
+            anchorRecoveryAttempts: attempts,
+          };
+        }
+        return { anchorRecoveryAttempts: attempts, failureReason: reason };
+      }
+
+      const box = anchorItem.boundingBox;
+      if (box) {
+        const area = box.width * box.height;
+        if (area < MIN_RESULT_LABEL_ELEMENT_AREA_PX) {
+          const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
+          const reason = `Label element ${labelElementId} too small for result count (${Math.round(area)} px²)`;
+          if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
+            return {
+              failed: true,
+              failureReason: reason,
+              anchorRecoveryAttempts: attempts,
+            };
+          }
+          return { anchorRecoveryAttempts: attempts, failureReason: reason };
+        }
+      }
+
       logExploreGraphEvent(
-        `observation_anchor complete | container=${containerId} snapshot=${state.sourceEndSnapshotId.slice(0, 8)}`,
+        `observation_anchor complete | label=${labelElementId} index=${output.number_index} snapshot=${anchorSnapshotId.slice(0, 8)}`,
       );
 
       return {
+        ...(state.phase === 'source' && !state.sourceEndSnapshotId
+          ? { sourceEndSnapshotId: anchorSnapshotId }
+          : {}),
         observationAnchors: {
-          visible_item_count: {
-            container_element_id: containerId,
-            inventory_snapshot_id: state.sourceEndSnapshotId,
-            ...(output.item_selector_hint
-              ? { item_selector_hint: output.item_selector_hint }
-              : {}),
+          reported_total_results: {
+            label_element_id: labelElementId,
+            inventory_snapshot_id: anchorSnapshotId,
+            number_index: output.number_index,
           },
         },
         anchorRecoveryAttempts: 0,
@@ -1228,7 +1277,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
     if (
       state.transformFamily === 'inclusion' &&
-      !state.observationAnchors?.visible_item_count
+      !state.observationAnchors?.reported_total_results
     ) {
       return {
         failed: true,
@@ -1253,7 +1302,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     try {
       const anchorInventories = new Map<string, import('@metamorph/core').PageSnapshotInventory>();
       const anchorSnapshotId =
-        generationSlots.observation.anchors?.visible_item_count?.inventory_snapshot_id;
+        generationSlots.observation.anchors?.reported_total_results?.inventory_snapshot_id;
 
       if (anchorSnapshotId) {
         const anchorSnapshot = await deps.snapshotRepo.findById(anchorSnapshotId);

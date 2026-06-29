@@ -72,4 +72,37 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.match(failBranch, /revert snapshot/);
     assert.match(failBranch, /revertedSnapshotId/);
   });
+
+  it('observation_anchor falls back to currentSnapshotId before switch_phase', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    const anchorStart = source.indexOf('async function observationAnchorNode');
+    const switchPhaseStart = source.indexOf('async function switchPhaseNode');
+    assert.ok(anchorStart >= 0);
+    assert.ok(switchPhaseStart > anchorStart);
+
+    const anchorBody = source.slice(anchorStart, switchPhaseStart);
+    assert.match(
+      anchorBody,
+      /sourceEndSnapshotId\s*\?\?\s*state\.currentSnapshotId/,
+      'observation_anchor must use currentSnapshotId when sourceEndSnapshotId is unset',
+    );
+  });
+
+  it('observation_anchor validates number_index in anchor node', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    const anchorStart = source.indexOf('async function observationAnchorNode');
+    const switchPhaseStart = source.indexOf('async function switchPhaseNode');
+    assert.ok(anchorStart >= 0);
+    assert.ok(switchPhaseStart > anchorStart);
+
+    const anchorBody = source.slice(anchorStart, switchPhaseStart);
+    assert.match(anchorBody, /parseLocalizedNumbers/);
+    assert.match(anchorBody, /reported_total_results/);
+    assert.match(anchorBody, /number_index/);
+    assert.match(anchorBody, /MIN_RESULT_LABEL_ELEMENT_AREA_PX/);
+    assert.match(anchorBody, /loadRawBase64/);
+    assert.match(anchorBody, /requireObservationItems/);
+    assert.match(anchorBody, /findObservationItem/);
+    assert.match(anchorBody, /observationLabelText/);
+  });
 });

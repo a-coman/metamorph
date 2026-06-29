@@ -22,7 +22,8 @@ var __metamorphInventory = (() => {
   var inventory_browser_exports = {};
   __export(inventory_browser_exports, {
     paintAdditionalInventoryLabels: () => paintAdditionalInventoryLabels,
-    scanAndLabelPage: () => scanAndLabelPage
+    scanAndLabelPage: () => scanAndLabelPage,
+    scanObservationPage: () => scanObservationPage
   });
   function scanAndLabelPage(options = {}) {
     const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
@@ -889,6 +890,305 @@ var __metamorphInventory = (() => {
         };
       }
     );
+  }
+  var OBSERVATION_EXCLUDED_TAGS = /* @__PURE__ */ new Set([
+    "script",
+    "style",
+    "svg",
+    "path",
+    "noscript",
+    "template",
+    "head",
+    "meta",
+    "link"
+  ]);
+  function scanObservationPage(options = {}) {
+    const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
+    const normalizeText = (value) => value.trim().replace(/\s+/g, " ");
+    const hasMeaningfulText = (value) => {
+      const normalized = normalizeText(value);
+      if (normalized.length < 2) return false;
+      return /[\p{L}\p{N}]/u.test(normalized);
+    };
+    const escapeCssString = (value) => String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\A ").replace(/\r/g, "\\D ").replace(/\f/g, "\\C ");
+    const cssEscape = (value) => {
+      const text = String(value);
+      if (window.CSS && typeof window.CSS.escape === "function") {
+        return window.CSS.escape(text);
+      }
+      return text.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`);
+    };
+    const selectorMatchesUniquely = (selector, element) => {
+      if (!selector) return false;
+      try {
+        const matches = document.querySelectorAll(selector);
+        return matches.length === 1 && matches[0] === element;
+      } catch {
+        return false;
+      }
+    };
+    const rectsIntersect = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+    const isObservationVisible = (el) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 10 || rect.height < 10) return false;
+      if (rect.right <= 0 || rect.left >= window.innerWidth) return false;
+      if (rect.bottom <= 0 || rect.top >= window.innerHeight) return false;
+      let curr = el;
+      while (curr && curr !== document.documentElement && curr !== document.body) {
+        const style = window.getComputedStyle(curr);
+        if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0 || curr.getAttribute("aria-hidden") === "true") {
+          return false;
+        }
+        if (style.overflow !== "visible" && style.overflow !== "") {
+          const parentRect = curr.getBoundingClientRect();
+          if (parentRect.width === 0 || parentRect.height === 0) return false;
+          const elementRect = {
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom
+          };
+          const clipRect = {
+            left: parentRect.left,
+            top: parentRect.top,
+            right: parentRect.right,
+            bottom: parentRect.bottom
+          };
+          if (!rectsIntersect(elementRect, clipRect)) {
+            return false;
+          }
+        }
+        curr = curr.parentElement;
+      }
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const topEl = document.elementFromPoint(centerX, centerY);
+      if (topEl) {
+        const className = typeof topEl.className === "string" ? topEl.className : "";
+        if (!className.includes("metamorph-")) {
+          if (!el.contains(topEl) && !topEl.contains(el)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    };
+    const isMetamorphNode = (el) => {
+      if (el.hasAttribute("data-metamorph-label")) return true;
+      if (el.hasAttribute("data-metamorph-inventory-id")) return true;
+      const className = typeof el.className === "string" ? el.className : "";
+      return className.includes("metamorph-");
+    };
+    const getDirectText = (el) => {
+      let text = "";
+      for (const node of el.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          text += node.textContent ?? "";
+        }
+      }
+      return normalizeText(text);
+    };
+    const resolveAriaLabelledByText = (el) => {
+      const labelledBy = el.getAttribute("aria-labelledby");
+      if (!labelledBy) return "";
+      const parts = [];
+      for (const id of labelledBy.split(/\s+/)) {
+        const trimmed = id.trim();
+        if (!trimmed) continue;
+        const ref = document.getElementById(trimmed);
+        if (ref) {
+          const text = normalizeText(ref.textContent ?? "");
+          if (text) parts.push(text);
+        }
+      }
+      return parts.join(" ");
+    };
+    const getObservationSemanticText = (el) => {
+      const tagName = el.tagName.toLowerCase();
+      const direct = getDirectText(el);
+      if (hasMeaningfulText(direct)) return direct;
+      const ariaLabel = normalizeText(el.getAttribute("aria-label") ?? "");
+      if (hasMeaningfulText(ariaLabel)) return ariaLabel;
+      const labelledBy = resolveAriaLabelledByText(el);
+      if (hasMeaningfulText(labelledBy)) return labelledBy;
+      const title = normalizeText(el.getAttribute("title") ?? "");
+      if (hasMeaningfulText(title)) return title;
+      if (tagName === "img") {
+        const alt = normalizeText(el.getAttribute("alt") ?? "");
+        if (hasMeaningfulText(alt)) return alt;
+      }
+      if (["input", "textarea", "select"].includes(tagName)) {
+        const value = normalizeText(el.value ?? "");
+        if (hasMeaningfulText(value)) return value;
+        const placeholder = normalizeText(el.getAttribute("placeholder") ?? "");
+        if (hasMeaningfulText(placeholder)) return placeholder;
+      }
+      return "";
+    };
+    const isObservationRelevant = (el) => {
+      const tagName = el.tagName.toLowerCase();
+      if (OBSERVATION_EXCLUDED_TAGS.has(tagName)) return false;
+      if (isMetamorphNode(el)) return false;
+      if (!isObservationVisible(el)) return false;
+      return hasMeaningfulText(getObservationSemanticText(el));
+    };
+    const getImplicitRole = (el) => {
+      const tagName = el.tagName.toLowerCase();
+      if (tagName === "a" && el.hasAttribute("href")) return "link";
+      if (tagName === "button") return "button";
+      if (tagName === "input") {
+        const type = (el.getAttribute("type") || "text").toLowerCase();
+        if (type === "search") return "searchbox";
+        if (type === "checkbox") return "checkbox";
+        if (type === "radio") return "radio";
+        return "textbox";
+      }
+      if (tagName === "select") return "combobox";
+      if (tagName === "textarea") return "textbox";
+      return null;
+    };
+    const getElementRole = (el) => el.getAttribute("role") || getImplicitRole(el);
+    const getAccessibleName = (el) => {
+      const ariaLabel = normalizeText(el.getAttribute("aria-label") ?? "");
+      const title = normalizeText(el.getAttribute("title") ?? "");
+      const text = normalizeText(el.textContent ?? "");
+      return ariaLabel || title || text;
+    };
+    const buildPreferredLocator = (el) => {
+      const tagName = el.tagName.toLowerCase();
+      const testId = el.getAttribute("data-testid");
+      if (testId) {
+        return `getByTestId(${JSON.stringify(testId)})`;
+      }
+      const role = el.getAttribute("role");
+      const accessibleName = getAccessibleName(el);
+      const ariaLabel = normalizeText(el.getAttribute("aria-label") ?? "");
+      const implicitRole = getElementRole(el);
+      if (implicitRole && accessibleName) {
+        return `getByRole(${JSON.stringify(implicitRole)}, { name: ${JSON.stringify(accessibleName)} })`;
+      }
+      if (role && accessibleName) {
+        return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(accessibleName)} })`;
+      }
+      if (tagName === "a" && accessibleName) {
+        return `getByRole("link", { name: ${JSON.stringify(accessibleName)} })`;
+      }
+      if (["button", "input", "select", "textarea"].includes(tagName) && ariaLabel) {
+        return `getByLabel(${JSON.stringify(ariaLabel)})`;
+      }
+      return null;
+    };
+    const buildSelectorCandidates = (el) => {
+      const tagName = el.tagName.toLowerCase();
+      const candidates = [];
+      const testId = el.getAttribute("data-testid");
+      if (testId) {
+        candidates.push(`[data-testid="${escapeCssString(testId)}"]`);
+      }
+      if (el.id) {
+        candidates.push(`#${cssEscape(el.id)}`);
+      }
+      const ariaLabel = el.getAttribute("aria-label");
+      if (ariaLabel) {
+        candidates.push(
+          `${tagName}[aria-label="${escapeCssString(ariaLabel)}"]`
+        );
+      }
+      const title = el.getAttribute("title");
+      if (title) {
+        candidates.push(`${tagName}[title="${escapeCssString(title)}"]`);
+      }
+      return candidates;
+    };
+    const buildFallbackPathSelector = (el) => {
+      const segments = [];
+      let node = el;
+      while (node && node !== document.documentElement) {
+        const tagName = node.tagName.toLowerCase();
+        if (node.id) {
+          segments.unshift(`#${cssEscape(node.id)}`);
+          break;
+        }
+        const parent = node.parentElement;
+        let segment = tagName;
+        if (parent) {
+          const siblings = Array.from(parent.children).filter(
+            (child) => child.tagName === node.tagName
+          );
+          if (siblings.length > 1) {
+            segment = `${tagName}:nth-of-type(${siblings.indexOf(node) + 1})`;
+          }
+        }
+        segments.unshift(segment);
+        node = parent;
+      }
+      return segments.join(" > ") || el.tagName.toLowerCase();
+    };
+    const getStableSelector = (el) => {
+      for (const selector of buildSelectorCandidates(el)) {
+        if (selectorMatchesUniquely(selector, el)) {
+          return selector;
+        }
+      }
+      const fallbackSelector = buildFallbackPathSelector(el);
+      if (selectorMatchesUniquely(fallbackSelector, el)) {
+        return fallbackSelector;
+      }
+      return fallbackSelector;
+    };
+    const allElements = Array.from(document.querySelectorAll("body *"));
+    const relevant = allElements.filter(isObservationRelevant);
+    const relevantSet = new Set(relevant);
+    const deduped = relevant.filter((el) => {
+      const semantic = getObservationSemanticText(el);
+      for (const descendant of el.querySelectorAll("*")) {
+        if (!relevantSet.has(descendant)) continue;
+        if (getObservationSemanticText(descendant) === semantic) {
+          return false;
+        }
+      }
+      return true;
+    });
+    const chosen = Number.isFinite(maxItems) ? deduped.slice(0, maxItems) : deduped;
+    const shortIdFor = (index) => `E${index + 1}`;
+    return chosen.map((el, index) => {
+      const shortId = shortIdFor(index);
+      const rect = el.getBoundingClientRect();
+      const pageRect = {
+        left: rect.left + window.scrollX,
+        top: rect.top + window.scrollY,
+        width: rect.width,
+        height: rect.height
+      };
+      const tagName = el.tagName.toLowerCase();
+      const semanticText = getObservationSemanticText(el);
+      const textPreview = semanticText.slice(0, 80) || null;
+      const selectOptions = tagName === "select" ? Array.from(el.querySelectorAll("option")).map((option) => ({
+        value: option.value,
+        label: normalizeText(option.textContent ?? "")
+      })).filter((option) => option.value.length > 0) : [];
+      return {
+        index,
+        shortId,
+        locator: buildPreferredLocator(el),
+        selector: getStableSelector(el),
+        score: 0,
+        labelShown: false,
+        tagName,
+        id: el.id || null,
+        role: getElementRole(el),
+        name: el.getAttribute("name"),
+        ariaLabel: el.getAttribute("aria-label"),
+        textPreview,
+        boundingBox: {
+          x: pageRect.left,
+          y: pageRect.top,
+          width: pageRect.width,
+          height: pageRect.height
+        },
+        ...selectOptions.length > 0 ? { options: selectOptions } : {}
+      };
+    });
   }
   function paintAdditionalInventoryLabels(items) {
     const overlayClassName = "metamorph-selector-overlay";

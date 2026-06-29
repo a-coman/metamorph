@@ -67,7 +67,7 @@ async function assertPlaybookSmoke(mrVersionId, transformFamily) {
   assert(playbook.includes('extractObservation'), 'playbook missing observation extract');
 
   if (transformFamily === 'inclusion') {
-    assert(playbook.includes('visible_item_count'), 'inclusion playbook missing visible_item_count');
+    assert(playbook.includes('reported_total_results'), 'inclusion playbook missing reported_total_results');
   }
 
   return playbook;

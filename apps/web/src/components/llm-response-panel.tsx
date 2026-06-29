@@ -282,16 +282,16 @@ export function LlmResponsePanel({
     case 'observation_anchor':
       return (
         <div className="space-y-2">
-          {readString(record, 'container_element_id') && (
+          {readString(record, 'label_element_id') && (
             <InfoBlock>
-              <FieldLabel>Results container</FieldLabel>
-              <EnumBadge value={readString(record, 'container_element_id')!} />
+              <FieldLabel>Result count label</FieldLabel>
+              <EnumBadge value={readString(record, 'label_element_id')!} />
             </InfoBlock>
           )}
-          {readString(record, 'item_selector_hint') && (
+          {typeof record.number_index === 'number' && (
             <InfoBlock>
-              <FieldLabel>Item selector hint</FieldLabel>
-              <EnumBadge value={readString(record, 'item_selector_hint')!} />
+              <FieldLabel>Number index</FieldLabel>
+              <EnumBadge value={String(record.number_index)} />
             </InfoBlock>
           )}
           {readString(record, 'rationale') && (

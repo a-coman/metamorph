@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const OBSERVATION_CATALOG_FIELDS = [
   'applied_query',
   'results_url',
-  'visible_item_count',
+  'reported_total_results',
 ] as const;
 
 export const ObservationCatalogFieldSchema = z.enum(OBSERVATION_CATALOG_FIELDS);
@@ -16,7 +16,7 @@ export const OBSERVATION_FIELD_TYPES: Record<
 > = {
   applied_query: 'string',
   results_url: 'string',
-  visible_item_count: 'number',
+  reported_total_results: 'number',
 };
 
 export function buildObservationPayloadSchema(fields: ObservationCatalogField[]) {

@@ -21,8 +21,8 @@ export const TRANSFORM_FAMILY_SEMANTICS: Record<TransformFamily, string> = {
     'follow_up is NOT merely re-running the same scenario as source — it must include the extra transformation step after reaching P.',
   inclusion:
     'From a base results state P (source), apply an additional filter or restriction in follow_up. ' +
-    'The visible item count on the first viewport should not increase. ' +
-    'source_phase_goal: from a fresh context, reach unfiltered search results P with a visible results grid. ' +
+    'The total result count reported by the site (result info label) should not increase. ' +
+    'source_phase_goal: from a fresh context, reach unfiltered search results P with a visible results summary label. ' +
     'follow_up_phase_goal: from another fresh context, rebuild the path to P, then apply one additional filter.',
   permutation:
     'Apply two independent actions (e.g. filters) in different orders. The final observable state should be the same. ' +
@@ -55,8 +55,8 @@ export const OBSERVATION_FIELD_SEMANTICS: Record<
     'The search query string reflected in the page input or URL when the scenario ends.',
   results_url:
     'Normalized results page URL (pathname plus stable query params such as k or q, sorted alphabetically).',
-  visible_item_count:
-    'Number of result cards or list rows visible in the first viewport of the anchored results container.',
+  reported_total_results:
+    'Total number of matching results as reported by the site in a result summary label (e.g. "1-48 of over 30,000 results").',
 };
 
 export function getFamilyPlanProfile(family: TransformFamily) {

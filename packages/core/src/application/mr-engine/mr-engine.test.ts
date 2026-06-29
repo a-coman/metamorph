@@ -24,7 +24,7 @@ describe('mr-family-profile', () => {
     assert.equal(profile.relationType, 'cardinality_lte');
     assert.deepEqual(profile.observationFields, [
       'applied_query',
-      'visible_item_count',
+      'reported_total_results',
     ]);
 
     const applied = applyFamilyProfile(
@@ -45,7 +45,7 @@ describe('mr-family-profile', () => {
 
     assert.equal(applied.transformation.transform_family, 'inclusion');
     assert.equal(applied.relation.type, 'cardinality_lte');
-    assert.deepEqual(applied.relation.on, ['applied_query', 'visible_item_count']);
+    assert.deepEqual(applied.relation.on, ['applied_query', 'reported_total_results']);
   });
 });
 
@@ -72,7 +72,7 @@ describe('evaluateMr', () => {
     },
     relation: {
       type: 'cardinality_lte' as const,
-      on: ['applied_query', 'visible_item_count'],
+      on: ['applied_query', 'reported_total_results'],
       description: 'count does not increase',
     },
   };
@@ -80,8 +80,8 @@ describe('evaluateMr', () => {
   it('passes cardinality_lte when follow_up count is lower', () => {
     const result = evaluateMr(
       baseMr,
-      { applied_query: 'hotel', visible_item_count: 20 },
-      { applied_query: 'hotel', visible_item_count: 12 },
+      { applied_query: 'hotel', reported_total_results: 30000 },
+      { applied_query: 'hotel', reported_total_results: 5000 },
     );
     assert.equal(result.verdict, 'pass');
   });
@@ -89,10 +89,10 @@ describe('evaluateMr', () => {
   it('fails when observation is missing', () => {
     const result = evaluateMr(
       baseMr,
-      { applied_query: 'hotel', visible_item_count: 20 },
-      { applied_query: 'hotel', visible_item_count: null },
+      { applied_query: 'hotel', reported_total_results: 30000 },
+      { applied_query: 'hotel', reported_total_results: null },
     );
     assert.equal(result.verdict, 'fail');
-    assert.equal(result.details.visible_item_count?.error, 'Missing observation value');
+    assert.equal(result.details.reported_total_results?.error, 'Missing observation value');
   });
 });

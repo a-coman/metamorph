@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { chromium } from 'playwright';
 import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
+import { scanObservationInventory } from './scan-observation-inventory.js';
 
 async function withPage(run: (page: import('playwright').Page) => Promise<void>) {
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
@@ -206,6 +207,90 @@ describe('scanInventoryWithAccessibility', () => {
       assert.equal(oppo?.tagName, 'a');
       assert.ok(tcl, 'expected wrapped TCL facet link in inventory');
       assert.equal(tcl?.tagName, 'a');
+    });
+  });
+});
+
+describe('scanObservationInventory', () => {
+  it('includes plain text result-count labels excluded from action inventory', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <div class="s-breadcrumb-header-text">1-48 de más de 10.000 resultados</div>
+          <a href="/cart">Kit de Compras</a>
+          <div style="width:120px;height:120px"></div>
+          <script>console.log('noise')</script>
+        </main>
+      `);
+
+      const [actionItems, observationItems] = await Promise.all([
+        scanInventoryWithAccessibility(page, { paintLabels: false }),
+        scanObservationInventory(page),
+      ]);
+
+      const actionCount = actionItems.items.find((item) =>
+        item.textPreview?.includes('10.000 resultados'),
+      );
+      const observationCount = observationItems.find((item) =>
+        item.textPreview?.includes('10.000 resultados'),
+      );
+
+      assert.equal(actionCount, undefined, 'action inventory skips plain text divs');
+      assert.ok(observationCount, 'observation inventory includes result-count text');
+      assert.equal(observationCount?.tagName, 'div');
+    });
+  });
+
+  it('prefers innermost node when parent and child share the same text', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <div><span>1-48 de más de 10.000 resultados</span></div>
+        </main>
+      `);
+
+      const observationItems = await scanObservationInventory(page);
+      const matches = observationItems.filter((item) =>
+        item.textPreview?.includes('10.000 resultados'),
+      );
+
+      assert.equal(matches.length, 1);
+      assert.equal(matches[0]?.tagName, 'span');
+    });
+  });
+
+  it('excludes empty boxes and script nodes', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <div id="empty" style="width:120px;height:120px"></div>
+          <script>var x = 1;</script>
+          <p>Visible paragraph</p>
+        </main>
+      `);
+
+      const observationItems = await scanObservationInventory(page);
+      const tags = observationItems.map((item) => item.tagName);
+
+      assert.ok(tags.includes('p'));
+      assert.equal(tags.includes('script'), false);
+      assert.equal(
+        observationItems.some((item) => item.id === 'empty'),
+        false,
+      );
+    });
+  });
+
+  it('respects finite maxItems cap when provided', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          ${Array.from({ length: 30 }, (_, index) => `<p>Line ${index}</p>`).join('')}
+        </main>
+      `);
+
+      const observationItems = await scanObservationInventory(page, { maxItems: 5 });
+      assert.equal(observationItems.length, 5);
     });
   });
 });

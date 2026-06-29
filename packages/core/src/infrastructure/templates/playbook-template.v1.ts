@@ -10,7 +10,7 @@ import {
   type ObservationExtractorContext,
 } from './observation-extractors.v1.js';
 
-export const PLAYBOOK_TEMPLATE_VERSION = 'playbook-template@3';
+export const PLAYBOOK_TEMPLATE_VERSION = 'playbook-template@4';
 
 export type PlaybookRenderInput = {
   observationFields: string[];

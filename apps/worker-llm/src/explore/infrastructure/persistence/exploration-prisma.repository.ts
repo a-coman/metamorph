@@ -28,7 +28,7 @@ export class ExplorationPrismaRepository {
               type: input.transformFamily === 'inclusion' ? 'cardinality_lte' : 'equal',
               on:
                 input.transformFamily === 'inclusion'
-                  ? ['applied_query', 'visible_item_count']
+                  ? ['applied_query', 'reported_total_results']
                   : ['applied_query', 'results_url'],
               description: 'Pending',
             },

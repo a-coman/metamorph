@@ -7,6 +7,7 @@ import {
   prepareCaptureViewport,
 } from './prepare-viewport.js';
 import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
+import { scanObservationInventory } from './scan-observation-inventory.js';
 
 export type ScanAndEnrichResult = {
   url: string;
@@ -14,6 +15,7 @@ export type ScanAndEnrichResult = {
   pageMetrics: { width: number; height: number };
   viewport: { width: number; height: number };
   items: InventoryItem[];
+  observationItems: InventoryItem[];
   rawScreenshot: Buffer;
   screenshot: Buffer;
   labeledCount: number;
@@ -43,6 +45,8 @@ export async function scanAndEnrichCurrentPage(
 
   const rawScreenshot = await captureRawScreenshot(page);
 
+  const observationItems = await scanObservationInventory(page, { maxItems });
+
   const { items, accessibilitySnapshot, labeledCount } =
     await scanInventoryWithAccessibility(page, { maxItems, paintLabels: true });
 
@@ -54,6 +58,7 @@ export async function scanAndEnrichCurrentPage(
     pageMetrics,
     viewport,
     items,
+    observationItems,
     rawScreenshot,
     screenshot,
     labeledCount,

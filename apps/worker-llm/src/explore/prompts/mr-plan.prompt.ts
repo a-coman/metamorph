@@ -38,14 +38,14 @@ const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
       },
       relation: {
         type: 'cardinality_lte',
-        on: ['applied_query', 'visible_item_count'],
+        on: ['applied_query', 'reported_total_results'],
         description:
-          'The base query is preserved and the visible item count does not increase',
+          'The base query is preserved and the reported total result count does not increase',
       },
     },
     exploration: {
       source_phase_goal:
-        'From homepage: search laptop and reach results grid with multiple visible items.',
+        'From homepage: search laptop and reach results page with a visible result count label.',
       follow_up_phase_goal:
         'From homepage: rebuild search to same results, then apply one extra filter (e.g. Prime).',
     },
