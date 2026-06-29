@@ -6,7 +6,10 @@ import type {
   ProbeStatusDto,
 } from '@metamorph/api-client';
 import {
+  buildFamilyDisplayBuckets,
   buildSessionActivityByFamily,
+  resolveDefaultActivitySelection,
+  syncActivitySelection,
   type ExploreJobAttributionMap,
 } from './session-activity-by-family';
 
@@ -247,5 +250,80 @@ describe('buildSessionActivityByFamily', () => {
     const permBucket = result.families.find((f) => f.family === 'permutation');
     assert.ok(permBucket);
     assert.equal(permBucket.eventCount, 1);
+  });
+});
+
+const emptyState = {
+  llmCalls: new Map(),
+  probes: new Map(),
+  screenshots: new Map(),
+  checkpoints: new Map(),
+  terminalExploreJobs: new Map(),
+};
+
+describe('buildFamilyDisplayBuckets', () => {
+  it('returns queued placeholders for all transformFamilies when mrVersions is empty', () => {
+    const buckets = buildFamilyDisplayBuckets(
+      emptyState,
+      [],
+      ['permutation', 'idempotence', 'inclusion'],
+    );
+
+    assert.equal(buckets.length, 3);
+    assert.deepEqual(
+      buckets.map((bucket) => bucket.family),
+      ['idempotence', 'inclusion', 'permutation'],
+    );
+    assert.ok(buckets.every((bucket) => bucket.isPending));
+    assert.ok(buckets.every((bucket) => bucket.status === 'queued'));
+    assert.ok(buckets.every((bucket) => bucket.mrVersionId === null));
+    assert.ok(buckets.every((bucket) => bucket.eventCount === 0));
+  });
+
+  it('merges real buckets with pending placeholders', () => {
+    const buckets = buildFamilyDisplayBuckets(
+      emptyState,
+      [{ id: 'mr-idem', status: 'exploring', transformFamily: 'idempotence' }],
+      ['idempotence', 'inclusion'],
+    );
+
+    assert.equal(buckets.length, 2);
+    assert.equal(buckets[0]?.family, 'idempotence');
+    assert.equal(buckets[0]?.mrVersionId, 'mr-idem');
+    assert.equal(buckets[0]?.isPending, undefined);
+    assert.equal(buckets[1]?.family, 'inclusion');
+    assert.equal(buckets[1]?.isPending, true);
+  });
+});
+
+describe('resolveDefaultActivitySelection with transformFamilies', () => {
+  it('picks the first sorted family when no mrVersions exist', () => {
+    const selection = resolveDefaultActivitySelection([], ['permutation', 'idempotence']);
+
+    assert.deepEqual(selection, { kind: 'family', family: 'idempotence' });
+  });
+});
+
+describe('syncActivitySelection with transformFamilies', () => {
+  it('keeps pending family selection valid across re-renders', () => {
+    const current = { kind: 'family' as const, family: 'inclusion' };
+    const synced = syncActivitySelection(current, [], ['inclusion', 'idempotence']);
+
+    assert.deepEqual(synced, current);
+  });
+
+  it('upgrades pending selection when mrVersion arrives', () => {
+    const current = { kind: 'family' as const, family: 'inclusion' };
+    const synced = syncActivitySelection(
+      current,
+      [{ id: 'mr-inc', status: 'exploring', transformFamily: 'inclusion' }],
+      ['inclusion'],
+    );
+
+    assert.deepEqual(synced, {
+      kind: 'family',
+      family: 'inclusion',
+      mrVersionId: 'mr-inc',
+    });
   });
 });

@@ -53,7 +53,9 @@ import { FamilyActivitySummaryRow } from '@/components/family-activity-summary-r
 import { SessionPipelineStepper } from '@/components/session-pipeline-stepper';
 import {
   buildExploreJobAttributionFromSessionJobs,
+  buildFamilyDisplayBuckets,
   buildSessionActivityByFamily,
+  findFamilyBucket,
   resolveDefaultActivitySelection,
   syncActivitySelection,
   type ActivitySelection,
@@ -76,6 +78,7 @@ interface SessionLiveActivityProps {
   controlStatus?: string;
   initialActivity?: SessionActivityDto | null;
   mrVersions: SessionMrVersionSummaryDto[];
+  transformFamilies?: string[];
   jobs?: SessionJobSummaryDto[];
   selectedFamily?: ActivitySelection;
   onSelectFamily?: (selection: ActivitySelection) => void;
@@ -736,6 +739,7 @@ export function SessionLiveActivity({
   controlStatus = 'active',
   initialActivity,
   mrVersions,
+  transformFamilies = [],
   jobs = [],
   selectedFamily: selectedFamilyProp,
   onSelectFamily,
@@ -765,7 +769,7 @@ export function SessionLiveActivity({
     [jobs, mrVersions],
   );
   const [internalSelection, setInternalSelection] = useState<ActivitySelection>(() =>
-    resolveDefaultActivitySelection(mrVersions),
+    resolveDefaultActivitySelection(mrVersions, transformFamilies),
   );
 
   const selectedFamily = selectedFamilyProp ?? internalSelection;
@@ -783,8 +787,10 @@ export function SessionLiveActivity({
 
   useEffect(() => {
     if (selectedFamilyProp) return;
-    setInternalSelection((current) => syncActivitySelection(current, mrVersions));
-  }, [mrVersions, selectedFamilyProp]);
+    setInternalSelection((current) =>
+      syncActivitySelection(current, mrVersions, transformFamilies),
+    );
+  }, [mrVersions, transformFamilies, selectedFamilyProp]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -810,15 +816,18 @@ export function SessionLiveActivity({
     [hydratedState, mrVersions, exploreJobs],
   );
 
+  const displayFamilies = useMemo(
+    () => buildFamilyDisplayBuckets(hydratedState, mrVersions, transformFamilies, exploreJobs),
+    [hydratedState, mrVersions, transformFamilies, exploreJobs],
+  );
+
   const selectedBucket =
     selectedFamily.kind === 'family'
-      ? activityByFamily.families.find(
-        (bucket) => bucket.mrVersionId === selectedFamily.mrVersionId,
-      )
+      ? findFamilyBucket(displayFamilies, selectedFamily)
       : null;
 
   const cycleFeed =
-    mrVersions.length === 0
+    selectedFamily.kind === 'session'
       ? activityByFamily.session.feed
       : (selectedBucket?.feed ?? []);
 
@@ -1047,7 +1056,7 @@ export function SessionLiveActivity({
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
           <Activity className="size-4 text-muted-foreground" />
           Live Activity
-          {mrVersions.length > 0 && (
+          {selectedFamily.kind === 'family' && (
             <span className="text-xs text-muted-foreground font-normal">
               — {selectionLabel}
             </span>
@@ -1070,10 +1079,10 @@ export function SessionLiveActivity({
         </CardTitle>
       </CardHeader>
       <CardContent className="min-w-0">
-        {mrVersions.length > 0 && (
+        {displayFamilies.length > 0 && (
           <FamilyActivitySummaryRow
             sessionId={sessionId}
-            families={activityByFamily.families}
+            families={displayFamilies}
             selected={selectedFamily}
             controlStatus={controlStatus}
             onSelect={handleSelectFamily}
@@ -1082,7 +1091,7 @@ export function SessionLiveActivity({
 
         {/* Per-relation (or session-level) pipeline progress */}
         {(() => {
-          const selectedMrVersion = selectedBucket
+          const selectedMrVersion = selectedBucket?.mrVersionId
             ? mrVersions.find((mr) => mr.id === selectedBucket.mrVersionId)
             : undefined;
           const pipelineMrVersions = selectedMrVersion ? [selectedMrVersion] : [];
@@ -1104,7 +1113,7 @@ export function SessionLiveActivity({
               <Eye className="size-5 text-muted-foreground" />
             </div>
             <p className="text-sm font-medium text-foreground">
-              {mrVersions.length === 0
+              {displayFamilies.length === 0 && mrVersions.length === 0
                 ? 'No session activity yet'
                 : `No activity yet for ${selectionLabel}`}
             </p>

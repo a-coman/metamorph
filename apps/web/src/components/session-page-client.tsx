@@ -42,12 +42,14 @@ export function SessionPageClient({
   } = useSessionHubState(session);
 
   const [selectedFamily, setSelectedFamily] = useState<ActivitySelection>(() =>
-    resolveDefaultActivitySelection(session.mrVersions),
+    resolveDefaultActivitySelection(session.mrVersions, session.transformFamilies),
   );
 
   useEffect(() => {
-    setSelectedFamily((current) => syncActivitySelection(current, mrVersions));
-  }, [mrVersions]);
+    setSelectedFamily((current) =>
+      syncActivitySelection(current, mrVersions, session.transformFamilies),
+    );
+  }, [mrVersions, session.transformFamilies]);
 
   return (
     <>
@@ -115,6 +117,7 @@ export function SessionPageClient({
           controlStatus={controlStatus}
           initialActivity={initialActivity}
           mrVersions={mrVersions}
+          transformFamilies={session.transformFamilies}
           jobs={jobs}
           selectedFamily={selectedFamily}
           onSelectFamily={setSelectedFamily}

@@ -13,7 +13,7 @@ import {
   type StandaloneActivity,
   type TimelineFeedItem,
 } from '@/lib/exploration-cycles';
-import { sortMrVersionsByFamily } from '@/lib/mr-versions';
+import { FAMILY_ORDER, sortMrVersionsByFamily } from '@/lib/mr-versions';
 
 export type ExploreJobAttributionMap = Map<
   string,
@@ -22,13 +22,14 @@ export type ExploreJobAttributionMap = Map<
 
 export type FamilyActivityBucket = {
   family: string;
-  mrVersionId: string;
+  mrVersionId: string | null;
   status: string;
   cycles: ExplorationCycle[];
   standalone: StandaloneActivity[];
   feed: TimelineFeedItem[];
   eventCount: number;
   hasInFlightActivity: boolean;
+  isPending?: boolean;
 };
 
 export type SessionActivityBucket = {
@@ -45,7 +46,21 @@ export type SessionActivityByFamilyResult = {
 
 export type ActivitySelection =
   | { kind: 'session' }
-  | { kind: 'family'; family: string; mrVersionId: string };
+  | { kind: 'family'; family: string; mrVersionId?: string };
+
+export function sortTransformFamilies(families: string[]): string[] {
+  return [...families].sort((left, right) => {
+    const leftIndex = FAMILY_ORDER.indexOf(
+      left as (typeof FAMILY_ORDER)[number],
+    );
+    const rightIndex = FAMILY_ORDER.indexOf(
+      right as (typeof FAMILY_ORDER)[number],
+    );
+    const normalizedLeft = leftIndex === -1 ? FAMILY_ORDER.length : leftIndex;
+    const normalizedRight = rightIndex === -1 ? FAMILY_ORDER.length : rightIndex;
+    return normalizedLeft - normalizedRight;
+  });
+}
 
 function matchesMr(
   mrVersionId: string | null | undefined,
@@ -276,8 +291,60 @@ export function buildSessionActivityByFamily(
   };
 }
 
+export function buildFamilyDisplayBuckets(
+  state: HydratedActivityState,
+  mrVersions: SessionMrVersionSummaryDto[],
+  transformFamilies: string[],
+  exploreJobs: ExploreJobAttributionMap = new Map(),
+): FamilyActivityBucket[] {
+  const activity = buildSessionActivityByFamily(state, mrVersions, exploreJobs);
+  const sortedFamilies = sortTransformFamilies(transformFamilies);
+
+  if (sortedFamilies.length === 0) {
+    return activity.families;
+  }
+
+  const realByFamily = new Map(
+    activity.families.map((bucket) => [bucket.family, bucket]),
+  );
+
+  return sortedFamilies.map((family) => {
+    const existing = realByFamily.get(family);
+    if (existing) {
+      return existing;
+    }
+
+    return {
+      family,
+      mrVersionId: null,
+      status: 'queued',
+      cycles: [],
+      standalone: [],
+      feed: [],
+      eventCount: 0,
+      hasInFlightActivity: false,
+      isPending: true,
+    };
+  });
+}
+
+export function findFamilyBucket(
+  buckets: FamilyActivityBucket[],
+  selection: Extract<ActivitySelection, { kind: 'family' }>,
+): FamilyActivityBucket | undefined {
+  if (selection.mrVersionId) {
+    const byId = buckets.find((bucket) => bucket.mrVersionId === selection.mrVersionId);
+    if (byId) {
+      return byId;
+    }
+  }
+
+  return buckets.find((bucket) => bucket.family === selection.family);
+}
+
 export function resolveDefaultActivitySelection(
   mrVersions: SessionMrVersionSummaryDto[],
+  transformFamilies: string[] = [],
 ): ActivitySelection {
   const sorted = sortMrVersionsByFamily(mrVersions);
   const exploring = sorted.find((mr) => mr.status === 'exploring');
@@ -306,26 +373,51 @@ export function resolveDefaultActivitySelection(
     };
   }
 
+  const sortedFamilies = sortTransformFamilies(transformFamilies);
+  if (sortedFamilies.length > 0) {
+    return { kind: 'family', family: sortedFamilies[0] };
+  }
+
   return { kind: 'session' };
+}
+
+function isFamilySelectionValid(
+  selection: Extract<ActivitySelection, { kind: 'family' }>,
+  mrVersions: SessionMrVersionSummaryDto[],
+  transformFamilies: string[],
+): boolean {
+  if (selection.mrVersionId) {
+    return mrVersions.some((mr) => mr.id === selection.mrVersionId);
+  }
+
+  return (
+    mrVersions.some((mr) => mr.transformFamily === selection.family) ||
+    sortTransformFamilies(transformFamilies).includes(selection.family)
+  );
 }
 
 export function syncActivitySelection(
   current: ActivitySelection,
   mrVersions: SessionMrVersionSummaryDto[],
+  transformFamilies: string[] = [],
 ): ActivitySelection {
-  if (current.kind === 'family') {
-    const stillValid = mrVersions.some((mr) => mr.id === current.mrVersionId);
-    if (stillValid) {
-      return current;
+  if (current.kind === 'family' && isFamilySelectionValid(current, mrVersions, transformFamilies)) {
+    if (!current.mrVersionId) {
+      const mr = mrVersions.find((version) => version.transformFamily === current.family);
+      if (mr) {
+        return { kind: 'family', family: current.family, mrVersionId: mr.id };
+      }
     }
+    return current;
   }
 
-  const next = resolveDefaultActivitySelection(mrVersions);
+  const next = resolveDefaultActivitySelection(mrVersions, transformFamilies);
   if (
     current.kind === next.kind &&
     (current.kind === 'session' ||
       (current.kind === 'family' &&
         next.kind === 'family' &&
+        current.family === next.family &&
         current.mrVersionId === next.mrVersionId))
   ) {
     return current;
