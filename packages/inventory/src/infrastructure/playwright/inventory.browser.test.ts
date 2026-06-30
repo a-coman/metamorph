@@ -241,6 +241,26 @@ describe('scanObservationInventory', () => {
     });
   });
 
+  it('includes aria-hidden visible result-count labels', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <h1>
+            <span aria-hidden="true" data-testid="stays-page-heading">Más de 1.000 alojamientos en Alicante</span>
+          </h1>
+        </main>
+      `);
+
+      const observationItems = await scanObservationInventory(page);
+      const heading = observationItems.find((item) =>
+        item.textPreview?.includes('1.000 alojamientos'),
+      );
+
+      assert.ok(heading, 'observation inventory includes aria-hidden visible count label');
+      assert.equal(heading?.tagName, 'span');
+    });
+  });
+
   it('prefers innermost node when parent and child share the same text', async () => {
     await withPage(async (page) => {
       await page.setContent(`

@@ -936,7 +936,7 @@ var __metamorphInventory = (() => {
       let curr = el;
       while (curr && curr !== document.documentElement && curr !== document.body) {
         const style = window.getComputedStyle(curr);
-        if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0 || curr.getAttribute("aria-hidden") === "true") {
+        if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) {
           return false;
         }
         if (style.overflow !== "visible" && style.overflow !== "") {

@@ -1232,8 +1232,7 @@ export function scanObservationPage(
       if (
         style.display === 'none' ||
         style.visibility === 'hidden' ||
-        Number(style.opacity) === 0 ||
-        curr.getAttribute('aria-hidden') === 'true'
+        Number(style.opacity) === 0
       ) {
         return false;
       }
