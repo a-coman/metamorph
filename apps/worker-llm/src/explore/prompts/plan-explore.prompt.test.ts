@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildPlanExploreUserText } from './plan-explore.prompt.js';
+import {
+  buildCompletedSourceReferenceSection,
+  buildPlanExploreUserText,
+} from './plan-explore.prompt.js';
 import type { MrIntent } from '@metamorph/core';
 import type { ExploreBatchLog } from '../infrastructure/graph/explore-state.js';
 
@@ -135,5 +138,22 @@ describe('buildPlanExploreUserText batch log', () => {
 
     assert.match(text, /E2 \| button/);
     assert.doesNotMatch(text, /Page structure/);
+  });
+
+  it('renders explored_steps in the completed source reference section', () => {
+    const section = buildCompletedSourceReferenceSection({
+      exploredSteps: [
+        'Dismiss cookie overlay, then search "portátil" to reach results.',
+        'Apply Prime filter, then 4-star rating filter.',
+      ],
+      endUrl: 'https://www.example.com/s?k=port%C3%A1til',
+    });
+
+    assert.match(section, /semantic reference — do NOT reuse element_ids/);
+    assert.match(section, /end_url: https:\/\/www\.example\.com\/s\?k=port%C3%A1til/);
+    assert.match(section, /explored_steps:/);
+    assert.match(section, /1\. Dismiss cookie overlay, then search "portátil" to reach results\./);
+    assert.match(section, /2\. Apply Prime filter, then 4-star rating filter\./);
+    assert.doesNotMatch(section, /action_sequence/);
   });
 });

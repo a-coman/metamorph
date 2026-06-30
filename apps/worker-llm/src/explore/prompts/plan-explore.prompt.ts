@@ -1,4 +1,4 @@
-import type { MrIntent, PageSnapshotInventory, SlotStep } from '@metamorph/core';
+import type { MrIntent, PageSnapshotInventory } from '@metamorph/core';
 import type {
   ExplorePhase,
   ExploreSourceReference,
@@ -56,43 +56,20 @@ export function buildMrSummary(mrIntent: MrIntent): string {
   ].join('\n');
 }
 
-export function summarizeStepsForReference(steps: SlotStep[]): string[] {
-  return steps.map((step, index) => {
-    const prefix = `${index + 1}.`;
-
-    switch (step.action) {
-      case 'goto':
-        return `${prefix} goto ${step.url ?? '(url missing)'}`;
-      case 'click':
-        return `${prefix} click`;
-      case 'fill':
-        return `${prefix} fill${step.value !== undefined ? ` → ${JSON.stringify(step.value)}` : ''}`;
-      case 'selectOption':
-        return `${prefix} selectOption${step.value !== undefined ? ` → ${JSON.stringify(step.value)}` : ''}`;
-      case 'press':
-        return `${prefix} press ${step.key ?? 'Enter'}`;
-      case 'scroll':
-        return `${prefix} scroll`;
-      case 'waitFor':
-        return `${prefix} waitFor`;
-      default:
-        return `${prefix} ${step.action}`;
-    }
-  });
-}
-
 export function buildCompletedSourceReferenceSection(
   sourceReference: ExploreSourceReference,
 ): string {
-  const actionLines = summarizeStepsForReference(sourceReference.steps);
+  const exploredStepLines =
+    sourceReference.exploredSteps.length === 0
+      ? ['  (none recorded)']
+      : sourceReference.exploredSteps.map((step, index) => `  ${index + 1}. ${step}`);
 
   return [
-    'Completed source phase (reference only — do NOT reuse element_ids or locators from source):',
+    'Completed source phase (semantic reference — do NOT reuse element_ids):',
     '- status: completed',
     `- end_url: ${sourceReference.endUrl ?? 'null'}`,
-    '- action_sequence:',
-    ...actionLines.map((line) => `  ${line}`),
-    '- note: Map each action to a matching item in Current inventory; element_ids are reassigned every snapshot.',
+    '- explored_steps:',
+    ...exploredStepLines,
   ].join('\n');
 }
 
@@ -151,7 +128,7 @@ export function buildPlanExploreSystemPrompt(): string {
     '- When the phase goal names a control type (search box, filter chip, sort dropdown), pick the matching inventory item by role, name, or text — equivalents may differ across snapshots.',
     '- Each phase is an independent Playwright scenario replayed from the homepage with a new browser context.',
     '- Plan only toward the current phase goal; do not assume follow_up must copy or repeat source unless the follow_up phase goal explicitly requires it.',
-    '- When phase is follow_up, use the source action_sequence and end_url as semantic context for what source achieved; plan follow_up in concordance with the follow_up phase goal and MR summary.',
+    '- When phase is follow_up, use the source explored_steps and end_url as semantic context for what source achieved; plan follow_up in concordance with the follow_up phase goal and MR summary.',
     '- If the validated path in the current phase is empty, start with goto to the target URL when needed.',
     '- When the screenshot shows a cookie banner, modal, or overlay blocking the main UI, dismiss it before progressing toward the phase goal.',
     '- Do not repeat steps already present in the validated path unless the phase goal requires it.',
@@ -163,7 +140,7 @@ export function buildPlanExploreSystemPrompt(): string {
     '- After a probe failure, prefer append_steps with a different approach; use abort only when continuing is pointless.',
     '- Probe or checkpoint failure reverts the browser to the snapshot before the failed batch; validated batches in Exploration history stay committed — do not assume those steps were undone.',
     '- Backtrack semantics: only the live browser state rewinds. Validated batches and Exploration history keep every committed batch. After probe/checkpoint failure the first screenshot is the reverted current page; the optional second screenshot is the page immediately before the failed step.',
-    '- Keep rationale concise (about 500 characters max). Prioritize valid compact JSON with steps over long explanations.',
+    '- Keep rationale concise (about 500 characters max). Name concrete actions and values in rationale (search terms, filters, controls) so follow_up can reuse the same semantic decisions without element_ids.',
     '- Do not repeat batches listed under Errors in the user message.',
     '- If a batch committed overlay dismissal, plan the next sub-goal (e.g. fill destination, submit search) — do not dismiss the same overlays again.',
     '- element_ids from failed batches may not match Current inventory; always pick from Current inventory below.',

@@ -12,6 +12,7 @@ export type ExploreBatchRecord = {
   batch: number;
   steps: SlotStep[];
   outcome: ExploreBatchOutcome;
+  rationale?: string;
   error?: string;
   failedStep?: SlotStep;
   screenshotBeforeSnapshotId?: string;
@@ -78,6 +79,15 @@ export function finalizeLastPendingBatch(
   };
 
   return { ...log, [phase]: phaseLog };
+}
+
+export function collectCommittedExploredSteps(
+  log: ExploreBatchLog,
+  phase: ExplorePhase,
+): string[] {
+  return log[phase]
+    .filter((record) => record.outcome === 'committed' && record.rationale?.trim())
+    .map((record) => record.rationale!.trim());
 }
 
 export function findLatestProbeFailureScreenshotId(

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   appendBatchRecord,
+  collectCommittedExploredSteps,
   EMPTY_BATCH_LOG,
   finalizeLastPendingBatch,
   findLatestProbeFailureScreenshotId,
@@ -54,6 +55,38 @@ describe('batch-log', () => {
     });
 
     assert.equal(findLatestProbeFailureScreenshotId(log, 'source'), 'snap-b');
+  });
+
+  it('collects rationales from committed batches only, in order', () => {
+    let log = appendBatchRecord(EMPTY_BATCH_LOG, 'source', {
+      steps: [{ id: 1, action: 'click', element_id: 'E1' }],
+      outcome: 'committed',
+      rationale: 'Dismiss cookie overlay.',
+    });
+
+    log = appendBatchRecord(log, 'source', {
+      steps: [{ id: 2, action: 'fill', element_id: 'E2', value: 'laptop' }],
+      outcome: 'plan_rejected',
+      rationale: 'Rejected attempt',
+      error: 'bad fill',
+    });
+
+    log = appendBatchRecord(log, 'source', {
+      steps: [{ id: 2, action: 'fill', element_id: 'E2', value: 'portátil' }],
+      outcome: 'committed',
+      rationale: 'Search for portátil to reach results.',
+    });
+
+    log = appendBatchRecord(log, 'source', {
+      steps: [{ id: 3, action: 'click', element_id: 'E3' }],
+      outcome: 'probe_failed',
+      rationale: 'Failed filter click',
+    });
+
+    assert.deepEqual(collectCommittedExploredSteps(log, 'source'), [
+      'Dismiss cookie overlay.',
+      'Search for portátil to reach results.',
+    ]);
   });
 
   it('formats history, validated batches, and errors for the prompt', () => {

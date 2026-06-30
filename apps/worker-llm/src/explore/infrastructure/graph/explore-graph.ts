@@ -44,6 +44,7 @@ import {
 } from './explore-state.js';
 import {
   appendBatchRecord,
+  collectCommittedExploredSteps,
   EMPTY_BATCH_LOG,
   finalizeLastPendingBatch,
   findLatestProbeFailureScreenshotId,
@@ -181,7 +182,7 @@ async function resolveSourceReference(
   }
 
   return {
-    steps: state.validatedSteps.source,
+    exploredSteps: collectCommittedExploredSteps(state.batchLog ?? EMPTY_BATCH_LOG, 'source'),
     endUrl,
   };
 }
@@ -564,6 +565,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         batchLog: appendBatchRecord(state.batchLog ?? EMPTY_BATCH_LOG, state.phase, {
           steps: pendingProbeSteps,
           outcome: 'pending',
+          rationale: planOutput.rationale,
         }),
       };
     } catch (error) {

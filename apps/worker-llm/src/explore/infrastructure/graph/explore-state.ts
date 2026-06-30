@@ -14,7 +14,7 @@ export type { ExploreBatchLog, ExploreBatchRecord, ExploreBatchOutcome } from '.
 export type ExplorePhase = 'source' | 'follow_up';
 
 export type ExploreSourceReference = {
-  steps: SlotStep[];
+  exploredSteps: string[];
   endUrl?: string;
 };
 

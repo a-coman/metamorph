@@ -57,7 +57,7 @@ export function buildExploreVerifySystemPrompt(): string {
     '- Compare BEFORE and AFTER screenshots visually; use URL after probe as supporting evidence.',
     '- If the phase goal is already satisfied in AFTER, return goal_reached — not ok.',
     '- Do not return ok when the phase goal is already fully met in AFTER.',
-    '- When phase is follow_up, use the source action_sequence and end_url only as semantic context for what source achieved; judge follow_up against the follow_up phase goal.',
+    '- When phase is follow_up, use the source explored_steps and end_url only as semantic context for what source achieved; judge follow_up against the follow_up phase goal.',
     '- Do not require follow_up to mirror source step-by-step unless the follow_up phase goal explicitly requires it.',
     '- Cookie banners, modals, or overlays dismissed during the batch count as progress if they unblock movement toward the goal.',
     '- Return fail when AFTER shows an error page, login wall, captcha, or clearly wrong state with no progress.',
