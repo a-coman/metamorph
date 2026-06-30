@@ -182,6 +182,7 @@ export class ExploreOpenRouterClient {
     validatedSteps: { source: unknown[]; follow_up: unknown[] };
     sourceReference?: ExploreSourceReference;
     executedSteps: unknown[];
+    batchRationale?: string;
     screenshotBeforeBase64: string;
     screenshotAfterBase64: string;
     probeError?: string;

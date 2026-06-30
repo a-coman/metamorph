@@ -104,6 +104,24 @@ export function findLatestProbeFailureScreenshotId(
   return undefined;
 }
 
+export function getLastPendingBatchRationale(
+  log: ExploreBatchLog,
+  phase: ExplorePhase,
+): string | undefined {
+  const phaseLog = log[phase];
+  if (phaseLog.length === 0) {
+    return undefined;
+  }
+
+  const last = phaseLog[phaseLog.length - 1]!;
+  if (last.outcome !== 'pending') {
+    return undefined;
+  }
+
+  const rationale = last.rationale?.trim();
+  return rationale && rationale.length > 0 ? rationale : undefined;
+}
+
 export function formatStepLine(step: SlotStep): string {
   const parts: string[] = [step.action];
 
@@ -129,81 +147,104 @@ export function formatStepLine(step: SlotStep): string {
   return parts.join(' ');
 }
 
-const OUTCOME_LABELS: Record<ExploreBatchOutcome, string> = {
-  pending: 'pending',
-  committed: 'committed',
-  checkpoint_failed: 'checkpoint_failed',
-  probe_failed: 'probe_failed',
-  plan_rejected: 'plan_rejected',
-};
+const UNCOMMITTED_OUTCOMES = new Set<ExploreBatchOutcome>([
+  'checkpoint_failed',
+  'probe_failed',
+  'plan_rejected',
+]);
+
+function formatBatchHeaderLabel(outcome: ExploreBatchOutcome): string {
+  if (outcome === 'committed' || outcome === 'pending') {
+    return `(${outcome})`;
+  }
+
+  return `(uncommitted — ${outcome})`;
+}
+
+function formatMultilineBulletContinuation(text: string): string[] {
+  const lines = text.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const [firstLine, ...continuationLines] = lines;
+  const bulletLines = [`  - ${firstLine}`];
+  for (const line of continuationLines) {
+    bulletLines.push(`    ${line}`);
+  }
+
+  return bulletLines;
+}
+
+function formatBatchRationaleLines(record: ExploreBatchRecord): string[] {
+  const rationale = record.rationale?.trim();
+  if (!rationale) {
+    return [];
+  }
+
+  return ['  rationale:', ...formatMultilineBulletContinuation(rationale)];
+}
+
+function formatBatchStepsLines(record: ExploreBatchRecord): string[] {
+  const stepLines = ['  steps:'];
+
+  if (record.steps.length === 0) {
+    stepLines.push('  - (no steps)');
+  } else {
+    for (const step of record.steps) {
+      stepLines.push(`  - ${formatStepLine(step)}`);
+    }
+  }
+
+  return stepLines;
+}
+
+function formatBatchErrorsLines(record: ExploreBatchRecord): string[] {
+  if (!UNCOMMITTED_OUTCOMES.has(record.outcome)) {
+    return [];
+  }
+
+  if (!record.error && !record.failedStep) {
+    return [];
+  }
+
+  const errorLines: string[] = ['  errors:'];
+
+  if (record.failedStep) {
+    errorLines.push(`  - failed step: ${formatStepLine(record.failedStep)}`);
+    if (record.error) {
+      for (const line of record.error.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)) {
+        errorLines.push(`    ${line}`);
+      }
+    }
+  } else if (record.error) {
+    errorLines.push(...formatMultilineBulletContinuation(record.error));
+  }
+
+  return errorLines;
+}
 
 export function formatBatchLogForPrompt(
   batchLog: ExploreBatchLog,
   phase: ExplorePhase,
 ): {
   historySection: string;
-  validatedSection: string;
-  errorsSection: string;
   latestProbeFailureBatch?: number;
 } {
   const records = batchLog[phase].slice(-MAX_BATCH_LOG_ENTRIES);
 
   const historyLines = ['Exploration history (all batches in this phase):'];
+  let latestProbeFailureBatch: number | undefined;
+
   if (records.length === 0) {
     historyLines.push('(none yet)');
   } else {
     for (const record of records) {
-      historyLines.push(`Batch ${record.batch} (${OUTCOME_LABELS[record.outcome]}):`);
-      if (record.steps.length === 0) {
-        historyLines.push('- (no steps)');
-      } else {
-        for (const step of record.steps) {
-          historyLines.push(`- ${formatStepLine(step)}`);
-        }
-      }
-    }
-  }
+      historyLines.push(`Batch ${record.batch} ${formatBatchHeaderLabel(record.outcome)}:`);
+      historyLines.push(...formatBatchRationaleLines(record));
+      historyLines.push(...formatBatchStepsLines(record));
+      historyLines.push(...formatBatchErrorsLines(record));
 
-  const committed = records.filter((record) => record.outcome === 'committed');
-  const validatedLines = ['Validated batches (committed only):'];
-  if (committed.length === 0) {
-    validatedLines.push('(none yet)');
-  } else {
-    for (const record of committed) {
-      validatedLines.push(`Batch ${record.batch}:`);
-      for (const step of record.steps) {
-        validatedLines.push(`- ${formatStepLine(step)}`);
-      }
-    }
-  }
-
-  const failed = records.filter(
-    (record) =>
-      record.outcome === 'checkpoint_failed' ||
-      record.outcome === 'probe_failed' ||
-      record.outcome === 'plan_rejected',
-  );
-
-  let latestProbeFailureBatch: number | undefined;
-  const errorLines = ['Errors (do not repeat these failed approaches):'];
-  if (failed.length === 0) {
-    errorLines.push('(none yet)');
-  } else {
-    for (const record of failed) {
-      const label =
-        record.outcome === 'checkpoint_failed'
-          ? 'Checkpoint failed'
-          : record.outcome === 'probe_failed'
-            ? 'Probe failed'
-            : 'Plan rejected';
-
-      errorLines.push(`Batch ${record.batch} — ${label}:`);
-      if (record.error) {
-        errorLines.push(`- ${record.error}`);
-      }
-      if (record.failedStep) {
-        errorLines.push(`- failed step: ${formatStepLine(record.failedStep)}`);
-      }
       if (record.outcome === 'probe_failed') {
         latestProbeFailureBatch = record.batch;
       }
@@ -212,8 +253,6 @@ export function formatBatchLogForPrompt(
 
   return {
     historySection: historyLines.join('\n'),
-    validatedSection: validatedLines.join('\n'),
-    errorsSection: errorLines.join('\n'),
     latestProbeFailureBatch,
   };
 }

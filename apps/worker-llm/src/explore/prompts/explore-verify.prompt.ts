@@ -54,6 +54,7 @@ export function buildExploreVerifySystemPrompt(): string {
     '- Your rationale MUST match your verdict: if you describe progress made, verdict MUST be ok or goal_reached, never fail.',
     '- Every enum field must use exactly one of the allowed values above; do not invent new values.',
     '- Judge primarily against the current phase goal in the user message, using the MR summary for metamorphic intent.',
+    '- When a planner rationale is present, use it to understand the intended sub-goal for this batch; judge whether BEFORE→AFTER shows that intent was achieved or advanced.',
     '- Compare BEFORE and AFTER screenshots visually; use URL after probe as supporting evidence.',
     '- If the phase goal is already satisfied in AFTER, return goal_reached — not ok.',
     '- Do not return ok when the phase goal is already fully met in AFTER.',
@@ -76,6 +77,7 @@ export function buildExploreVerifyUserText(input: {
   validatedSteps: { source: unknown[]; follow_up: unknown[] };
   sourceReference?: ExploreSourceReference;
   executedSteps: unknown[];
+  batchRationale?: string;
   probeError?: string;
 }): string {
   const phaseGoal =
@@ -98,6 +100,14 @@ export function buildExploreVerifyUserText(input: {
 
   if (input.phase === 'follow_up' && input.sourceReference) {
     lines.push('', buildCompletedSourceReferenceSection(input.sourceReference));
+  }
+
+  if (input.batchRationale) {
+    lines.push(
+      '',
+      'Planner rationale (intended sub-goal for this batch):',
+      input.batchRationale,
+    );
   }
 
   lines.push(

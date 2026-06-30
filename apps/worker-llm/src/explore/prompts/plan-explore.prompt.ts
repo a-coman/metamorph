@@ -129,22 +129,22 @@ export function buildPlanExploreSystemPrompt(): string {
     '- Each phase is an independent Playwright scenario replayed from the homepage with a new browser context.',
     '- Plan only toward the current phase goal; do not assume follow_up must copy or repeat source unless the follow_up phase goal explicitly requires it.',
     '- When phase is follow_up, use the source explored_steps and end_url as semantic context for what source achieved; plan follow_up in concordance with the follow_up phase goal and MR summary.',
-    '- If the validated path in the current phase is empty, start with goto to the target URL when needed.',
+    '- If no committed batches exist in Exploration history for the current phase, start with goto to the target URL when needed.',
     '- When the screenshot shows a cookie banner, modal, or overlay blocking the main UI, dismiss it before progressing toward the phase goal.',
-    '- Do not repeat steps already present in the validated path unless the phase goal requires it.',
+    '- Do not repeat steps from committed batches in Exploration history unless the phase goal requires it.',
     '- Prefer fill + press Enter for search boxes over ambiguous clicks.',
     '- Goals must be achievable without login; avoid account walls, checkout, and captcha flows.',
     '- Return action=scenario_complete when the phase goal is already satisfied in the screenshot.',
     '- Return action=abort when the phase goal cannot be achieved on this page (impossible MR, unrecoverable auth/captcha, or no viable path after probe failures). This ends exploration immediately.',
     '- Do NOT use abort for dismissible cookies or modals, or recoverable steps — plan append_steps to continue instead.',
     '- After a probe failure, prefer append_steps with a different approach; use abort only when continuing is pointless.',
-    '- Probe or checkpoint failure reverts the browser to the snapshot before the failed batch; validated batches in Exploration history stay committed — do not assume those steps were undone.',
-    '- Backtrack semantics: only the live browser state rewinds. Validated batches and Exploration history keep every committed batch. After probe/checkpoint failure the first screenshot is the reverted current page; the optional second screenshot is the page immediately before the failed step.',
+    '- Probe or checkpoint failure reverts the browser to the snapshot before the failed batch; committed batches in Exploration history stay committed — do not assume those steps were undone.',
+    '- Backtrack semantics: only the live browser state rewinds. Exploration history keeps every committed batch. After probe/checkpoint failure the first screenshot is the reverted current page; the optional second screenshot is the page immediately before the failed step.',
     '- Keep rationale concise (about 500 characters max). Name concrete actions and values in rationale (search terms, filters, controls) so follow_up can reuse the same semantic decisions without element_ids.',
-    '- Do not repeat batches listed under Errors in the user message.',
+    '- Do not repeat uncommitted batches or their failed approaches in Exploration history.',
     '- If a batch committed overlay dismissal, plan the next sub-goal (e.g. fill destination, submit search) — do not dismiss the same overlays again.',
     '- element_ids from failed batches may not match Current inventory; always pick from Current inventory below.',
-    '- After a probe failure, read Errors and the second screenshot (if present).',
+    '- After a probe failure, read the errors under that batch in Exploration history and the second screenshot (if present).',
     '- The second screenshot (raw, no labels) shows the page immediately BEFORE the latest probe failure; use Current inventory for step targets on the first annotated screenshot.',
     '- The annotated screenshot and Current inventory are the source of truth for element_id selection; not every inventory item has a visible on-image label.',
     'Examples (plan 1, 2, or 3 steps per batch):',
@@ -175,7 +175,7 @@ export function buildPlanExploreUserText(input: {
       ? input.mrIntent.exploration.source_phase_goal
       : input.mrIntent.exploration.follow_up_phase_goal;
 
-  const { historySection, validatedSection, errorsSection, latestProbeFailureBatch } =
+  const { historySection, latestProbeFailureBatch } =
     formatBatchLogForPrompt(input.batchLog, input.phase);
 
   const lines = [
@@ -187,8 +187,6 @@ export function buildPlanExploreUserText(input: {
     buildMrSummary(input.mrIntent),
     '',
     historySection,
-    '',
-    validatedSection,
   ];
 
   if (input.phase === 'follow_up' && input.sourceReference) {
@@ -211,7 +209,6 @@ export function buildPlanExploreUserText(input: {
   }
 
   lines.push('', buildEnrichedInventorySection(input.inventory));
-  lines.push('', errorsSection);
 
   lines.push(
     '',

@@ -69,7 +69,7 @@ const batchLog: ExploreBatchLog = {
 };
 
 describe('buildPlanExploreUserText batch log', () => {
-  it('includes exploration history, validated batches, and all errors', () => {
+  it('includes unified exploration history with inline errors', () => {
     const text = buildPlanExploreUserText({
       url: 'https://www.example.com/',
       phase: 'source',
@@ -81,13 +81,17 @@ describe('buildPlanExploreUserText batch log', () => {
 
     assert.match(text, /Exploration history/);
     assert.match(text, /Batch 1 \(committed\)/);
-    assert.match(text, /Validated batches/);
-    assert.match(text, /Batch 2 — Probe failed/);
+    assert.match(text, /steps:/);
+    assert.match(text, /Batch 2 \(uncommitted — probe_failed\)/);
+    assert.match(text, /errors:/);
+    assert.match(text, /- failed step: click element_id=E1/);
     assert.match(text, /Timeout waiting for locator/);
-    assert.match(text, /Batch 3 — Plan rejected/);
+    assert.match(text, /Batch 3 \(uncommitted — plan_rejected\)/);
     assert.match(text, /fill not allowed on E46/);
     assert.match(text, /1\. Current annotated screenshot/);
     assert.match(text, /2\. Probe failure context \(Batch 2\)/);
+    assert.doesNotMatch(text, /Validated batches/);
+    assert.doesNotMatch(text, /Errors \(do not repeat/);
     assert.doesNotMatch(text, /Last probe failure:/);
   });
 
@@ -103,7 +107,7 @@ describe('buildPlanExploreUserText batch log', () => {
     assert.match(text, /Attached: annotated screenshot/);
     assert.match(text, /Current inventory \(concrete UI instances for this snapshot — use ONLY these element_ids in steps\):/);
     assert.doesNotMatch(text, /Page structure/);
-    assert.match(text, /Errors \(do not repeat these failed approaches\):/);
+    assert.match(text, /Exploration history \(all batches in this phase\):/);
     assert.match(text, /\(none yet\)/);
   });
 

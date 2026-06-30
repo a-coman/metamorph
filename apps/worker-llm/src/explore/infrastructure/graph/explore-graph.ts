@@ -49,6 +49,7 @@ import {
   finalizeLastPendingBatch,
   findLatestProbeFailureScreenshotId,
   formatBatchLogForPrompt,
+  getLastPendingBatchRationale,
 } from './batch-log.js';
 
 export type ExploreGraphDeps = {
@@ -736,6 +737,10 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
             validatedSteps: state.validatedSteps,
             sourceReference,
             executedSteps: state.lastExecutedSteps,
+            batchRationale: getLastPendingBatchRationale(
+              state.batchLog ?? EMPTY_BATCH_LOG,
+              state.phase,
+            ),
             screenshotBeforeBase64: screenshotBefore,
             screenshotAfterBase64: screenshotAfter,
             probeError: state.probeError,
