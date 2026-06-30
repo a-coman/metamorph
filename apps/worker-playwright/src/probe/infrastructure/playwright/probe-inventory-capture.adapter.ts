@@ -79,6 +79,7 @@ export class ProbeInventoryCaptureAdapter {
             screenshotBeforeStep = await captureRawScreenshot(page);
           } catch (stepError) {
             traceZip = await this.exportTrace(context, jobId, tracingStarted);
+            tracingStarted = false;
             const partialInventory = await this.tryScanCurrentPage(page);
             const message =
               stepError instanceof Error ? stepError.message : 'Unknown probe capture error';
@@ -98,8 +99,10 @@ export class ProbeInventoryCaptureAdapter {
 
         await stabilizePage(page);
 
-        const pageInventory = await this.scanCurrentPage(page);
         traceZip = await this.exportTrace(context, jobId, tracingStarted);
+        tracingStarted = false;
+
+        const pageInventory = await this.scanCurrentPage(page);
 
         return { inventory: pageInventory, traceZip };
       } catch (stepError) {
@@ -107,7 +110,10 @@ export class ProbeInventoryCaptureAdapter {
           throw stepError;
         }
 
-        traceZip = await this.exportTrace(context, jobId, tracingStarted);
+        if (traceZip === null) {
+          traceZip = await this.exportTrace(context, jobId, tracingStarted);
+        }
+        tracingStarted = false;
         const partialInventory = await this.tryScanCurrentPage(page);
         const message =
           stepError instanceof Error ? stepError.message : 'Unknown probe capture error';
@@ -119,7 +125,9 @@ export class ProbeInventoryCaptureAdapter {
       }
     } catch (error) {
       if (!(error instanceof ProbeInventoryCaptureError)) {
-        traceZip = await this.exportTrace(context, jobId, tracingStarted);
+        if (traceZip === null) {
+          traceZip = await this.exportTrace(context, jobId, tracingStarted);
+        }
         const message =
           error instanceof Error ? error.message : 'Unknown probe capture error';
 
