@@ -6,6 +6,7 @@ import {
   GOTO_WAIT_UNTIL,
   isComboboxInventoryItem,
   LOAD_STATE_TIMEOUT_MS,
+  NETWORK_IDLE_LOAD_TIMEOUT_MS,
   NETWORK_IDLE_WAIT_UNTIL,
   POST_ACTION_SETTLE_MS,
   resolveInventoryItemTarget,
@@ -73,9 +74,6 @@ export class ProbeInventoryCaptureAdapter {
 
           try {
             await this.executeStep(page, step, inventory);
-            if (shouldStabilizeAfterAction(step.action)) {
-              await stabilizePage(page);
-            }
             screenshotBeforeStep = await captureRawScreenshot(page);
           } catch (stepError) {
             traceZip = await this.exportTrace(context, jobId, tracingStarted);
@@ -245,7 +243,7 @@ async function stabilizePage(page: Page): Promise<void> {
     .waitForLoadState(GOTO_WAIT_UNTIL, { timeout: LOAD_STATE_TIMEOUT_MS })
     .catch(() => undefined);
   await page
-    .waitForLoadState(NETWORK_IDLE_WAIT_UNTIL, { timeout: LOAD_STATE_TIMEOUT_MS })
+    .waitForLoadState(NETWORK_IDLE_WAIT_UNTIL, { timeout: NETWORK_IDLE_LOAD_TIMEOUT_MS })
     .catch(() => undefined);
   await page.waitForTimeout(POST_ACTION_SETTLE_MS);
 }
