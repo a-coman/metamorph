@@ -2,7 +2,7 @@ import type { SessionMrVersionSummaryDto } from '@metamorph/api-client';
 
 export const FAMILY_ORDER = [
   'idempotence',
-  'inclusion',
+  'subset',
   'permutation',
   'inverse',
 ] as const;

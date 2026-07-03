@@ -10,16 +10,16 @@ describe('resolveSessionTransformFamilies', () => {
   });
 
   it('returns only the selected families', () => {
-    assert.deepEqual(resolveSessionTransformFamilies(['inclusion']), ['inclusion']);
-    assert.deepEqual(resolveSessionTransformFamilies(['inclusion', 'inverse']), [
-      'inclusion',
+    assert.deepEqual(resolveSessionTransformFamilies(['subset']), ['subset']);
+    assert.deepEqual(resolveSessionTransformFamilies(['subset', 'inverse']), [
+      'subset',
       'inverse',
     ]);
   });
 
   it('filters unknown families', () => {
-    assert.deepEqual(resolveSessionTransformFamilies(['inclusion', 'unknown']), [
-      'inclusion',
+    assert.deepEqual(resolveSessionTransformFamilies(['subset', 'unknown']), [
+      'subset',
     ]);
   });
 });
@@ -28,7 +28,7 @@ describe('TRANSFORM_FAMILIES fan-out contract', () => {
   it('defines four explore families', () => {
     assert.deepEqual(TRANSFORM_FAMILIES, [
       'idempotence',
-      'inclusion',
+      'subset',
       'permutation',
       'inverse',
     ]);

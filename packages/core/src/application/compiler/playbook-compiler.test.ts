@@ -89,7 +89,7 @@ describe('compilePlaybook with observation anchors', () => {
       {
         precondition: { description: 'pre' },
         transformation: {
-          transform_family: 'inclusion',
+          transform_family: 'subset',
           description: 'filter',
         },
         relation: {

@@ -29,11 +29,11 @@ const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
         'From homepage (fresh context): dismiss cookies if needed, rebuild the same search path to reach /s?k=laptop, then repeat the search submit once.',
     },
   },
-  inclusion: {
+  subset: {
     mr_definition: {
       precondition: { description: 'User on Amazon homepage' },
       transformation: {
-        transform_family: 'inclusion',
+        transform_family: 'subset',
         description: 'Apply an additional filter on laptop results',
       },
       relation: {

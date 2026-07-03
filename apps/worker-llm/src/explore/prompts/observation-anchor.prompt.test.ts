@@ -39,7 +39,7 @@ describe('buildObservationAnchorUserText', () => {
         mr_definition: {
           precondition: { description: 'pre' },
           transformation: {
-            transform_family: 'inclusion',
+            transform_family: 'subset',
             description: 'filter results',
           },
           relation: {

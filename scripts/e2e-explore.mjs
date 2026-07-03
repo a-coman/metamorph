@@ -4,7 +4,7 @@
  */
 const API = process.env.API ?? 'http://localhost:3001';
 const URL = process.env.E2E_URL ?? 'https://www.amazon.es/';
-const EXPECTED_FAMILIES = ['idempotence', 'inclusion', 'permutation', 'inverse'];
+const EXPECTED_FAMILIES = ['idempotence', 'subset', 'permutation', 'inverse'];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -66,8 +66,8 @@ async function assertPlaybookSmoke(mrVersionId, transformFamily) {
   assert(playbook.includes("test('follow_up'"), "playbook missing follow_up test");
   assert(playbook.includes('extractObservation'), 'playbook missing observation extract');
 
-  if (transformFamily === 'inclusion') {
-    assert(playbook.includes('reported_total_results'), 'inclusion playbook missing reported_total_results');
+  if (transformFamily === 'subset') {
+    assert(playbook.includes('reported_total_results'), 'subset playbook missing reported_total_results');
   }
 
   return playbook;

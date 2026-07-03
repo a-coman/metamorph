@@ -10,19 +10,19 @@ describe('mr-versions', () => {
     const sorted = sortMrVersionsByFamily([
       { id: '4', status: 'exploring', transformFamily: 'inverse' },
       { id: '1', status: 'exploring', transformFamily: 'idempotence' },
-      { id: '2', status: 'exploring', transformFamily: 'inclusion' },
+      { id: '2', status: 'exploring', transformFamily: 'subset' },
     ]);
 
     assert.deepEqual(
       sorted.map((mr) => mr.transformFamily),
-      ['idempotence', 'inclusion', 'inverse'],
+      ['idempotence', 'subset', 'inverse'],
     );
   });
 
   it('aggregates exploring status when any MR is exploring', () => {
     const aggregate = aggregateMrPipelineStatus([
       { id: '1', status: 'draft_pending_hitl', transformFamily: 'idempotence' },
-      { id: '2', status: 'exploring', transformFamily: 'inclusion' },
+      { id: '2', status: 'exploring', transformFamily: 'subset' },
     ]);
 
     assert.equal(aggregate?.id, '2');

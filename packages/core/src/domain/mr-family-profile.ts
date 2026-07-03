@@ -3,7 +3,7 @@ import type { ObservationCatalogField } from './schemas/observation-catalog.sche
 
 export const TRANSFORM_FAMILIES = [
   'idempotence',
-  'inclusion',
+  'subset',
   'permutation',
   'inverse',
 ] as const;
@@ -26,8 +26,8 @@ const FAMILY_PROFILES: Record<TransformFamily, FamilyProfile> = {
     relationType: 'equal',
     observationFields: ['applied_query', 'results_url'],
   },
-  inclusion: {
-    transformFamily: 'inclusion',
+  subset: {
+    transformFamily: 'subset',
     relationType: 'cardinality_lte',
     observationFields: ['applied_query', 'reported_total_results'],
   },

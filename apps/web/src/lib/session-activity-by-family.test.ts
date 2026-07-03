@@ -266,13 +266,13 @@ describe('buildFamilyDisplayBuckets', () => {
     const buckets = buildFamilyDisplayBuckets(
       emptyState,
       [],
-      ['permutation', 'idempotence', 'inclusion'],
+      ['permutation', 'idempotence', 'subset'],
     );
 
     assert.equal(buckets.length, 3);
     assert.deepEqual(
       buckets.map((bucket) => bucket.family),
-      ['idempotence', 'inclusion', 'permutation'],
+      ['idempotence', 'subset', 'permutation'],
     );
     assert.ok(buckets.every((bucket) => bucket.isPending));
     assert.ok(buckets.every((bucket) => bucket.status === 'queued'));
@@ -284,14 +284,14 @@ describe('buildFamilyDisplayBuckets', () => {
     const buckets = buildFamilyDisplayBuckets(
       emptyState,
       [{ id: 'mr-idem', status: 'exploring', transformFamily: 'idempotence' }],
-      ['idempotence', 'inclusion'],
+      ['idempotence', 'subset'],
     );
 
     assert.equal(buckets.length, 2);
     assert.equal(buckets[0]?.family, 'idempotence');
     assert.equal(buckets[0]?.mrVersionId, 'mr-idem');
     assert.equal(buckets[0]?.isPending, undefined);
-    assert.equal(buckets[1]?.family, 'inclusion');
+    assert.equal(buckets[1]?.family, 'subset');
     assert.equal(buckets[1]?.isPending, true);
   });
 });
@@ -306,23 +306,23 @@ describe('resolveDefaultActivitySelection with transformFamilies', () => {
 
 describe('syncActivitySelection with transformFamilies', () => {
   it('keeps pending family selection valid across re-renders', () => {
-    const current = { kind: 'family' as const, family: 'inclusion' };
-    const synced = syncActivitySelection(current, [], ['inclusion', 'idempotence']);
+    const current = { kind: 'family' as const, family: 'subset' };
+    const synced = syncActivitySelection(current, [], ['subset', 'idempotence']);
 
     assert.deepEqual(synced, current);
   });
 
   it('upgrades pending selection when mrVersion arrives', () => {
-    const current = { kind: 'family' as const, family: 'inclusion' };
+    const current = { kind: 'family' as const, family: 'subset' };
     const synced = syncActivitySelection(
       current,
-      [{ id: 'mr-inc', status: 'exploring', transformFamily: 'inclusion' }],
-      ['inclusion'],
+      [{ id: 'mr-inc', status: 'exploring', transformFamily: 'subset' }],
+      ['subset'],
     );
 
     assert.deepEqual(synced, {
       kind: 'family',
-      family: 'inclusion',
+      family: 'subset',
       mrVersionId: 'mr-inc',
     });
   });

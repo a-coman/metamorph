@@ -15,12 +15,12 @@ import {
 describe('mr-family-profile', () => {
   it('exposes four transform families', () => {
     assert.equal(TRANSFORM_FAMILIES.length, 4);
-    assert.ok(isTransformFamily('inclusion'));
+    assert.ok(isTransformFamily('subset'));
     assert.equal(isTransformFamily('unknown'), false);
   });
 
   it('applyFamilyProfile forces relation fields per family', () => {
-    const profile = getFamilyProfile('inclusion');
+    const profile = getFamilyProfile('subset');
     assert.equal(profile.relationType, 'cardinality_lte');
     assert.deepEqual(profile.observationFields, [
       'applied_query',
@@ -40,10 +40,10 @@ describe('mr-family-profile', () => {
           description: 'rel',
         },
       },
-      'inclusion',
+      'subset',
     );
 
-    assert.equal(applied.transformation.transform_family, 'inclusion');
+    assert.equal(applied.transformation.transform_family, 'subset');
     assert.equal(applied.relation.type, 'cardinality_lte');
     assert.deepEqual(applied.relation.on, ['applied_query', 'reported_total_results']);
   });
@@ -67,7 +67,7 @@ describe('evaluateMr', () => {
   const baseMr = {
     precondition: { description: 'pre' },
     transformation: {
-      transform_family: 'inclusion' as const,
+      transform_family: 'subset' as const,
       description: 'add filter',
     },
     relation: {

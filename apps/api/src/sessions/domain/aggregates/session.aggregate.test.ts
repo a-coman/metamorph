@@ -15,22 +15,22 @@ describe('SessionAggregate.create', () => {
   it('stores the selected transformFamilies', () => {
     const result = SessionAggregate.create({
       url: 'https://example.com',
-      transformFamilies: ['inclusion', 'inverse'],
+      transformFamilies: ['subset', 'inverse'],
     });
     assert.equal(result.isRight(), true);
     if (result.isRight()) {
-      assert.deepEqual(result.value.transformFamilies, ['inclusion', 'inverse']);
+      assert.deepEqual(result.value.transformFamilies, ['subset', 'inverse']);
     }
   });
 
   it('deduplicates transformFamilies', () => {
     const result = SessionAggregate.create({
       url: 'https://example.com',
-      transformFamilies: ['inclusion', 'inclusion'],
+      transformFamilies: ['subset', 'subset'],
     });
     assert.equal(result.isRight(), true);
     if (result.isRight()) {
-      assert.deepEqual(result.value.transformFamilies, ['inclusion']);
+      assert.deepEqual(result.value.transformFamilies, ['subset']);
     }
   });
 });

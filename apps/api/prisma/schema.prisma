@@ -98,7 +98,7 @@ model Session {
   mode                   SessionMode          @default(hitl)
   generateCount          Int                  @default(1) @map("generate_count")
   weakOracle             Boolean              @default(false) @map("weak_oracle")
-  transformFamilies      String[]             @default(["idempotence", "inclusion", "permutation", "inverse"]) @map("transform_families")
+  transformFamilies      String[]             @default(["idempotence", "subset", "permutation", "inverse"]) @map("transform_families")
   /// Optional user-provided MR definition JSON (skip discover LLM propose step)
   userMrJson             Json?                @map("user_mr_json")
   controlStatus          SessionControlStatus @default(active) @map("control_status")

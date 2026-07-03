@@ -25,9 +25,9 @@ export class ExplorationPrismaRepository {
               description: 'Pending exploration',
             },
             relation: {
-              type: input.transformFamily === 'inclusion' ? 'cardinality_lte' : 'equal',
+              type: input.transformFamily === 'subset' ? 'cardinality_lte' : 'equal',
               on:
-                input.transformFamily === 'inclusion'
+                input.transformFamily === 'subset'
                   ? ['applied_query', 'reported_total_results']
                   : ['applied_query', 'results_url'],
               description: 'Pending',

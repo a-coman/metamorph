@@ -19,7 +19,7 @@ export const TRANSFORM_FAMILY_SEMANTICS: Record<TransformFamily, string> = {
     'source_phase_goal: from a fresh context, reach P. ' +
     'follow_up_phase_goal: from another fresh context, rebuild the path to P, then apply the transformation once more. ' +
     'follow_up is NOT merely re-running the same scenario as source — it must include the extra transformation step after reaching P.',
-  inclusion:
+  subset:
     'From a base results state P (source), apply an additional filter or restriction in follow_up. ' +
     'The total result count reported by the site (result info label) should not increase. ' +
     'source_phase_goal: from a fresh context, reach unfiltered search results P with a visible results summary label. ' +

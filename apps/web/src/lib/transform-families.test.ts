@@ -28,7 +28,7 @@ describe('session create category selection', () => {
   it('requires at least one selected family before submit', () => {
     const canSubmit = (families: string[]) => families.length > 0;
     assert.equal(canSubmit([]), false);
-    assert.equal(canSubmit(['inclusion']), true);
+    assert.equal(canSubmit(['subset']), true);
     assert.equal(canSubmit([...ALL_TRANSFORM_FAMILIES]), true);
   });
 });

@@ -1115,7 +1115,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   async function observationAnchorNode(state: State): Promise<Partial<State>> {
     await checkUserPause(state.sessionId);
 
-    if (state.failed || state.transformFamily !== 'inclusion' || state.observationAnchors) {
+    if (state.failed || state.transformFamily !== 'subset' || state.observationAnchors) {
       return {};
     }
 
@@ -1283,12 +1283,12 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     }
 
     if (
-      state.transformFamily === 'inclusion' &&
+      state.transformFamily === 'subset' &&
       !state.observationAnchors?.reported_total_results
     ) {
       return {
         failed: true,
-        failureReason: 'Missing observation anchor for inclusion MR compile',
+        failureReason: 'Missing observation anchor for subset MR compile',
       };
     }
 
@@ -1385,7 +1385,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
     if (
       state.phase === 'source' &&
-      state.transformFamily === 'inclusion' &&
+      state.transformFamily === 'subset' &&
       !state.observationAnchors
     ) {
       return 'observation_anchor';

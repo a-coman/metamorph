@@ -6,7 +6,7 @@ import {
 export const exploreJobPayloadSchema = z.object({
   url: z.url(),
   transform_family: z
-    .enum(['idempotence', 'inclusion', 'permutation', 'inverse'])
+    .enum(['idempotence', 'subset', 'permutation', 'inverse'])
     .optional(),
 });
 
@@ -60,7 +60,7 @@ export type LlmJobMessage = z.infer<typeof llmJobMessageSchema>;
 export const exploreJobDbPayloadSchema = z.object({
   page_snapshot_id: z.string().uuid(),
   parent_discover_job_id: z.string().uuid().optional(),
-  transform_family: z.enum(['idempotence', 'inclusion', 'permutation', 'inverse']),
+  transform_family: z.enum(['idempotence', 'subset', 'permutation', 'inverse']),
 });
 
 export type ExploreJobDbPayload = z.infer<typeof exploreJobDbPayloadSchema>;
