@@ -23,7 +23,6 @@ export type PageInventory = {
 };
 
 export type BuildPageInventoryOptions = {
-  waitAfterGotoMs?: number;
   waitAfterViewportMs?: number;
   maxCaptureHeight?: number;
   maxItems?: number;

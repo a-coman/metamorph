@@ -34,6 +34,8 @@ export {
   readPageMetrics,
 } from './infrastructure/playwright/prepare-viewport.js';
 
+export { stabilizePage } from './infrastructure/playwright/stabilize-page.js';
+
 
 export { evaluateLocatorChain } from './infrastructure/playwright/evaluate-locator-chain.js';
 

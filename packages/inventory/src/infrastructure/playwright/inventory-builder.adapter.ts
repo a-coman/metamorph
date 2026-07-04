@@ -9,12 +9,17 @@ import {
   DEFAULT_MAX_INVENTORY_ITEMS,
 } from './capture-defaults.js';
 import {
+  GOTO_WAIT_UNTIL,
+  shouldStabilizeAfterAction,
+} from '@metamorph/core';
+import {
   captureViewportScreenshot,
   prepareCaptureViewport,
 } from './prepare-viewport.js';
 import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
 import { scanObservationInventory } from './scan-observation-inventory.js';
 import { annotateAccessibilityTree } from './annotate-accessibility-tree.js';
+import { stabilizePage } from './stabilize-page.js';
 
 export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort {
   async buildFromPage(
@@ -23,17 +28,19 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
     options: BuildPageInventoryOptions = {},
   ): Promise<PageInventory> {
     const {
-      waitAfterGotoMs = 2000,
       waitAfterViewportMs = 500,
       maxCaptureHeight = DEFAULT_MAX_CAPTURE_HEIGHT,
       maxItems = DEFAULT_MAX_INVENTORY_ITEMS,
-      gotoWaitUntil = 'domcontentloaded',
+      gotoWaitUntil = GOTO_WAIT_UNTIL,
     } = options;
 
     await page.route(/\.(woff2?|ttf|otf|eot)(\?.*)?$/i, (route) => route.abort());
 
     await page.goto(url, { waitUntil: gotoWaitUntil });
-    await page.waitForTimeout(waitAfterGotoMs);
+    if (shouldStabilizeAfterAction('goto')) {
+      await stabilizePage(page);
+    }
+    await stabilizePage(page);
 
     const { pageMetrics, viewport } = await prepareCaptureViewport(
       page,

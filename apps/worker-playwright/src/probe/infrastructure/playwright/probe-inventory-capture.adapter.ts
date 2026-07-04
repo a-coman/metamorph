@@ -5,10 +5,6 @@ import { join } from 'node:path';
 import {
   GOTO_WAIT_UNTIL,
   resolveStepFillBehavior,
-  LOAD_STATE_TIMEOUT_MS,
-  NETWORK_IDLE_LOAD_TIMEOUT_MS,
-  NETWORK_IDLE_WAIT_UNTIL,
-  POST_ACTION_SETTLE_MS,
   resolveInventoryItemTargetCandidates,
   shouldStabilizeAfterAction,
   type InventoryItem,
@@ -22,6 +18,7 @@ import {
   fillWithAutocomplete,
   resolveUniqueTargetLocator,
   scanAndEnrichCurrentPage,
+  stabilizePage,
   type PageInventory,
 } from '@metamorph/inventory';
 import { ProbeInventoryCaptureError } from '../../domain/errors/probe-capture.errors.js';
@@ -236,16 +233,6 @@ export class ProbeInventoryCaptureAdapter {
       await stabilizePage(page);
     }
   }
-}
-
-async function stabilizePage(page: Page): Promise<void> {
-  await page
-    .waitForLoadState(GOTO_WAIT_UNTIL, { timeout: LOAD_STATE_TIMEOUT_MS })
-    .catch(() => undefined);
-  await page
-    .waitForLoadState(NETWORK_IDLE_WAIT_UNTIL, { timeout: NETWORK_IDLE_LOAD_TIMEOUT_MS })
-    .catch(() => undefined);
-  await page.waitForTimeout(POST_ACTION_SETTLE_MS);
 }
 
 /**
