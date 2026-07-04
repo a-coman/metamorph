@@ -102,8 +102,10 @@ export {
   FINAL_PAGE_STABILIZATION_CODE,
   isFillableInventoryItem,
   isComboboxInventoryItem,
+  resolveStepFillBehavior,
   renderFillCode,
   renderComboboxFillCode,
+  type FillBehavior,
 } from './application/compiler/step-execution-policy.js';
 
 export {

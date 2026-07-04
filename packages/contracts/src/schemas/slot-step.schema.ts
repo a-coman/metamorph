@@ -22,6 +22,7 @@ export const slotStepSchema = z.object({
   timeout_ms: z.number().int().positive().optional(),
   resolved_locator: z.string().optional(),
   resolved_selector: z.string().optional(),
+  fill_behavior: z.enum(['plain', 'autocomplete']).optional(),
 });
 
 export type SlotStepMessage = z.infer<typeof slotStepSchema>;

@@ -11,6 +11,7 @@ import {
   renderFillCode,
   renderComboboxFillCode,
   isComboboxInventoryItem,
+  resolveStepFillBehavior,
   renderGotoCode,
 } from './step-execution-policy.js';
 
@@ -37,13 +38,25 @@ export function resolveStepTargets(
 
     const item = itemMap.get(step.element_id);
     if (!item) {
+      if (step.action === 'fill') {
+        return { ...step, fill_behavior: 'plain' as const };
+      }
       return step;
     }
 
-    return applyResolvedTargetToStep(
+    const withTarget = applyResolvedTargetToStep(
       step,
       resolveInventoryItemTarget(item),
     );
+
+    if (step.action !== 'fill') {
+      return withTarget;
+    }
+
+    return {
+      ...withTarget,
+      fill_behavior: isComboboxInventoryItem(item) ? 'autocomplete' : 'plain',
+    };
   });
 }
 
@@ -132,8 +145,7 @@ function renderProbeStepCode(
 
     case 'fill': {
       const target = resolveTarget(step, itemMap);
-      const item = step.element_id ? itemMap.get(step.element_id) : undefined;
-      return item && isComboboxInventoryItem(item)
+      return resolveStepFillBehavior(step) === 'autocomplete'
         ? renderComboboxFillCode(target, step.value ?? '')
         : renderFillCode(target, step.value ?? '');
     }

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   GOTO_WAIT_UNTIL,
-  isComboboxInventoryItem,
+  resolveStepFillBehavior,
   LOAD_STATE_TIMEOUT_MS,
   NETWORK_IDLE_LOAD_TIMEOUT_MS,
   NETWORK_IDLE_WAIT_UNTIL,
@@ -198,9 +198,8 @@ export class ProbeInventoryCaptureAdapter {
       case 'fill': {
         const fillLocator = await resolveTarget(page, step, itemMap);
         const fillValue = step.value ?? '';
-        const item = step.element_id ? itemMap.get(step.element_id) : undefined;
 
-        if (item && isComboboxInventoryItem(item)) {
+        if (resolveStepFillBehavior(step) === 'autocomplete') {
           await fillWithAutocomplete(page, fillLocator, fillValue);
         } else {
           try {

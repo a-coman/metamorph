@@ -4,6 +4,7 @@ import type { InventoryItem } from '../../domain/schemas/page-snapshot.schema.js
 import {
   isComboboxInventoryItem,
   isFillableInventoryItem,
+  resolveStepFillBehavior,
 } from './step-execution-policy.js';
 
 function item(overrides: Partial<InventoryItem> & Pick<InventoryItem, 'tagName'>): InventoryItem {
@@ -52,5 +53,36 @@ describe('isComboboxInventoryItem', () => {
   it('includes custom combobox and searchbox', () => {
     assert.equal(isComboboxInventoryItem(item({ tagName: 'div', role: 'combobox' })), true);
     assert.equal(isComboboxInventoryItem(item({ tagName: 'input', role: 'searchbox' })), true);
+  });
+});
+
+describe('resolveStepFillBehavior', () => {
+  it('returns autocomplete when fill_behavior is autocomplete', () => {
+    assert.equal(
+      resolveStepFillBehavior({
+        id: 1,
+        action: 'fill',
+        fill_behavior: 'autocomplete',
+      }),
+      'autocomplete',
+    );
+  });
+
+  it('returns plain when fill_behavior is plain or unset', () => {
+    assert.equal(
+      resolveStepFillBehavior({
+        id: 1,
+        action: 'fill',
+        fill_behavior: 'plain',
+      }),
+      'plain',
+    );
+    assert.equal(
+      resolveStepFillBehavior({
+        id: 1,
+        action: 'fill',
+      }),
+      'plain',
+    );
   });
 });

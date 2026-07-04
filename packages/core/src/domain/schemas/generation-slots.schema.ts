@@ -29,6 +29,8 @@ export const SlotStepSchema = z.object({
   // shortIds (element_id) are reassigned per page.
   resolved_locator: z.string().optional(),
   resolved_selector: z.string().optional(),
+  // Set at target-resolution time from planning inventory; not LLM-authored.
+  fill_behavior: z.enum(['plain', 'autocomplete']).optional(),
 });
 
 export const ScenarioSlotsSchema = z.object({

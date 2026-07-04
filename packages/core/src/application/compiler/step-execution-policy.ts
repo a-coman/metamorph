@@ -1,5 +1,11 @@
-import type { SlotAction } from '../../domain/schemas/generation-slots.schema.js';
+import type { SlotAction, SlotStep } from '../../domain/schemas/generation-slots.schema.js';
 import type { InventoryItem } from '../../domain/schemas/page-snapshot.schema.js';
+
+export type FillBehavior = 'plain' | 'autocomplete';
+
+export function resolveStepFillBehavior(step: SlotStep): FillBehavior {
+  return step.fill_behavior === 'autocomplete' ? 'autocomplete' : 'plain';
+}
 
 const FILLABLE_TAGS = new Set(['input', 'textarea']);
 const FILLABLE_ROLES = new Set(['textbox', 'searchbox', 'combobox', 'spinbutton']);

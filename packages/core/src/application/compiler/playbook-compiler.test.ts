@@ -157,4 +157,68 @@ describe('compilePlaybook with observation anchors', () => {
 
     assert.match(compiled.playbookContent, /keyboard\.press\("Enter"\)/);
   });
+
+  it('uses fill_behavior on step instead of compile-time inventory for combobox fill', () => {
+    const initialSnapshotInventory: PageSnapshotInventory = {
+      url: 'https://www.renfe.com/es/es',
+      capturedAt: new Date().toISOString(),
+      pageMetrics: { width: 1280, height: 720 },
+      viewport: { width: 1280, height: 720 },
+      labeledCount: 1,
+      items: [
+        {
+          index: 0,
+          shortId: 'E12',
+          locator: 'getByRole("button", { name: "Configuración de cookies", exact: true })',
+          selector: '#onetrust-pc-btn-handler',
+          score: 75,
+          labelShown: true,
+          tagName: 'button',
+          id: 'onetrust-pc-btn-handler',
+          role: 'button',
+          name: 'Configuración de cookies',
+          ariaLabel: 'Configuración de cookies',
+          locatorMatchCount: 1,
+          selectorMatchCount: 1,
+        },
+      ],
+    };
+
+    const crossSnapshotSlots: GenerationSlots = {
+      source: {
+        steps: [
+          {
+            id: 1,
+            action: 'fill',
+            element_id: 'E12',
+            value: 'Madrid',
+            resolved_locator: 'getByRole("combobox", { name: "Origen", exact: true })',
+            fill_behavior: 'autocomplete',
+          },
+        ],
+      },
+      follow_up: { steps: [{ id: 1, action: 'press', key: 'Enter' }] },
+      observation: { fields: [] },
+    };
+
+    const compiled = compilePlaybook(
+      crossSnapshotSlots,
+      {
+        precondition: { description: 'pre' },
+        transformation: {
+          transform_family: 'idempotence',
+          description: 'search',
+        },
+        relation: {
+          type: 'equal',
+          on: ['url'],
+          description: 'same results',
+        },
+      },
+      initialSnapshotInventory,
+    );
+
+    assert.match(compiled.playbookContent, /getByRole\('option'/);
+    assert.match(compiled.playbookContent, /waitForTimeout\(400\)/);
+  });
 });

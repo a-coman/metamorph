@@ -222,4 +222,74 @@ describe('resolveStepTargets', () => {
     assert.equal(step.resolved_locator, undefined);
     assert.equal(step.resolved_selector, undefined);
   });
+
+  it('sets fill_behavior autocomplete for combobox fill steps', () => {
+    const [step] = resolveStepTargets(
+      [{ id: 1, action: 'fill', element_id: 'E12', value: 'Madrid' }],
+      {
+        url: 'https://www.renfe.com/es/es',
+        capturedAt: new Date().toISOString(),
+        pageMetrics: { width: 1280, height: 800 },
+        viewport: { width: 1280, height: 800 },
+        labeledCount: 1,
+        items: [
+          baseItem({
+            shortId: 'E12',
+            tagName: 'input',
+            role: 'combobox',
+            name: 'Origen',
+            locator: 'getByRole("combobox", { name: "Origen", exact: true })',
+            selector: '#origin',
+            locatorMatchCount: 1,
+            selectorMatchCount: 1,
+          }),
+        ],
+      },
+    );
+
+    assert.equal(step.fill_behavior, 'autocomplete');
+    assert.equal(step.resolved_locator, 'getByRole("combobox", { name: "Origen", exact: true })');
+  });
+
+  it('sets fill_behavior plain for textbox fill steps', () => {
+    const [step] = resolveStepTargets(
+      [{ id: 1, action: 'fill', element_id: 'E5', value: 'hello' }],
+      {
+        url: 'https://example.com/',
+        capturedAt: new Date().toISOString(),
+        pageMetrics: { width: 1280, height: 800 },
+        viewport: { width: 1280, height: 800 },
+        labeledCount: 1,
+        items: [
+          baseItem({
+            shortId: 'E5',
+            tagName: 'input',
+            role: 'textbox',
+            name: 'Email',
+            locator: 'getByRole("textbox", { name: "Email" })',
+            selector: '#email',
+            locatorMatchCount: 1,
+          }),
+        ],
+      },
+    );
+
+    assert.equal(step.fill_behavior, 'plain');
+  });
+
+  it('does not set fill_behavior on click steps', () => {
+    const [step] = resolveStepTargets(
+      [{ id: 1, action: 'click', element_id: 'E3' }],
+      {
+        url: 'https://www.amazon.es/',
+        capturedAt: new Date().toISOString(),
+        pageMetrics: { width: 1280, height: 800 },
+        viewport: { width: 1280, height: 800 },
+        labeledCount: 1,
+        items: [baseItem()],
+      },
+    );
+
+    assert.equal(step.fill_behavior, undefined);
+  });
 });
