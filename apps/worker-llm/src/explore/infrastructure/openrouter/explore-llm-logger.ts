@@ -338,9 +338,10 @@ function summarizeOutput(purpose: string, output: unknown): string[] {
     if (transformation?.description) {
       lines.push(`transformation: ${transformation.description}`);
     }
-    if (relation?.type) {
+    if (relation?.description) {
+      const keys = Array.isArray(relation.on) ? relation.on : [];
       lines.push(
-        `relation: ${String(relation.type)} on ${JSON.stringify(relation.on ?? [])}`,
+        `relation: ${relation.description}${keys.length > 0 ? ` on ${JSON.stringify(keys)}` : ''}`,
       );
     }
     if (exploration?.source_phase_goal) {

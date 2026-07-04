@@ -96,9 +96,9 @@ const LLM_PURPOSE_CONFIG: Record<string, { label: string; description: string }>
   explore_plan: { label: 'Planning Steps', description: 'Planning next exploration steps' },
   plan_explore: { label: 'Planning Steps', description: 'Planning next exploration steps' },
   explore_verify: { label: 'Verifying Checkpoint', description: 'Evaluating step execution results' },
-  observation_anchor: {
-    label: 'Observation Anchor',
-    description: 'Identifying the observable on the page',
+  observe_spec: {
+    label: 'Observation Spec',
+    description: 'Defining per-MR observables and extraction bindings',
   },
   compile_draft: {
     label: 'Compiling Playbook',
@@ -111,6 +111,7 @@ const LLM_PURPOSES = new Set([
   'explore_plan',
   'plan_explore',
   'explore_verify',
+  'observe_spec',
   'observation_anchor',
 ]);
 

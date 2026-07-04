@@ -37,6 +37,7 @@ export {
   isTransformFamily,
   getFamilyProfile,
   applyFamilyProfile,
+  isCompareAllowedForFamily,
   type FamilyProfile,
 } from './domain/mr-family-profile.js';
 
@@ -44,16 +45,39 @@ export {
   SlotActionSchema,
   SlotStepSchema,
   ScenarioSlotsSchema,
-  ReportedTotalResultsAnchorSchema,
-  ObservationAnchorsSchema,
   GenerationSlotsSchema,
   type SlotAction,
   type SlotStep,
   type ScenarioSlots,
-  type ReportedTotalResultsAnchor,
-  type ObservationAnchors,
   type GenerationSlots,
 } from './domain/schemas/generation-slots.schema.js';
+
+export {
+  ObservableDefSchema,
+  ObservableKeySchema,
+  ObservableValueTypeSchema,
+  ObservableCompareSchema,
+  ObservationBindingSchema,
+  ObservationSpecSchema,
+  OBSERVATION_SPEC_SCHEMA_VERSION,
+  type ObservableDef,
+  type ObservableCompare,
+  type ObservableValueType,
+  type ObservationBinding,
+  type ObservationSpec,
+} from './domain/schemas/observable.schema.js';
+
+export {
+  ObserveSpecOutputSchema,
+  OBSERVE_SPEC_PROMPT_VERSION,
+  type ObserveSpecOutput,
+} from './domain/schemas/observe-spec-output.schema.js';
+
+export {
+  resolveObservableBindingTargets,
+  validateObservableBindings,
+  renderObservableExtractor,
+} from './application/compiler/observation-binding-compiler.js';
 
 export {
   PLAYBOOK_TEMPLATE_VERSION,
@@ -111,7 +135,6 @@ export {
 export {
   OBSERVATION_CATALOG_FIELDS,
   ObservationCatalogFieldSchema,
-  OBSERVATION_FIELD_TYPES,
   buildObservationPayloadSchema,
   parseObservationCatalogFields,
   type ObservationCatalogField,

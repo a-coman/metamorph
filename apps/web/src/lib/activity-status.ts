@@ -65,7 +65,7 @@ export function resolveLlmCallStatus(
     return 'done';
   }
 
-  if (purpose === 'observation_anchor') {
+  if (purpose === 'observe_spec' || purpose === 'observation_anchor') {
     return 'done';
   }
 

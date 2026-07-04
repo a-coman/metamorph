@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import type { CompilePlaybookResult, GenerationSlots, MrDefinition } from '@metamorph/core';
+import {
+  OBSERVATION_SPEC_SCHEMA_VERSION,
+  type CompilePlaybookResult,
+  type GenerationSlots,
+  type MrDefinition,
+} from '@metamorph/core';
 import { MrVersionStatus } from '../../../../../api/generated/prisma/enums.js';
 import type { Prisma } from '../../../../../api/generated/prisma/client.js';
 import { prisma } from '../../../shared/infrastructure/prisma/prisma-client.js';
@@ -25,11 +30,7 @@ export class ExplorationPrismaRepository {
               description: 'Pending exploration',
             },
             relation: {
-              type: input.transformFamily === 'subset' ? 'cardinality_lte' : 'equal',
-              on:
-                input.transformFamily === 'subset'
-                  ? ['applied_query', 'reported_total_results']
-                  : ['applied_query', 'results_url'],
+              on: [],
               description: 'Pending',
             },
           },
@@ -45,7 +46,7 @@ export class ExplorationPrismaRepository {
           generationSlots: {
             source: { steps: [] },
             follow_up: { steps: [] },
-            observation: { fields: [] },
+            observation: { schemaVersion: OBSERVATION_SPEC_SCHEMA_VERSION, observables: [] },
           },
         },
       });

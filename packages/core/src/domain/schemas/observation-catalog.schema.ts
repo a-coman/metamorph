@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ObservableDef, ObservableValueType } from './observable.schema.js';
 
 export const OBSERVATION_CATALOG_FIELDS = [
   'applied_query',
@@ -10,21 +11,18 @@ export const ObservationCatalogFieldSchema = z.enum(OBSERVATION_CATALOG_FIELDS);
 
 export type ObservationCatalogField = z.infer<typeof ObservationCatalogFieldSchema>;
 
-export const OBSERVATION_FIELD_TYPES: Record<
-  ObservationCatalogField,
-  'string' | 'number'
-> = {
-  applied_query: 'string',
-  results_url: 'string',
-  reported_total_results: 'number',
+const VALUE_TYPE_ZOD: Record<ObservableValueType, z.ZodType> = {
+  string: z.string(),
+  number: z.number(),
+  boolean: z.boolean(),
+  'string[]': z.array(z.string()),
 };
 
-export function buildObservationPayloadSchema(fields: ObservationCatalogField[]) {
+export function buildObservationPayloadSchema(observables: ObservableDef[]) {
   const shape: Record<string, z.ZodType> = {};
 
-  for (const field of fields) {
-    shape[field] =
-      OBSERVATION_FIELD_TYPES[field] === 'number' ? z.number() : z.string();
+  for (const observable of observables) {
+    shape[observable.key] = VALUE_TYPE_ZOD[observable.valueType];
   }
 
   return z.object(shape).strict();

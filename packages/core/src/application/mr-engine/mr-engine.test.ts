@@ -3,13 +3,16 @@ import { describe, it } from 'node:test';
 import {
   applyFamilyProfile,
   getFamilyProfile,
+  isCompareAllowedForFamily,
   isTransformFamily,
   TRANSFORM_FAMILIES,
 } from '../../domain/mr-family-profile.js';
+import type { ObservableDef } from '../../domain/schemas/observable.schema.js';
 import { evaluateMr } from './mr-engine.js';
 import {
   evaluateCardinalityLte,
   evaluateEqual,
+  evaluateSetEqual,
 } from './relation-evaluators.js';
 
 describe('mr-family-profile', () => {
@@ -19,13 +22,11 @@ describe('mr-family-profile', () => {
     assert.equal(isTransformFamily('unknown'), false);
   });
 
-  it('applyFamilyProfile forces relation fields per family', () => {
+  it('applyFamilyProfile locks transform family without overwriting relation.on', () => {
     const profile = getFamilyProfile('subset');
-    assert.equal(profile.relationType, 'cardinality_lte');
-    assert.deepEqual(profile.observationFields, [
-      'applied_query',
-      'reported_total_results',
-    ]);
+    assert.deepEqual(profile.allowedCompares, ['equal', 'cardinality_lte']);
+    assert.ok(isCompareAllowedForFamily('subset', 'cardinality_lte'));
+    assert.equal(isCompareAllowedForFamily('subset', 'set_equal'), false);
 
     const applied = applyFamilyProfile(
       {
@@ -35,8 +36,7 @@ describe('mr-family-profile', () => {
           description: 'wrong',
         },
         relation: {
-          type: 'equal',
-          on: ['results_url'],
+          on: ['custom_key'],
           description: 'rel',
         },
       },
@@ -44,8 +44,7 @@ describe('mr-family-profile', () => {
     );
 
     assert.equal(applied.transformation.transform_family, 'subset');
-    assert.equal(applied.relation.type, 'cardinality_lte');
-    assert.deepEqual(applied.relation.on, ['applied_query', 'reported_total_results']);
+    assert.deepEqual(applied.relation.on, ['custom_key']);
   });
 });
 
@@ -53,6 +52,26 @@ describe('relation-evaluators', () => {
   it('evaluateEqual trims strings', () => {
     assert.equal(evaluateEqual(' foo ', 'foo'), true);
     assert.equal(evaluateEqual('a', 'b'), false);
+  });
+
+  it('evaluateEqual compares numbers and booleans', () => {
+    assert.equal(evaluateEqual(42, 42), true);
+    assert.equal(evaluateEqual(42, 43), false);
+    assert.equal(evaluateEqual(true, true), true);
+    assert.equal(evaluateEqual(true, false), false);
+  });
+
+  it('evaluateEqual compares arrays in order', () => {
+    assert.equal(evaluateEqual([], []), true);
+    assert.equal(evaluateEqual(['a', 'b'], ['a', 'b']), true);
+    assert.equal(evaluateEqual(['a', 'b'], ['b', 'a']), false);
+    assert.equal(evaluateEqual([' foo '], ['foo']), true);
+    assert.equal(evaluateEqual(['a'], ['a', 'b']), false);
+  });
+
+  it('evaluateSetEqual ignores order', () => {
+    assert.equal(evaluateSetEqual(['a', 'b'], ['b', 'a']), true);
+    assert.equal(evaluateSetEqual(['a'], ['a', 'b']), false);
   });
 
   it('evaluateCardinalityLte requires finite numbers', () => {
@@ -64,35 +83,71 @@ describe('relation-evaluators', () => {
 });
 
 describe('evaluateMr', () => {
-  const baseMr = {
-    precondition: { description: 'pre' },
-    transformation: {
-      transform_family: 'subset' as const,
-      description: 'add filter',
+  const observables: ObservableDef[] = [
+    {
+      key: 'search_query',
+      valueType: 'string',
+      compare: 'equal',
+      binding: {
+        kind: 'input_value',
+        inventory_snapshot_id: '00000000-0000-4000-8000-000000000001',
+        element_id: 'E1',
+      },
+      rationale: 'query stable',
     },
-    relation: {
-      type: 'cardinality_lte' as const,
-      on: ['applied_query', 'reported_total_results'],
-      description: 'count does not increase',
+    {
+      key: 'result_count',
+      valueType: 'number',
+      compare: 'cardinality_lte',
+      binding: {
+        kind: 'number_from_label',
+        inventory_snapshot_id: '00000000-0000-4000-8000-000000000001',
+        element_id: 'E2',
+        number_index: 0,
+      },
+      rationale: 'count does not increase',
     },
-  };
+  ];
 
   it('passes cardinality_lte when follow_up count is lower', () => {
     const result = evaluateMr(
-      baseMr,
-      { applied_query: 'hotel', reported_total_results: 30000 },
-      { applied_query: 'hotel', reported_total_results: 5000 },
+      observables,
+      { search_query: 'hotel', result_count: 30000 },
+      { search_query: 'hotel', result_count: 5000 },
     );
     assert.equal(result.verdict, 'pass');
   });
 
   it('fails when observation is missing', () => {
     const result = evaluateMr(
-      baseMr,
-      { applied_query: 'hotel', reported_total_results: 30000 },
-      { applied_query: 'hotel', reported_total_results: null },
+      observables,
+      { search_query: 'hotel', result_count: 30000 },
+      { search_query: 'hotel', result_count: null },
     );
     assert.equal(result.verdict, 'fail');
-    assert.equal(result.details.reported_total_results?.error, 'Missing observation value');
+    assert.equal(result.details.result_count?.error, 'Missing observation value');
+  });
+
+  it('passes equal compare for matching string arrays', () => {
+    const listObservable: ObservableDef = {
+      key: 'titles',
+      valueType: 'string[]',
+      compare: 'equal',
+      binding: {
+        kind: 'list_texts',
+        inventory_snapshot_id: '00000000-0000-4000-8000-000000000001',
+        element_ids: ['E1'],
+      },
+      rationale: 'listing fingerprint',
+    };
+
+    const result = evaluateMr(
+      [listObservable],
+      { titles: ['Alpha', 'Beta'] },
+      { titles: ['Alpha', 'Beta'] },
+    );
+
+    assert.equal(result.verdict, 'pass');
+    assert.equal(result.details.titles?.ok, true);
   });
 });

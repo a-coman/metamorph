@@ -73,37 +73,46 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.match(failBranch, /revertedSnapshotId/);
   });
 
-  it('observation_anchor falls back to currentSnapshotId before switch_phase', () => {
+  it('observe_spec falls back to currentSnapshotId before switch_phase', () => {
     const source = readFileSync(graphSourcePath, 'utf8');
-    const anchorStart = source.indexOf('async function observationAnchorNode');
+    const observeStart = source.indexOf('async function observeSpecNode');
     const switchPhaseStart = source.indexOf('async function switchPhaseNode');
-    assert.ok(anchorStart >= 0);
-    assert.ok(switchPhaseStart > anchorStart);
+    assert.ok(observeStart >= 0);
+    assert.ok(switchPhaseStart > observeStart);
 
-    const anchorBody = source.slice(anchorStart, switchPhaseStart);
+    const observeBody = source.slice(observeStart, switchPhaseStart);
     assert.match(
-      anchorBody,
+      observeBody,
       /sourceEndSnapshotId\s*\?\?\s*state\.currentSnapshotId/,
-      'observation_anchor must use currentSnapshotId when sourceEndSnapshotId is unset',
+      'observe_spec must use currentSnapshotId when sourceEndSnapshotId is unset',
     );
   });
 
-  it('observation_anchor validates number_index in anchor node', () => {
+  it('observe_spec validates number_index and family compare constraints', () => {
     const source = readFileSync(graphSourcePath, 'utf8');
-    const anchorStart = source.indexOf('async function observationAnchorNode');
+    const observeStart = source.indexOf('async function observeSpecNode');
     const switchPhaseStart = source.indexOf('async function switchPhaseNode');
-    assert.ok(anchorStart >= 0);
-    assert.ok(switchPhaseStart > anchorStart);
+    assert.ok(observeStart >= 0);
+    assert.ok(switchPhaseStart > observeStart);
 
-    const anchorBody = source.slice(anchorStart, switchPhaseStart);
-    assert.match(anchorBody, /parseLocalizedNumbers/);
-    assert.match(anchorBody, /reported_total_results/);
-    assert.match(anchorBody, /number_index/);
-    assert.match(anchorBody, /MIN_RESULT_LABEL_ELEMENT_AREA_PX/);
-    assert.match(anchorBody, /loadRawBase64/);
-    assert.match(anchorBody, /requireObservationItems/);
-    assert.match(anchorBody, /findObservationItem/);
-    assert.match(anchorBody, /observationLabelText/);
+    const observeBody = source.slice(observeStart, switchPhaseStart);
+    assert.match(observeBody, /validateObserveSpecOutput/);
+    assert.match(observeBody, /parseLocalizedNumbers/);
+    assert.match(observeBody, /number_index/);
+    assert.match(observeBody, /MIN_RESULT_LABEL_ELEMENT_AREA_PX/);
+    assert.match(observeBody, /isCompareAllowedForFamily/);
+    assert.match(observeBody, /loadRawBase64/);
+    assert.match(observeBody, /requireObservationItems/);
+    assert.match(observeBody, /resolveObservableBindingTargets/);
+  });
+
+  it('routes source smoke success to observe_spec before switch_phase', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    assert.match(
+      source,
+      /function routeAfterGoalReached[\s\S]*!state\.observationSpec[\s\S]*return 'observe_spec'/,
+    );
+    assert.match(source, /addNode\('observe_spec', observeSpecNode\)/);
   });
 
   it('assess_checkpoint retries retryable verify LLM errors without setting lastVerdict fail', () => {

@@ -1,5 +1,5 @@
 import type { MrDefinition, RelationType } from './schemas/mr-definition.schema.js';
-import type { ObservationCatalogField } from './schemas/observation-catalog.schema.js';
+import type { ObservableCompare } from './schemas/observable.schema.js';
 
 export const TRANSFORM_FAMILIES = [
   'idempotence',
@@ -16,30 +16,46 @@ export const TransformFamilySchema = {
 
 export type FamilyProfile = {
   transformFamily: TransformFamily;
-  relationType: RelationType;
-  observationFields: readonly ObservationCatalogField[];
+  allowedCompares: readonly ObservableCompare[];
+  observationIntentHints: readonly string[];
 };
 
 const FAMILY_PROFILES: Record<TransformFamily, FamilyProfile> = {
   idempotence: {
     transformFamily: 'idempotence',
-    relationType: 'equal',
-    observationFields: ['applied_query', 'results_url'],
+    allowedCompares: ['equal'],
+    observationIntentHints: [
+      'search terms or form inputs unchanged',
+      'stable URL or pathname',
+      'active filters unchanged',
+      'result count unchanged',
+      'listing content fingerprint',
+    ],
   },
   subset: {
     transformFamily: 'subset',
-    relationType: 'cardinality_lte',
-    observationFields: ['applied_query', 'reported_total_results'],
+    allowedCompares: ['equal', 'cardinality_lte'],
+    observationIntentHints: [
+      'base query or search inputs stable',
+      'reported or visible result count does not increase',
+    ],
   },
   permutation: {
     transformFamily: 'permutation',
-    relationType: 'equal',
-    observationFields: ['applied_query', 'results_url'],
+    allowedCompares: ['equal', 'set_equal'],
+    observationIntentHints: [
+      'filter or sort selections order-independent',
+      'final URL or results stable',
+    ],
   },
   inverse: {
     transformFamily: 'inverse',
-    relationType: 'equal',
-    observationFields: ['applied_query', 'results_url'],
+    allowedCompares: ['equal'],
+    observationIntentHints: [
+      'state restored after undo',
+      'filters cleared',
+      'URL returns to prior state',
+    ],
   },
 };
 
@@ -49,6 +65,13 @@ export function isTransformFamily(value: string): value is TransformFamily {
 
 export function getFamilyProfile(family: TransformFamily): FamilyProfile {
   return FAMILY_PROFILES[family];
+}
+
+export function isCompareAllowedForFamily(
+  family: TransformFamily,
+  compare: ObservableCompare,
+): boolean {
+  return getFamilyProfile(family).allowedCompares.includes(compare);
 }
 
 export function applyFamilyProfile(
@@ -65,8 +88,10 @@ export function applyFamilyProfile(
     },
     relation: {
       ...mrDefinition.relation,
-      type: profile.relationType,
-      on: [...profile.observationFields],
+      on: mrDefinition.relation.on ?? [],
     },
   };
 }
+
+/** @deprecated Use ObservableCompare from observable.schema */
+export type { RelationType };

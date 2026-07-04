@@ -6,13 +6,14 @@ import {
   MR_PLAN_PROMPT_VERSION,
   MrDefinitionSchema,
   MrPlanOutputSchema,
-  ObservationAnchorOutputSchema,
-  OBSERVATION_ANCHOR_PROMPT_VERSION,
+  ObserveSpecOutputSchema,
+  OBSERVE_SPEC_PROMPT_VERSION,
   PLAN_EXPLORE_PROMPT_VERSION,
   normalizeElementShortId,
   type MrIntent,
-  type ObservationAnchorOutput,
+  type ObserveSpecOutput,
   type PageSnapshotInventory,
+  type SlotStep,
   type TransformFamily,
 } from '@metamorph/core';
 import {
@@ -24,9 +25,9 @@ import {
   buildMrPlanUserText,
 } from '../../prompts/mr-plan.prompt.js';
 import {
-  buildObservationAnchorSystemPrompt,
-  buildObservationAnchorUserText,
-} from '../../prompts/observation-anchor.prompt.js';
+  buildObserveSpecSystemPrompt,
+  buildObserveSpecUserText,
+} from '../../prompts/observe-spec.prompt.js';
 import {
   buildPlanExploreSystemPrompt,
   buildPlanExploreUserText,
@@ -114,21 +115,32 @@ export class ExploreOpenRouterClient {
     });
   }
 
-  async observationAnchor(input: {
+  async observeSpec(input: {
     url: string;
     screenshotBase64: string;
+    transformFamily: TransformFamily;
     mrIntent: MrIntent;
     inventory: PageSnapshotInventory;
-  }): Promise<ExploreLlmResult<ObservationAnchorOutput>> {
+    inventorySnapshotId: string;
+    sourceSteps: SlotStep[];
+  }): Promise<ExploreLlmResult<ObserveSpecOutput>> {
     return this.call({
-      purpose: 'observation_anchor',
-      promptVersion: OBSERVATION_ANCHOR_PROMPT_VERSION,
-      system: buildObservationAnchorSystemPrompt(),
-      userText: buildObservationAnchorUserText(input),
+      purpose: 'observe_spec',
+      promptVersion: OBSERVE_SPEC_PROMPT_VERSION,
+      system: buildObserveSpecSystemPrompt(input.transformFamily),
+      userText: buildObserveSpecUserText({
+        url: input.url,
+        transformFamily: input.transformFamily,
+        mrIntent: input.mrIntent,
+        inventory: input.inventory,
+        inventorySnapshotId: input.inventorySnapshotId,
+        sourceSteps: input.sourceSteps,
+        observationIntents: input.mrIntent.observation_intents,
+      }),
       screenshotsBase64: [input.screenshotBase64],
-      schema: ObservationAnchorOutputSchema,
-      schemaName: 'observation_anchor',
-      normalize: (raw) => normalizeObservationAnchorOutput(raw),
+      schema: ObserveSpecOutputSchema,
+      schemaName: 'observe_spec',
+      normalize: (raw) => normalizeObserveSpecOutput(raw),
     });
   }
 
@@ -479,7 +491,6 @@ function normalizeMrPlanOutput(
 
   if (typeof mrDefinition.relation === 'string') {
     mrDefinition.relation = {
-      type: 'equal',
       on: [],
       description: mrDefinition.relation,
     };
@@ -487,13 +498,17 @@ function normalizeMrPlanOutput(
 
   if (!mrDefinition.relation || typeof mrDefinition.relation !== 'object') {
     mrDefinition.relation = {
-      type: 'equal',
       on: [],
       description: 'Relation pending.',
     };
-  } else if (typeof (mrDefinition.relation as Record<string, unknown>).description !== 'string') {
-    (mrDefinition.relation as Record<string, unknown>).description =
-      'Observations must satisfy the metamorphic relation.';
+  } else {
+    const relation = mrDefinition.relation as Record<string, unknown>;
+    if (!Array.isArray(relation.on)) {
+      relation.on = [];
+    }
+    if (typeof relation.description !== 'string') {
+      relation.description = 'Observations must satisfy the metamorphic relation.';
+    }
   }
 
   const parsed = MrDefinitionSchema.safeParse(
@@ -511,8 +526,7 @@ function normalizeMrPlanOutput(
           description: 'Exploration transformation.',
         },
         relation: {
-          type: 'equal',
-          on: ['applied_query'],
+          on: [],
           description: 'Relation enforced by family profile.',
         },
       },
@@ -523,17 +537,60 @@ function normalizeMrPlanOutput(
   return record;
 }
 
-function normalizeObservationAnchorOutput(raw: unknown): unknown {
+function normalizeObserveSpecOutput(raw: unknown): unknown {
   if (!raw || typeof raw !== 'object') {
     return raw;
   }
 
   const record = { ...(raw as Record<string, unknown>) };
-  if (typeof record.label_element_id === 'string') {
-    record.label_element_id = normalizeElementShortId(record.label_element_id);
+  if (!Array.isArray(record.observables)) {
+    return record;
   }
 
+  record.observables = record.observables.map((observable) => {
+    if (!observable || typeof observable !== 'object') {
+      return observable;
+    }
+
+    const obs = { ...(observable as Record<string, unknown>) };
+    if (obs.binding && typeof obs.binding === 'object') {
+      obs.binding = normalizeObservationBinding(obs.binding as Record<string, unknown>);
+    }
+    return obs;
+  });
+
   return record;
+}
+
+function normalizeObservationBinding(
+  binding: Record<string, unknown>,
+): Record<string, unknown> {
+  const normalized = { ...binding };
+
+  if (typeof normalized.element_id === 'string') {
+    normalized.element_id = normalizeElementShortId(normalized.element_id);
+  }
+
+  if (Array.isArray(normalized.element_ids)) {
+    normalized.element_ids = normalized.element_ids.map((id) =>
+      typeof id === 'string' ? normalizeElementShortId(id) : id,
+    );
+  }
+
+  if (Array.isArray(normalized.parts)) {
+    normalized.parts = normalized.parts.map((part) => {
+      if (!part || typeof part !== 'object') {
+        return part;
+      }
+      const partRecord = { ...(part as Record<string, unknown>) };
+      if (typeof partRecord.element_id === 'string') {
+        partRecord.element_id = normalizeElementShortId(partRecord.element_id);
+      }
+      return partRecord;
+    });
+  }
+
+  return normalized;
 }
 
 function normalizePlanOutput(raw: unknown, startId: number): unknown {

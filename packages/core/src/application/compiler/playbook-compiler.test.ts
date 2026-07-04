@@ -3,6 +3,9 @@ import { describe, it } from 'node:test';
 import { compilePlaybook } from './playbook-compiler.js';
 import type { GenerationSlots } from '../../domain/schemas/generation-slots.schema.js';
 import type { PageSnapshotInventory } from '../../domain/schemas/page-snapshot.schema.js';
+import { OBSERVATION_SPEC_SCHEMA_VERSION } from '../../domain/schemas/observable.schema.js';
+
+const anchorSnapshotId = '00000000-0000-4000-8000-000000000001';
 
 const inventory: PageSnapshotInventory = {
   url: 'https://example.com/s?k=test',
@@ -67,22 +70,38 @@ const slots: GenerationSlots = {
     steps: [{ id: 1, action: 'click', element_id: 'E1' }],
   },
   observation: {
-    fields: ['applied_query', 'reported_total_results'],
-    anchors: {
-      reported_total_results: {
-        label_element_id: 'E1',
-        inventory_snapshot_id: '00000000-0000-4000-8000-000000000001',
-        number_index: 2,
+    schemaVersion: OBSERVATION_SPEC_SCHEMA_VERSION,
+    observables: [
+      {
+        key: 'search_query',
+        valueType: 'string',
+        compare: 'equal',
+        binding: {
+          kind: 'input_value',
+          inventory_snapshot_id: anchorSnapshotId,
+          element_id: 'E2',
+        },
+        rationale: 'Search query should stay stable',
       },
-    },
+      {
+        key: 'result_count',
+        valueType: 'number',
+        compare: 'cardinality_lte',
+        binding: {
+          kind: 'number_from_label',
+          inventory_snapshot_id: anchorSnapshotId,
+          element_id: 'E1',
+          number_index: 2,
+        },
+        rationale: 'Result count should not increase',
+      },
+    ],
   },
 };
 
-describe('compilePlaybook with observation anchors', () => {
-  it('embeds anchored reported_total_results extractor', () => {
-    const anchorInventories = new Map([
-      ['00000000-0000-4000-8000-000000000001', inventory],
-    ]);
+describe('compilePlaybook with observables', () => {
+  it('embeds dynamic observable extractors', () => {
+    const anchorInventories = new Map([[anchorSnapshotId, inventory]]);
 
     const compiled = compilePlaybook(
       slots,
@@ -93,8 +112,7 @@ describe('compilePlaybook with observation anchors', () => {
           description: 'filter',
         },
         relation: {
-          type: 'cardinality_lte',
-          on: ['applied_query', 'reported_total_results'],
+          on: ['search_query', 'result_count'],
           description: 'count',
         },
       },
@@ -102,11 +120,11 @@ describe('compilePlaybook with observation anchors', () => {
       { anchorInventories },
     );
 
-    assert.match(compiled.playbookContent, /reported_total_results:/);
+    assert.match(compiled.playbookContent, /result_count:/);
+    assert.match(compiled.playbookContent, /search_query:/);
     assert.match(compiled.playbookContent, /\.s-breadcrumb-header-text/);
-    assert.match(compiled.playbookContent, /textContent/);
     assert.match(compiled.playbookContent, /parseLocalizedNumbers/);
-    assert.equal(compiled.templateVersion, 'playbook-template@4');
+    assert.equal(compiled.templateVersion, 'playbook-template@5');
   });
 
   it('allows press steps whose element_id belongs to a later snapshot inventory', () => {
@@ -135,7 +153,21 @@ describe('compilePlaybook with observation anchors', () => {
           { id: 2, action: 'press', element_id: 'E94', key: 'Enter' },
         ],
       },
-      observation: { fields: [] },
+      observation: {
+        schemaVersion: OBSERVATION_SPEC_SCHEMA_VERSION,
+        observables: [
+          {
+            key: 'pathname',
+            valueType: 'string',
+            compare: 'equal',
+            binding: {
+              kind: 'url_pathname',
+              inventory_snapshot_id: anchorSnapshotId,
+            },
+            rationale: 'URL pathname stable',
+          },
+        ],
+      },
     };
 
     const compiled = compilePlaybook(
@@ -147,12 +179,14 @@ describe('compilePlaybook with observation anchors', () => {
           description: 'repeat search',
         },
         relation: {
-          type: 'equal',
-          on: ['url'],
+          on: ['pathname'],
           description: 'same results',
         },
       },
       inventory,
+      {
+        anchorInventories: new Map([[anchorSnapshotId, inventory]]),
+      },
     );
 
     assert.match(compiled.playbookContent, /keyboard\.press\("Enter"\)/);
@@ -198,7 +232,21 @@ describe('compilePlaybook with observation anchors', () => {
         ],
       },
       follow_up: { steps: [{ id: 1, action: 'press', key: 'Enter' }] },
-      observation: { fields: [] },
+      observation: {
+        schemaVersion: OBSERVATION_SPEC_SCHEMA_VERSION,
+        observables: [
+          {
+            key: 'pathname',
+            valueType: 'string',
+            compare: 'equal',
+            binding: {
+              kind: 'url_pathname',
+              inventory_snapshot_id: anchorSnapshotId,
+            },
+            rationale: 'pathname',
+          },
+        ],
+      },
     };
 
     const compiled = compilePlaybook(
@@ -210,12 +258,14 @@ describe('compilePlaybook with observation anchors', () => {
           description: 'search',
         },
         relation: {
-          type: 'equal',
-          on: ['url'],
+          on: ['pathname'],
           description: 'same results',
         },
       },
       initialSnapshotInventory,
+      {
+        anchorInventories: new Map([[anchorSnapshotId, initialSnapshotInventory]]),
+      },
     );
 
     assert.match(compiled.playbookContent, /getByRole\('option'/);

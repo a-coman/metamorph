@@ -1,11 +1,11 @@
 import type {
   GenerationSlots,
   MrIntent,
-  ObservationAnchors,
+  ObservableDef,
   SlotStep,
   TransformFamily,
 } from '@metamorph/core';
-import { parseObservationCatalogFields } from '@metamorph/core';
+import { OBSERVATION_SPEC_SCHEMA_VERSION } from '@metamorph/core';
 import type { ExploreBatchLog } from './batch-log.js';
 import { EMPTY_BATCH_LOG } from './batch-log.js';
 
@@ -35,7 +35,6 @@ export type ExploreGraphState = {
   transformFamily: TransformFamily;
   phase: ExplorePhase;
   initialSnapshotId: string;
-  /** Snapshot at the end of the source phase — used as reference in follow_up planning. */
   sourceEndSnapshotId?: string;
   currentSnapshotId: string;
   validatedSteps: { source: SlotStep[]; follow_up: SlotStep[] };
@@ -47,27 +46,24 @@ export type ExploreGraphState = {
   maxIterations: number;
   recoveryAttempts: number;
   maxRecoveryAttempts: number;
-  /** LLM plan failures within the current iteration (capped separately from checkpoint recovery). */
   planRecoveryAttempts: number;
   maxPlanRecoveryAttempts: number;
-  /** LLM verify infra failures within the current probe batch (capped separately from checkpoint recovery). */
   verifyRecoveryAttempts: number;
   maxVerifyRecoveryAttempts: number;
   checkpointRecoveryAttempts: number;
   mrDefinition?: MrIntent['mr_definition'];
   explorationGoals?: MrIntent['exploration'];
-  observationAnchors?: ObservationAnchors;
+  observationIntents?: string[];
+  observationSpec?: ObservableDef[];
   probeError?: string;
   probeStatus?: 'ok' | 'failed';
   lastVerdict?: 'ok' | 'fail' | 'goal_reached';
-  /** Full-path smoke replay passed for the current phase (after goal_reached). */
   smokeGatePassed?: boolean;
   awaitingSmokeReplay?: boolean;
   smokeRecoveryAttempts: number;
   maxSmokeRecoveryAttempts: number;
-  anchorRecoveryAttempts: number;
-  maxAnchorRecoveryAttempts: number;
-  /** When true, replay validated prefix and capture fresh inventory before plan_next. */
+  observeSpecRecoveryAttempts: number;
+  maxObserveSpecRecoveryAttempts: number;
   needsPrefixInventorySync?: boolean;
   pendingPrefixSyncJobId?: string;
   failed?: boolean;
@@ -109,21 +105,17 @@ export const DEFAULT_EXPLORE_STATE: Omit<
   awaitingSmokeReplay: false,
   smokeRecoveryAttempts: 0,
   maxSmokeRecoveryAttempts: 2,
-  anchorRecoveryAttempts: 0,
-  maxAnchorRecoveryAttempts: 2,
+  observeSpecRecoveryAttempts: 0,
+  maxObserveSpecRecoveryAttempts: 2,
 };
 
 export function buildGenerationSlots(state: ExploreGraphState): GenerationSlots {
-  const observationFields = state.mrDefinition
-    ? parseObservationCatalogFields(state.mrDefinition.relation.on)
-    : [];
-
   return {
     source: { steps: state.validatedSteps.source },
     follow_up: { steps: state.validatedSteps.follow_up },
     observation: {
-      fields: observationFields,
-      ...(state.observationAnchors ? { anchors: state.observationAnchors } : {}),
+      schemaVersion: OBSERVATION_SPEC_SCHEMA_VERSION,
+      observables: state.observationSpec ?? [],
     },
   };
 }

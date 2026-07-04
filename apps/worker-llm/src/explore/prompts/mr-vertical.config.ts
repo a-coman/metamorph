@@ -1,5 +1,4 @@
 import {
-  OBSERVATION_CATALOG_FIELDS,
   TRANSFORM_FAMILIES,
   getFamilyProfile,
   type TransformFamily,
@@ -7,11 +6,9 @@ import {
 
 export const MR_PLAN_OPTIONS = {
   transformFamilies: TRANSFORM_FAMILIES,
-  relationTypes: ['equal', 'cardinality_lte'] as const,
-  observationFields: OBSERVATION_CATALOG_FIELDS,
+  compareOperators: ['equal', 'set_equal', 'cardinality_lte'] as const,
 } as const;
 
-/** What each transform_family means for MR design and phase goals. */
 export const TRANSFORM_FAMILY_SEMANTICS: Record<TransformFamily, string> = {
   idempotence:
     'Apply an action once to reach an intermediate state P (source). Apply the same action again on P (the transformation). ' +
@@ -35,28 +32,16 @@ export const TRANSFORM_FAMILY_SEMANTICS: Record<TransformFamily, string> = {
     'follow_up_phase_goal: from another fresh context, rebuild the path to P, then apply T⁻¹.',
 };
 
-/** What each relation.type means when comparing source vs follow_up observations. */
-export const RELATION_TYPE_SEMANTICS: Record<
-  (typeof MR_PLAN_OPTIONS.relationTypes)[number],
+export const COMPARE_OPERATOR_SEMANTICS: Record<
+  (typeof MR_PLAN_OPTIONS.compareOperators)[number],
   string
 > = {
   equal:
-    'Each field in relation.on must have the same value in the source observation and the follow_up observation.',
+    'The follow_up value must equal the source value.',
+  set_equal:
+    'The follow_up set must equal the source set (order ignored).',
   cardinality_lte:
-    'For numeric fields in relation.on, the follow_up value must be less than or equal to the source value.',
-};
-
-/** What each observation catalog field measures at the end of a scenario. */
-export const OBSERVATION_FIELD_SEMANTICS: Record<
-  (typeof MR_PLAN_OPTIONS.observationFields)[number],
-  string
-> = {
-  applied_query:
-    'The search query string reflected in the page input or URL when the scenario ends.',
-  results_url:
-    'Normalized results page URL (pathname plus stable query params such as k or q, sorted alphabetically).',
-  reported_total_results:
-    'Total number of matching results as reported by the site in a result summary label (e.g. "1-48 of over 30,000 results").',
+    'For numeric observables, follow_up must be less than or equal to source.',
 };
 
 export function getFamilyPlanProfile(family: TransformFamily) {

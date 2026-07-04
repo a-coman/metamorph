@@ -15,7 +15,6 @@ const mrIntent: MrIntent = {
       description: 'Repeat search',
     },
     relation: {
-      type: 'equal',
       on: ['applied_query'],
       description: 'Queries match',
     },

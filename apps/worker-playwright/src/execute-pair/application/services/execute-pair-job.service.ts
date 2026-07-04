@@ -61,6 +61,7 @@ export class ExecutePairJobService {
         const validation = validateObservationPayload(
           job.schemaContent,
           observation,
+          job.observables,
         );
 
         if (!validation.valid) {
@@ -71,7 +72,7 @@ export class ExecutePairJobService {
       }
 
       const evaluation = evaluateMr(
-        job.mrDefinition,
+        job.observables,
         playbookResult.sourceObservation,
         playbookResult.followUpObservation,
       );

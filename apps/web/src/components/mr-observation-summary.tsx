@@ -4,6 +4,14 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+type ObservableLike = {
+  key?: string;
+  compare?: string;
+  valueType?: string;
+  rationale?: string;
+  binding?: { kind?: string };
+};
+
 export function MrObservationSummary({
   mrDefinition,
   generationSlots,
@@ -15,46 +23,44 @@ export function MrObservationSummary({
   const slots = asRecord(generationSlots);
   const relation = asRecord(definition?.relation);
   const observation = asRecord(slots?.observation);
-  const anchors = asRecord(observation?.anchors);
-  const resultsAnchor = asRecord(anchors?.reported_total_results);
+  const observables = Array.isArray(observation?.observables)
+    ? (observation.observables as ObservableLike[])
+    : [];
 
-  const relationType =
-    typeof relation?.type === 'string' ? relation.type : null;
   const relationOn = Array.isArray(relation?.on)
     ? relation.on.filter((item): item is string => typeof item === 'string')
     : [];
 
-  if (!relationType && relationOn.length === 0 && !resultsAnchor) {
+  if (observables.length === 0 && relationOn.length === 0) {
     return null;
   }
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
       <p className="text-sm font-medium text-muted-foreground">Observation profile</p>
-      {(relationType || relationOn.length > 0) && (
-        <div className="text-sm text-foreground/80">
-          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted">
-            {relationType ?? 'relation'}
-          </span>
-          {relationOn.length > 0 && (
-            <span className="ml-2 text-xs text-muted-foreground">
-              on {relationOn.join(', ')}
-            </span>
-          )}
+      {relationOn.length > 0 && (
+        <div className="text-xs text-muted-foreground">
+          Keys: {relationOn.join(', ')}
         </div>
       )}
-      {resultsAnchor && (
-        <div className="text-xs text-muted-foreground space-y-1 font-mono">
-          <div>
-            label: {String(resultsAnchor.label_element_id ?? 'n/a')}
-          </div>
-          <div>
-            number_index: {String(resultsAnchor.number_index ?? 'n/a')}
-          </div>
-          <div>
-            snapshot: {String(resultsAnchor.inventory_snapshot_id ?? 'n/a').slice(0, 8)}…
-          </div>
-        </div>
+      {observables.length > 0 && (
+        <ul className="space-y-2 text-xs text-muted-foreground">
+          {observables.map((observable) => (
+            <li
+              key={observable.key ?? observable.rationale}
+              className="rounded-md border border-border/60 bg-muted/30 p-2 space-y-1"
+            >
+              <div className="font-mono text-foreground/90">{observable.key ?? 'observable'}</div>
+              <div>
+                {observable.compare ?? 'equal'} · {observable.valueType ?? 'unknown'} ·{' '}
+                {observable.binding?.kind ?? 'binding'}
+              </div>
+              {observable.rationale && (
+                <div className="text-muted-foreground">{observable.rationale}</div>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

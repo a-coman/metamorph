@@ -279,23 +279,47 @@ export function LlmResponsePanel({
       return <PlanExploreResponse response={record} />;
     case 'explore_verify':
       return <VerifyResponse response={record} checkpoint={checkpoint} />;
+    case 'observe_spec':
     case 'observation_anchor':
       return (
         <div className="space-y-2">
-          {readString(record, 'label_element_id') && (
-            <InfoBlock>
-              <FieldLabel>Result count label</FieldLabel>
-              <EnumBadge value={readString(record, 'label_element_id')!} />
-            </InfoBlock>
-          )}
-          {typeof record.number_index === 'number' && (
-            <InfoBlock>
-              <FieldLabel>Number index</FieldLabel>
-              <EnumBadge value={String(record.number_index)} />
-            </InfoBlock>
-          )}
-          {readString(record, 'rationale') && (
-            <FieldValue>{readString(record, 'rationale')}</FieldValue>
+          {Array.isArray(record.observables) && record.observables.length > 0 ? (
+            <ul className="space-y-2 text-xs">
+              {(record.observables as Record<string, unknown>[]).map((observable, index) => (
+                <li key={String(observable.key ?? index)} className="rounded-md bg-muted/40 p-2">
+                  <div className="font-mono">{String(observable.key ?? 'observable')}</div>
+                  <div className="text-muted-foreground">
+                    {String(observable.compare ?? '')} ·{' '}
+                    {typeof observable.binding === 'object' &&
+                    observable.binding !== null &&
+                    'kind' in observable.binding
+                      ? String((observable.binding as Record<string, unknown>).kind)
+                      : 'binding'}
+                  </div>
+                  {typeof observable.rationale === 'string' && (
+                    <FieldValue>{observable.rationale}</FieldValue>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <>
+              {readString(record, 'label_element_id') && (
+                <InfoBlock>
+                  <FieldLabel>Result count label</FieldLabel>
+                  <EnumBadge value={readString(record, 'label_element_id')!} />
+                </InfoBlock>
+              )}
+              {typeof record.number_index === 'number' && (
+                <InfoBlock>
+                  <FieldLabel>Number index</FieldLabel>
+                  <EnumBadge value={String(record.number_index)} />
+                </InfoBlock>
+              )}
+              {readString(record, 'rationale') && (
+                <FieldValue>{readString(record, 'rationale')}</FieldValue>
+              )}
+            </>
           )}
         </div>
       );

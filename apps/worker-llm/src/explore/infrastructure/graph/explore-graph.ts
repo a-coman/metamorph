@@ -4,21 +4,24 @@ import {
   compilePlaybook,
   EXPLORE_VERIFY_PROMPT_VERSION,
   extractHostFromUrl,
+  isCompareAllowedForFamily,
   isFillableInventoryItem,
   MIN_RESULT_LABEL_ELEMENT_AREA_PX,
   MR_PLAN_PROMPT_VERSION,
-  OBSERVATION_ANCHOR_PROMPT_VERSION,
+  OBSERVE_SPEC_PROMPT_VERSION,
   findObservationItem,
   observationLabelText,
   requireObservationItems,
   parseLocalizedNumbers,
-  parseObservationCatalogFields,
   PLAN_EXPLORE_PROMPT_VERSION,
+  resolveObservableBindingTargets,
   resolveStepTargets,
   validateInventoryElementIds,
+  validateObservableBindings,
   validateSelectOptionSteps,
   formatSelectOptionValidationErrors,
   type MrIntent,
+  type ObservableDef,
   type SlotStep,
 } from '@metamorph/core';
 import { S3ArtifactReaderAdapter } from '../../../shared/infrastructure/minio/s3-artifact-reader.adapter.js';
@@ -91,9 +94,10 @@ const ExploreAnnotation = Annotation.Root({
   checkpointRecoveryAttempts: Annotation<number>,
   mrDefinition: Annotation<ExploreGraphState['mrDefinition']>,
   explorationGoals: Annotation<ExploreGraphState['explorationGoals']>,
-  observationAnchors: Annotation<ExploreGraphState['observationAnchors']>,
-  anchorRecoveryAttempts: Annotation<number>,
-  maxAnchorRecoveryAttempts: Annotation<number>,
+  observationIntents: Annotation<ExploreGraphState['observationIntents']>,
+  observationSpec: Annotation<ExploreGraphState['observationSpec']>,
+  observeSpecRecoveryAttempts: Annotation<number>,
+  maxObserveSpecRecoveryAttempts: Annotation<number>,
   probeError: Annotation<string | undefined>,
   probeFailureContext: Annotation<ProbeFailureContext | undefined>,
   probeStatus: Annotation<'ok' | 'failed' | undefined>,
@@ -302,6 +306,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     return {
       mr_definition: state.mrDefinition,
       exploration: state.explorationGoals,
+      observation_intents: state.observationIntents,
     };
   }
 
@@ -372,6 +377,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return {
         mrDefinition: mrPlanOutput.mr_definition,
         explorationGoals: mrPlanOutput.exploration,
+        observationIntents: mrPlanOutput.observation_intents,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'mr_plan LLM error';
@@ -493,14 +499,10 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         ...planOutput,
         inventorySnapshotId: state.currentSnapshotId,
       };
-      const observationFields = parseObservationCatalogFields(
-        state.mrDefinition!.relation.on,
-      );
       const missingIds = validateInventoryElementIds(
         {
-          source: { steps: state.phase === 'source' ? steps : [] },
-          follow_up: { steps: state.phase === 'follow_up' ? steps : [] },
-          observation: { fields: observationFields },
+          source: { steps: state.phase === 'source' ? steps : state.validatedSteps.source },
+          follow_up: { steps: state.phase === 'follow_up' ? steps : state.validatedSteps.follow_up },
         },
         snapshot.inventory,
       );
@@ -1147,10 +1149,10 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     };
   }
 
-  async function observationAnchorNode(state: State): Promise<Partial<State>> {
+  async function observeSpecNode(state: State): Promise<Partial<State>> {
     await checkUserPause(state.sessionId);
 
-    if (state.failed || state.transformFamily !== 'subset' || state.observationAnchors) {
+    if (state.failed || state.observationSpec || state.phase !== 'source') {
       return {};
     }
 
@@ -1158,23 +1160,22 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     if (!anchorSnapshotId) {
       return {
         failed: true,
-        failureReason: 'Source end snapshot missing for observation anchor',
+        failureReason: 'Source end snapshot missing for observe_spec',
       };
     }
 
     const mrIntent = buildMrIntent(state);
     if (!mrIntent) {
-      return { failed: true, failureReason: 'MR intent missing for observation anchor' };
+      return { failed: true, failureReason: 'MR intent missing for observe_spec' };
     }
 
     const snapshot = await deps.snapshotRepo.findById(anchorSnapshotId);
     if (!snapshot) {
-      return { failed: true, failureReason: 'Source end snapshot missing for observation anchor' };
+      return { failed: true, failureReason: 'Source end snapshot missing for observe_spec' };
     }
 
-    let observationItems;
     try {
-      observationItems = requireObservationItems(snapshot.inventory);
+      requireObservationItems(snapshot.inventory);
     } catch {
       return {
         failed: true,
@@ -1188,93 +1189,126 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       const { output } = await runTrackedLlmCall(
         deps,
         state,
-        { purpose: 'observation_anchor', promptVersion: OBSERVATION_ANCHOR_PROMPT_VERSION },
+        { purpose: 'observe_spec', promptVersion: OBSERVE_SPEC_PROMPT_VERSION },
         () =>
-          deps.openRouter.observationAnchor({
+          deps.openRouter.observeSpec({
             url: snapshot.url,
             screenshotBase64,
+            transformFamily: state.transformFamily,
             mrIntent,
             inventory: snapshot.inventory,
+            inventorySnapshotId: anchorSnapshotId,
+            sourceSteps: state.validatedSteps.source,
           }),
       );
 
-      const labelElementId = output.label_element_id;
-      const anchorItem = findObservationItem(snapshot.inventory, labelElementId);
-
-      if (!anchorItem) {
-        const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
-        if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
+      const validationError = validateObserveSpecOutput(
+        output.observables,
+        state.transformFamily,
+        snapshot.inventory,
+        anchorSnapshotId,
+      );
+      if (validationError) {
+        const attempts = (state.observeSpecRecoveryAttempts ?? 0) + 1;
+        if (attempts >= (state.maxObserveSpecRecoveryAttempts ?? 2)) {
           return {
             failed: true,
-            failureReason: `Invalid observation anchor label_element_id: ${labelElementId} (not in observation inventory of ${observationItems.length} items)`,
-            anchorRecoveryAttempts: attempts,
+            failureReason: validationError,
+            observeSpecRecoveryAttempts: attempts,
           };
         }
-
         return {
-          anchorRecoveryAttempts: attempts,
-          failureReason: `Invalid observation anchor label_element_id: ${labelElementId}`,
+          observeSpecRecoveryAttempts: attempts,
+          failureReason: validationError,
         };
       }
 
-      const labelText = observationLabelText(anchorItem);
-      const parsedNumbers = parseLocalizedNumbers(labelText);
-      if (output.number_index >= parsedNumbers.length) {
-        const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
-        const reason = `number_index ${output.number_index} out of range for label text (${parsedNumbers.length} numbers)`;
-        if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
-          return {
-            failed: true,
-            failureReason: reason,
-            anchorRecoveryAttempts: attempts,
-          };
-        }
-        return { anchorRecoveryAttempts: attempts, failureReason: reason };
-      }
+      const anchorInventories = new Map([[anchorSnapshotId, snapshot.inventory]]);
+      validateObservableBindings(output.observables, anchorInventories);
+      const resolvedObservables = resolveObservableBindingTargets(
+        output.observables,
+        anchorInventories,
+      );
 
-      const box = anchorItem.boundingBox;
-      if (box) {
-        const area = box.width * box.height;
-        if (area < MIN_RESULT_LABEL_ELEMENT_AREA_PX) {
-          const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
-          const reason = `Label element ${labelElementId} too small for result count (${Math.round(area)} px²)`;
-          if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
-            return {
-              failed: true,
-              failureReason: reason,
-              anchorRecoveryAttempts: attempts,
-            };
-          }
-          return { anchorRecoveryAttempts: attempts, failureReason: reason };
-        }
-      }
-
+      const observableKeys = resolvedObservables.map((observable) => observable.key);
       logExploreGraphEvent(
-        `observation_anchor complete | label=${labelElementId} index=${output.number_index} snapshot=${anchorSnapshotId.slice(0, 8)}`,
+        `observe_spec complete | keys=${observableKeys.join(',')} snapshot=${anchorSnapshotId.slice(0, 8)}`,
       );
 
       return {
         ...(state.phase === 'source' && !state.sourceEndSnapshotId
           ? { sourceEndSnapshotId: anchorSnapshotId }
           : {}),
-        observationAnchors: {
-          reported_total_results: {
-            label_element_id: labelElementId,
-            inventory_snapshot_id: anchorSnapshotId,
-            number_index: output.number_index,
-          },
-        },
-        anchorRecoveryAttempts: 0,
+        observationSpec: resolvedObservables,
+        mrDefinition: state.mrDefinition
+          ? {
+              ...state.mrDefinition,
+              relation: {
+                ...state.mrDefinition.relation,
+                on: observableKeys,
+              },
+            }
+          : undefined,
+        observeSpecRecoveryAttempts: 0,
       };
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'observation_anchor LLM error';
-      const attempts = (state.anchorRecoveryAttempts ?? 0) + 1;
-      if (attempts >= (state.maxAnchorRecoveryAttempts ?? 2)) {
-        return { failed: true, failureReason: message, anchorRecoveryAttempts: attempts };
+      const message = error instanceof Error ? error.message : 'observe_spec LLM error';
+      const attempts = (state.observeSpecRecoveryAttempts ?? 0) + 1;
+      if (attempts >= (state.maxObserveSpecRecoveryAttempts ?? 2)) {
+        return { failed: true, failureReason: message, observeSpecRecoveryAttempts: attempts };
       }
-      return { anchorRecoveryAttempts: attempts, failureReason: message };
+      return { observeSpecRecoveryAttempts: attempts, failureReason: message };
     }
+  }
+
+  function validateObserveSpecOutput(
+    observables: ObservableDef[],
+    transformFamily: ExploreGraphState['transformFamily'],
+    inventory: import('@metamorph/core').PageSnapshotInventory,
+    anchorSnapshotId: string,
+  ): string | null {
+    if (observables.length === 0) {
+      return 'observe_spec returned no observables';
+    }
+
+    const keys = new Set<string>();
+    for (const observable of observables) {
+      if (keys.has(observable.key)) {
+        return `Duplicate observable key: ${observable.key}`;
+      }
+      keys.add(observable.key);
+
+      if (!isCompareAllowedForFamily(transformFamily, observable.compare)) {
+        return `Compare ${observable.compare} not allowed for family ${transformFamily}`;
+      }
+
+      if (observable.binding.inventory_snapshot_id !== anchorSnapshotId) {
+        return `Binding snapshot ${observable.binding.inventory_snapshot_id} must match source end snapshot`;
+      }
+
+      if (observable.binding.kind === 'number_from_label') {
+        const item = findObservationItem(inventory, observable.binding.element_id);
+        if (!item) {
+          return `Invalid element_id ${observable.binding.element_id} for ${observable.key}`;
+        }
+
+        const labelText = observationLabelText(item);
+        const parsedNumbers = parseLocalizedNumbers(labelText);
+        if (observable.binding.number_index >= parsedNumbers.length) {
+          return `number_index ${observable.binding.number_index} out of range for ${observable.key}`;
+        }
+
+        const box = item.boundingBox;
+        if (box) {
+          const area = box.width * box.height;
+          if (area < MIN_RESULT_LABEL_ELEMENT_AREA_PX) {
+            return `Label element ${observable.binding.element_id} too small for ${observable.key} (${Math.round(area)} px²)`;
+          }
+        }
+      }
+    }
+
+    return null;
   }
 
   async function switchPhaseNode(state: State): Promise<Partial<State>> {
@@ -1318,13 +1352,10 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return {};
     }
 
-    if (
-      state.transformFamily === 'subset' &&
-      !state.observationAnchors?.reported_total_results
-    ) {
+    if (!state.observationSpec || state.observationSpec.length === 0) {
       return {
         failed: true,
-        failureReason: 'Missing observation anchor for subset MR compile',
+        failureReason: 'Missing observation spec for compile',
       };
     }
 
@@ -1344,10 +1375,12 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
     try {
       const anchorInventories = new Map<string, import('@metamorph/core').PageSnapshotInventory>();
-      const anchorSnapshotId =
-        generationSlots.observation.anchors?.reported_total_results?.inventory_snapshot_id;
+      for (const observable of generationSlots.observation.observables) {
+        const anchorSnapshotId = observable.binding.inventory_snapshot_id;
+        if (anchorInventories.has(anchorSnapshotId)) {
+          continue;
+        }
 
-      if (anchorSnapshotId) {
         const anchorSnapshot = await deps.snapshotRepo.findById(anchorSnapshotId);
         if (!anchorSnapshot) {
           throw new Error(`Anchor snapshot ${anchorSnapshotId} not found for compile`);
@@ -1419,28 +1452,24 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return 'dispatch_smoke';
     }
 
-    if (
-      state.phase === 'source' &&
-      state.transformFamily === 'subset' &&
-      !state.observationAnchors
-    ) {
-      return 'observation_anchor';
+    if (state.phase === 'source' && !state.observationSpec) {
+      return 'observe_spec';
     }
 
     return state.phase === 'source' ? 'switch_phase' : 'compile_draft';
   }
 
-  function routeAfterObservationAnchor(state: State): string {
+  function routeAfterObserveSpec(state: State): string {
     if (state.failed) {
       return 'fail';
     }
 
-    if (state.observationAnchors) {
+    if (state.observationSpec && state.observationSpec.length > 0) {
       return 'switch_phase';
     }
 
-    if ((state.anchorRecoveryAttempts ?? 0) > 0) {
-      return 'observation_anchor';
+    if ((state.observeSpecRecoveryAttempts ?? 0) > 0) {
+      return 'observe_spec';
     }
 
     return 'fail';
@@ -1568,7 +1597,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     .addNode('dispatch_smoke', dispatchSmokeNode)
     .addNode('assess_smoke', assessSmokeNode)
     .addNode('switch_phase', switchPhaseNode)
-    .addNode('observation_anchor', observationAnchorNode)
+    .addNode('observe_spec', observeSpecNode)
     .addNode('compile_draft', compileDraftNode)
     .addNode('fail', failNode)
     .addEdge(START, 'init')
@@ -1590,7 +1619,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       dispatch_probe: 'dispatch_probe',
       dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
-      observation_anchor: 'observation_anchor',
+      observe_spec: 'observe_spec',
       compile_draft: 'compile_draft',
       plan_next: 'plan_next',
       fail: 'fail',
@@ -1610,7 +1639,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       sync_prefix_snapshot: 'sync_prefix_snapshot',
       dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
-      observation_anchor: 'observation_anchor',
+      observe_spec: 'observe_spec',
       compile_draft: 'compile_draft',
       fail: 'fail',
     })
@@ -1618,7 +1647,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       sync_prefix_snapshot: 'sync_prefix_snapshot',
       dispatch_smoke: 'dispatch_smoke',
       switch_phase: 'switch_phase',
-      observation_anchor: 'observation_anchor',
+      observe_spec: 'observe_spec',
       compile_draft: 'compile_draft',
       fail: 'fail',
     })
@@ -1626,9 +1655,9 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       sync_prefix_snapshot: 'sync_prefix_snapshot',
       fail: 'fail',
     })
-    .addConditionalEdges('observation_anchor', routeAfterObservationAnchor, {
+    .addConditionalEdges('observe_spec', routeAfterObserveSpec, {
       switch_phase: 'switch_phase',
-      observation_anchor: 'observation_anchor',
+      observe_spec: 'observe_spec',
       fail: 'fail',
     })
     .addEdge('compile_draft', END)

@@ -17,11 +17,10 @@ import {
 } from './step-execution-policy.js';
 import { withProbeGotoPrefix } from './probe-spec-compiler.js';
 import { resolveStepTargetExpression } from './resolve-inventory-target.js';
-import { parseLocalizedNumbers } from '../../domain/parse-localized-numbers.js';
 import {
-  findObservationItem,
-  observationLabelText,
-} from '../../domain/observation-inventory.js';
+  resolveObservableBindingTargets,
+  validateObservableBindings,
+} from './observation-binding-compiler.js';
 
 export type CompilePlaybookResult = {
   playbookContent: string;
@@ -47,9 +46,17 @@ export function compilePlaybook(
   },
 ): CompilePlaybookResult {
   const itemMap = new Map(inventory.items.map((item) => [item.shortId, item]));
+  const observables = slots.observation.observables;
+
+  if (observables.length === 0) {
+    throw new PlaybookCompileError('At least one observable is required to compile playbook');
+  }
+
+  const anchorInventories = options?.anchorInventories ?? new Map<string, PageSnapshotInventory>();
+  validateObservableBindings(observables, anchorInventories);
+  const resolvedObservables = resolveObservableBindingTargets(observables, anchorInventories);
 
   validateElementIds(slots, itemMap);
-  validateObservationAnchors(slots, options?.anchorInventories);
 
   const sessionUrl = options?.sessionUrl;
   const sourceSteps =
@@ -65,18 +72,18 @@ export function compilePlaybook(
   const followUpStepLines = renderScenarioSteps(followUpSteps, itemMap);
 
   const observationContext = buildObservationExtractorContext({
-    anchors: slots.observation.anchors,
-    anchorInventories: options?.anchorInventories,
+    observables: resolvedObservables,
+    anchorInventories,
   });
 
   const playbookContent = renderPlaybook({
-    observationFields: slots.observation.fields,
+    observables: resolvedObservables,
     sourceStepLines,
     followUpStepLines,
     observationContext,
   });
 
-  const schemaContent = renderObservationSchema(slots.observation.fields);
+  const schemaContent = renderObservationSchema(resolvedObservables);
   const contentHash = createHash('sha256').update(playbookContent).digest('hex');
 
   return {
@@ -85,44 +92,6 @@ export function compilePlaybook(
     contentHash,
     templateVersion: PLAYBOOK_TEMPLATE_VERSION,
   };
-}
-
-function validateObservationAnchors(
-  slots: GenerationSlots,
-  anchorInventories?: Map<string, PageSnapshotInventory>,
-): void {
-  const anchor = slots.observation.anchors?.reported_total_results;
-  if (!anchor) {
-    return;
-  }
-
-  if (!anchorInventories) {
-    throw new PlaybookCompileError(
-      'reported_total_results anchor requires anchorInventories at compile time',
-    );
-  }
-
-  const inventory = anchorInventories.get(anchor.inventory_snapshot_id);
-  if (!inventory) {
-    throw new PlaybookCompileError(
-      `Anchor inventory snapshot ${anchor.inventory_snapshot_id} not found`,
-    );
-  }
-
-  const labelItem = findObservationItem(inventory, anchor.label_element_id);
-  if (!labelItem) {
-    throw new PlaybookCompileError(
-      `Anchor label_element_id ${anchor.label_element_id} not found in observation inventory`,
-    );
-  }
-
-  const labelText = observationLabelText(labelItem);
-  const numbers = parseLocalizedNumbers(labelText);
-  if (anchor.number_index >= numbers.length) {
-    throw new PlaybookCompileError(
-      `Anchor number_index ${anchor.number_index} out of range for label text (${numbers.length} numbers)`,
-    );
-  }
 }
 
 function stepRequiresInventoryTarget(step: SlotStep): boolean {
@@ -212,7 +181,7 @@ function resolveTarget(
 }
 
 export function validateInventoryElementIds(
-  slots: GenerationSlots,
+  slots: Pick<GenerationSlots, 'source' | 'follow_up'>,
   inventory: PageSnapshotInventory,
 ): string[] {
   const itemIds = new Set(inventory.items.map((item) => item.shortId));

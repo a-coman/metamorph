@@ -1,16 +1,13 @@
 import { z } from 'zod';
 import { TRANSFORM_FAMILIES } from '../mr-family-profile.js';
 
-export const RelationTypeSchema = z.enum([
+export const ObservableCompareSchema = z.enum([
   'equal',
   'set_equal',
-  'subset',
-  'superset',
   'cardinality_lte',
-  'cardinality_gte',
-  'monotone_decrease',
-  'monotone_increase',
 ]);
+
+export const RelationTypeSchema = ObservableCompareSchema;
 
 export const TransformFamilySchema = z.enum(TRANSFORM_FAMILIES);
 
@@ -23,8 +20,7 @@ export const MrDefinitionSchema = z.object({
     description: z.string().min(1),
   }),
   relation: z.object({
-    type: RelationTypeSchema,
-    on: z.array(z.string().min(1)).min(1),
+    on: z.array(z.string().min(1)),
     description: z.string().min(1),
   }),
 });

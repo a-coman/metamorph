@@ -1,4 +1,4 @@
-import type { MrDefinition } from '@metamorph/core';
+import type { MrDefinition, ObservableDef } from '@metamorph/core';
 import { UniqueEntityID } from '@metamorph/utils';
 import {
   JobStatus as PrismaJobStatus,
@@ -22,6 +22,7 @@ export class ExecutePairJobMapper {
     session: { url: string };
     mrVersion: {
       id: string;
+      generationSlots: unknown;
       playbookBlob: { content: string; contentHash: string } | null;
       schemaBlob: { content: string } | null;
       mrDefinition: { definition: unknown };
@@ -36,6 +37,8 @@ export class ExecutePairJobMapper {
       return null;
     }
 
+    const observables = extractObservables(row.mrVersion.generationSlots);
+
     return ExecutePairJob.reconstitute(
       {
         sessionId: row.sessionId,
@@ -47,6 +50,7 @@ export class ExecutePairJobMapper {
         playbookContent: row.mrVersion.playbookBlob.content,
         schemaContent: row.mrVersion.schemaBlob.content,
         mrDefinition: row.mrVersion.mrDefinition.definition as MrDefinition,
+        observables,
         playbookContentHash: row.mrVersion.playbookBlob.contentHash,
         errorMessage: row.errorMessage,
         startedAt: row.startedAt,
@@ -65,6 +69,13 @@ export class ExecutePairJobMapper {
       finishedAt: job.finishedAt ?? null,
     };
   }
+}
+
+function extractObservables(generationSlots: unknown): ObservableDef[] {
+  const slots = generationSlots as {
+    observation?: { observables?: ObservableDef[] };
+  };
+  return slots?.observation?.observables ?? [];
 }
 
 function toDomainJobStatus(status: PrismaJobStatus): JobStatus {

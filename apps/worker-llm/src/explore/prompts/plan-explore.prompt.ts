@@ -52,7 +52,7 @@ export function buildMrSummary(mrIntent: MrIntent): string {
 
   return [
     `- transformation (${transformation.transform_family}): ${transformation.description}`,
-    `- relation (${relation.type} on ${relation.on.join(', ')}): ${relation.description}`,
+    `- relation (${relation.on.join(', ') || 'pending observables'}): ${relation.description}`,
   ].join('\n');
 }
 

@@ -4,9 +4,29 @@ export function evaluateEqual(source: unknown, followUp: unknown): boolean {
   }
 
   if (typeof source === 'string' && typeof followUp === 'string') {
-    const normalizedSource = source.trim();
-    const normalizedFollowUp = followUp.trim();
-    return normalizedSource === normalizedFollowUp;
+    return source.trim() === followUp.trim();
+  }
+
+  if (typeof source === 'number' && typeof followUp === 'number') {
+    return source === followUp;
+  }
+
+  if (typeof source === 'boolean' && typeof followUp === 'boolean') {
+    return source === followUp;
+  }
+
+  if (Array.isArray(source) && Array.isArray(followUp)) {
+    if (source.length !== followUp.length) {
+      return false;
+    }
+
+    for (let index = 0; index < source.length; index++) {
+      if (!evaluateEqual(source[index], followUp[index])) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   return false;

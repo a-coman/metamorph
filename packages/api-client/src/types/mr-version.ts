@@ -1,7 +1,21 @@
+export type ObservableDefDto = {
+  key: string;
+  valueType: string;
+  compare: string;
+  binding: { kind: string };
+  rationale: string;
+};
+
+export type ObservationSpecDto = {
+  schemaVersion: number;
+  observables: ObservableDefDto[];
+};
+
 export type MrVersionDetailsDto = {
   id: string;
   status: string;
   generationSlots: unknown;
+  observationSpec?: ObservationSpecDto | null;
   validatedSteps?: {
     source: unknown[];
     follow_up: unknown[];
