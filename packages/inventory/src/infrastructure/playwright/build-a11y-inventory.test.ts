@@ -139,6 +139,33 @@ describe('buildA11yInventory', () => {
       );
     });
   });
+
+  it('disambiguates duplicate role/name controls via snapshot box positions', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <button id="save-left" style="position:absolute;left:10px;top:10px;width:80px;height:32px">Save</button>
+          <button id="save-right" style="position:absolute;left:200px;top:10px;width:80px;height:32px">Save</button>
+        </main>
+      `);
+
+      const snapshot = await page.locator('body').ariaSnapshot({ mode: 'ai', boxes: true });
+      const { items } = await buildA11yInventory(page, snapshot);
+
+      const saveButtons = items.filter((item) => item.ariaLabel === 'Save');
+      assert.equal(saveButtons.length, 2, `expected two Save buttons, got: ${JSON.stringify(items)}`);
+
+      const locators = saveButtons.map((item) => item.locator).sort();
+      assert.equal(saveButtons.every((item) => item.locatorMatchCount === 1), true);
+      assert.notEqual(locators[0], locators[1]);
+      assert.ok(locators.some((chain) => chain?.includes('.nth(0)')));
+      assert.ok(locators.some((chain) => chain?.includes('.nth(1)')));
+
+      for (const item of saveButtons) {
+        assert.equal(await buildLocatorFromChain(page, item.locator!).count(), 1);
+      }
+    });
+  });
 });
 
 describe('parseLocatorSegments frame support', () => {

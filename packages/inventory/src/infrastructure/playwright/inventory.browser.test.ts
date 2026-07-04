@@ -343,4 +343,35 @@ describe('scanObservationInventory', () => {
       assert.equal(observationItems.length, 5);
     });
   });
+
+  it('skips elements that throw during observation scan without failing the job', async () => {
+    await withPage(async (page) => {
+      await page.setContent(`
+        <main>
+          <p id="good">Visible observation text</p>
+        </main>
+      `);
+
+      await page.evaluate(() => {
+        const poison = document.createElement('div');
+        poison.id = 'poison';
+        poison.textContent = 'Poison observation text';
+        poison.style.width = '120px';
+        poison.style.height = '32px';
+        Object.defineProperty(poison, 'tagName', {
+          get: () => undefined as unknown as string,
+        });
+        document.body.appendChild(poison);
+      });
+
+      const observationItems = await scanObservationInventory(page);
+      const good = observationItems.find((item) => item.id === 'good');
+      const poison = observationItems.find((item) =>
+        item.textPreview?.includes('Poison observation text'),
+      );
+
+      assert.ok(good, 'expected valid observation target in inventory');
+      assert.equal(poison, undefined, 'poison element must be skipped');
+    });
+  });
 });

@@ -19,6 +19,7 @@ import {
   resolveElementMetadataBatch,
   type ResolvedElementMetadata,
 } from './resolve-element-metadata.js';
+import { boxIoU } from './merge-inventory-items.js';
 import { resolveShortDisplayName } from './resolve-display-name.js';
 import { runInParallelBatches } from './run-in-parallel-batches.js';
 
@@ -246,35 +247,43 @@ async function resolveRefHandle(
   }
 }
 
-async function resolveNthIndexForHandle(
+async function resolveNthIndexByBox(
   scope: InventoryLocatorScope,
   baseLocatorChain: string,
-  refHandle: ElementHandle<Element>,
+  lineBox: NonNullable<ParsedA11yLine['box']>,
 ): Promise<number | null> {
-  const locator = buildLocatorFromChain(scope, baseLocatorChain);
-  const handles = await locator.elementHandles();
   try {
-    const index = await scope.evaluate(
-      ({ candidates, target }) => {
-        for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
-          if (candidates[candidateIndex] === target) {
-            return candidateIndex;
-          }
-        }
-        return -1;
-      },
-      { candidates: handles, target: refHandle },
-    );
-    return index >= 0 ? index : null;
-  } finally {
-    await Promise.all(handles.map((handle) => handle.dispose()));
+    const locator = buildLocatorFromChain(scope, baseLocatorChain);
+    const count = await locator.count();
+    if (count <= 1) {
+      return null;
+    }
+
+    let bestIndex: number | null = null;
+    let bestIoU = 0;
+
+    for (let index = 0; index < count; index += 1) {
+      const candidateBox = await locator.nth(index).boundingBox();
+      if (!candidateBox) {
+        continue;
+      }
+
+      const iou = boxIoU(lineBox, candidateBox);
+      if (iou > bestIoU) {
+        bestIoU = iou;
+        bestIndex = index;
+      }
+    }
+
+    return bestIoU >= INVENTORY_SCAN_CONFIG.mergeIouThreshold ? bestIndex : null;
+  } catch {
+    return null;
   }
 }
 
 async function resolveReadableLocator(
   scope: InventoryLocatorScope,
   line: LineWithAncestors,
-  refHandle: ElementHandle<Element>,
   duplicateBaseCounts: Map<string, number>,
   locatorChainPrefix?: string,
   locatorRoot?: Page | null,
@@ -302,8 +311,8 @@ async function resolveReadableLocator(
     }
   }
 
-  if (base) {
-    const nthIndex = await resolveNthIndexForHandle(scope, base, refHandle);
+  if (base && line.box) {
+    const nthIndex = await resolveNthIndexByBox(scope, base, line.box);
     if (nthIndex !== null) {
       const withNth = `${base}.nth(${nthIndex})`;
       const count = await countLocatorMatches(scope, withNth);
@@ -462,7 +471,6 @@ export async function buildA11yInventory(
         let readable = await resolveReadableLocator(
           scope,
           line,
-          handle,
           duplicateBaseCounts,
           options.locatorChainPrefix,
           locatorRoot,
@@ -483,6 +491,10 @@ export async function buildA11yInventory(
         }
 
         return buildInventoryItem(line, index, metadata, readable, options);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[inventory] skipped a11y item "${line.name}": ${message}`);
+        return null;
       } finally {
         await handle.dispose();
       }

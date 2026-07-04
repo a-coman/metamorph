@@ -883,6 +883,11 @@ export function scanObservationPage(
     'link',
   ]);
 
+  const tagNameOf = (el: Element) =>
+    (typeof el.tagName === 'string' ? el.tagName : el.localName ?? '').toLowerCase();
+
+  const roleAttrOf = (el: Element) => (el.getAttribute('role') ?? '').toLowerCase();
+
   const normalizeText = (value: string) => value.trim().replace(/\s+/g, ' ');
 
   const hasMeaningfulText = (value: string) => {
@@ -1016,7 +1021,7 @@ export function scanObservationPage(
   };
 
   const getObservationSemanticText = (el: Element): string => {
-    const tagName = el.tagName.toLowerCase();
+    const tagName = tagNameOf(el);
     const direct = getDirectText(el);
     if (hasMeaningfulText(direct)) return direct;
 
@@ -1045,7 +1050,7 @@ export function scanObservationPage(
   };
 
   const isObservationRelevant = (el: Element) => {
-    const tagName = el.tagName.toLowerCase();
+    const tagName = tagNameOf(el);
     if (OBSERVATION_EXCLUDED_TAGS.has(tagName)) return false;
     if (isMetamorphNode(el)) return false;
     if (!isObservationVisible(el)) return false;
@@ -1053,7 +1058,7 @@ export function scanObservationPage(
   };
 
   const getImplicitRole = (el: Element): string | null => {
-    const tagName = el.tagName.toLowerCase();
+    const tagName = tagNameOf(el);
     if (tagName === 'a' && el.hasAttribute('href')) return 'link';
     if (tagName === 'button') return 'button';
     if (tagName === 'input') {
@@ -1074,14 +1079,15 @@ export function scanObservationPage(
 
   const getElementRole = (el: Element): string | null => {
     const explicitRole = el.getAttribute('role');
-    if (explicitRole && !['none', 'presentation'].includes(explicitRole.toLowerCase())) {
+    const normalizedRole = roleAttrOf(el);
+    if (normalizedRole && !['none', 'presentation'].includes(normalizedRole)) {
       return explicitRole;
     }
     return getImplicitRole(el);
   };
 
   const buildSelectorCandidates = (el: Element) => {
-    const tagName = el.tagName.toLowerCase();
+    const tagName = tagNameOf(el);
     const candidates: string[] = [];
     const testId = el.getAttribute('data-testid');
 
@@ -1113,7 +1119,7 @@ export function scanObservationPage(
     let node: Element | null = el;
 
     while (node && node !== document.documentElement) {
-      const tagName = node.tagName.toLowerCase();
+      const tagName = tagNameOf(node);
       if (node.id) {
         segments.unshift(`#${cssEscape(node.id)}`);
         break;
@@ -1124,7 +1130,7 @@ export function scanObservationPage(
 
       if (parent) {
         const siblings = Array.from(parent.children).filter(
-          (child: Element) => child.tagName === node!.tagName,
+          (child: Element) => tagNameOf(child) === tagNameOf(node!),
         );
         if (siblings.length > 1) {
           segment = `${tagName}:nth-of-type(${siblings.indexOf(node) + 1})`;
@@ -1135,7 +1141,7 @@ export function scanObservationPage(
       node = parent;
     }
 
-    return segments.join(' > ') || el.tagName.toLowerCase();
+    return segments.join(' > ') || tagNameOf(el);
   };
 
   const getStableSelector = (el: Element) => {
@@ -1154,18 +1160,28 @@ export function scanObservationPage(
   };
 
   const allElements = Array.from(document.querySelectorAll('body *'));
-  const relevant = allElements.filter(isObservationRelevant);
+  const relevant = allElements.filter((el) => {
+    try {
+      return isObservationRelevant(el);
+    } catch {
+      return false;
+    }
+  });
   const relevantSet = new Set(relevant);
 
   const deduped = relevant.filter((el) => {
-    const semantic = getObservationSemanticText(el);
-    for (const descendant of el.querySelectorAll('*')) {
-      if (!relevantSet.has(descendant)) continue;
-      if (getObservationSemanticText(descendant) === semantic) {
-        return false;
+    try {
+      const semantic = getObservationSemanticText(el);
+      for (const descendant of el.querySelectorAll('*')) {
+        if (!relevantSet.has(descendant)) continue;
+        if (getObservationSemanticText(descendant) === semantic) {
+          return false;
+        }
       }
+      return true;
+    } catch {
+      return false;
     }
-    return true;
   });
 
   const chosen = Number.isFinite(maxItems)
@@ -1174,49 +1190,55 @@ export function scanObservationPage(
 
   const shortIdFor = (index: number) => `E${index + 1}`;
 
-  return chosen.map((el, index) => {
-    const shortId = shortIdFor(index);
-    const rect = el.getBoundingClientRect();
-    const pageRect = {
-      left: rect.left + window.scrollX,
-      top: rect.top + window.scrollY,
-      width: rect.width,
-      height: rect.height,
-    };
-    const tagName = el.tagName.toLowerCase();
-    const semanticText = getObservationSemanticText(el);
-    const textPreview = semanticText.slice(0, 80) || null;
-    const selectOptions =
-      tagName === 'select'
-        ? Array.from(el.querySelectorAll('option'))
-            .map((option) => ({
-              value: option.value,
-              label: normalizeText(option.textContent ?? ''),
-            }))
-            .filter((option) => option.value.length > 0)
-        : [];
+  return chosen.flatMap((el, index) => {
+    try {
+      const shortId = shortIdFor(index);
+      const rect = el.getBoundingClientRect();
+      const pageRect = {
+        left: rect.left + window.scrollX,
+        top: rect.top + window.scrollY,
+        width: rect.width,
+        height: rect.height,
+      };
+      const tagName = tagNameOf(el);
+      const semanticText = getObservationSemanticText(el);
+      const textPreview = semanticText.slice(0, 80) || null;
+      const selectOptions =
+        tagName === 'select'
+          ? Array.from(el.querySelectorAll('option'))
+              .map((option) => ({
+                value: option.value,
+                label: normalizeText(option.textContent ?? ''),
+              }))
+              .filter((option) => option.value.length > 0)
+          : [];
 
-    return {
-      index,
-      shortId,
-      locator: null,
-      selector: getStableSelector(el),
-      score: 0,
-      labelShown: false,
-      tagName,
-      id: el.id || null,
-      role: getElementRole(el),
-      name: el.getAttribute('name'),
-      ariaLabel: el.getAttribute('aria-label'),
-      textPreview,
-      boundingBox: {
-        x: pageRect.left,
-        y: pageRect.top,
-        width: pageRect.width,
-        height: pageRect.height,
-      },
-      ...(selectOptions.length > 0 ? { options: selectOptions } : {}),
-    };
+      return [
+        {
+          index,
+          shortId,
+          locator: null,
+          selector: getStableSelector(el),
+          score: 0,
+          labelShown: false,
+          tagName,
+          id: el.id || null,
+          role: getElementRole(el),
+          name: el.getAttribute('name'),
+          ariaLabel: el.getAttribute('aria-label'),
+          textPreview,
+          boundingBox: {
+            x: pageRect.left,
+            y: pageRect.top,
+            width: pageRect.width,
+            height: pageRect.height,
+          },
+          ...(selectOptions.length > 0 ? { options: selectOptions } : {}),
+        },
+      ];
+    } catch {
+      return [];
+    }
   });
 }
 

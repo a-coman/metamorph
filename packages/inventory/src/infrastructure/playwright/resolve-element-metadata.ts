@@ -23,6 +23,9 @@ export type ResolvedElementMetadata = {
 export function extractMetadataFromElement(
   el: Element,
 ): Omit<ResolvedElementMetadata, 'selectorMatchCount'> {
+  const tagNameOf = (element: Element) =>
+    (typeof element.tagName === 'string' ? element.tagName : element.localName ?? '').toLowerCase();
+
   const cssEscape = (value: string) => {
     const text = String(value);
     if (window.CSS && typeof window.CSS.escape === 'function') {
@@ -50,7 +53,7 @@ export function extractMetadataFromElement(
   };
 
   const buildSelectorCandidates = (element: Element) => {
-    const tagName = element.tagName.toLowerCase();
+    const tagName = tagNameOf(element);
     const candidates: string[] = [];
     const testId = element.getAttribute('data-testid');
     if (testId) {
@@ -70,7 +73,7 @@ export function extractMetadataFromElement(
     const segments: string[] = [];
     let node: Element | null = element;
     while (node && node !== document.documentElement) {
-      const tagName = node.tagName.toLowerCase();
+      const tagName = tagNameOf(node);
       if (node.id) {
         segments.unshift(`#${cssEscape(node.id)}`);
         break;
@@ -79,7 +82,7 @@ export function extractMetadataFromElement(
       let segment = tagName;
       if (parent) {
         const siblings = Array.from(parent.children).filter(
-          (child: Element) => child.tagName === node!.tagName,
+          (child: Element) => tagNameOf(child) === tagNameOf(node!),
         );
         if (siblings.length > 1) {
           segment += `:nth-of-type(${siblings.indexOf(node) + 1})`;
@@ -91,7 +94,7 @@ export function extractMetadataFromElement(
     return segments.join(' > ');
   };
 
-  const tagName = el.tagName.toLowerCase();
+  const tagName = tagNameOf(el);
   let selector = '';
   for (const candidate of buildSelectorCandidates(el)) {
     if (selectorMatchesUniquely(candidate, el)) {
@@ -163,12 +166,16 @@ export async function resolveElementMetadataFromHandle(
   scope: InventoryLocatorScope,
   handle: ElementHandle<Element>,
 ): Promise<ResolvedElementMetadata | null> {
-  const raw = await evaluateHandleFunction(handle, extractMetadataFromElement);
-  const selectorMatchCount = await countSelectorMatchesInScope(scope, raw.selector);
-  return {
-    ...raw,
-    selectorMatchCount,
-  };
+  try {
+    const raw = await evaluateHandleFunction(handle, extractMetadataFromElement);
+    const selectorMatchCount = await countSelectorMatchesInScope(scope, raw.selector);
+    return {
+      ...raw,
+      selectorMatchCount,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function resolveElementMetadataFromAriaRef(
