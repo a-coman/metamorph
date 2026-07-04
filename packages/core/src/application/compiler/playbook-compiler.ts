@@ -180,22 +180,6 @@ function resolveTarget(
   return resolveStepTargetExpression(step, itemMap);
 }
 
-export function validateInventoryElementIds(
-  slots: Pick<GenerationSlots, 'source' | 'follow_up'>,
-  inventory: PageSnapshotInventory,
-): string[] {
-  const itemIds = new Set(inventory.items.map((item) => item.shortId));
-  const missing: string[] = [];
-
-  for (const step of [...slots.source.steps, ...slots.follow_up.steps]) {
-    if (step.element_id && !itemIds.has(step.element_id)) {
-      missing.push(step.element_id);
-    }
-  }
-
-  return missing;
-}
-
 export function extractHostFromUrl(url: string): string {
   return new URL(url).hostname.replace(/^www\./, '');
 }

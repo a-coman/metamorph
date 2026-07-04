@@ -92,9 +92,10 @@ export {
   type SelectOptionValidationError,
 } from './application/compiler/validate-select-option-steps.js';
 
+export { validatePlanBatch } from './application/compiler/validate-plan-batch.js';
+
 export {
   compilePlaybook,
-  validateInventoryElementIds,
   extractHostFromUrl,
   PlaybookCompileError,
   type CompilePlaybookResult,

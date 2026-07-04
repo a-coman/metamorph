@@ -16,7 +16,7 @@ import {
   PLAN_EXPLORE_PROMPT_VERSION,
   resolveObservableBindingTargets,
   resolveStepTargets,
-  validateInventoryElementIds,
+  validatePlanBatch,
   validateObservableBindings,
   validateSelectOptionSteps,
   formatSelectOptionValidationErrors,
@@ -499,13 +499,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         ...planOutput,
         inventorySnapshotId: state.currentSnapshotId,
       };
-      const missingIds = validateInventoryElementIds(
-        {
-          source: { steps: state.phase === 'source' ? steps : state.validatedSteps.source },
-          follow_up: { steps: state.phase === 'follow_up' ? steps : state.validatedSteps.follow_up },
-        },
-        snapshot.inventory,
-      );
+      const missingIds = validatePlanBatch(steps, snapshot.inventory);
 
       if (missingIds.length > 0) {
         return rejectPlan(
