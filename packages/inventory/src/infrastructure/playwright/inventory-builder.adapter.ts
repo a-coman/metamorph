@@ -4,7 +4,10 @@ import type {
   PageInventory,
 } from '../../domain/types/inventory-item.types.js';
 import { PageInventoryBuilderPort } from '../../domain/repositories/page-inventory-builder.repository.port.js';
-import { DEFAULT_MAX_CAPTURE_HEIGHT, DEFAULT_MAX_ITEMS } from './capture-defaults.js';
+import {
+  DEFAULT_MAX_CAPTURE_HEIGHT,
+  DEFAULT_MAX_INVENTORY_ITEMS,
+} from './capture-defaults.js';
 import {
   captureViewportScreenshot,
   prepareCaptureViewport,
@@ -23,7 +26,7 @@ export class PlaywrightInventoryBuilderAdapter extends PageInventoryBuilderPort 
       waitAfterGotoMs = 2000,
       waitAfterViewportMs = 500,
       maxCaptureHeight = DEFAULT_MAX_CAPTURE_HEIGHT,
-      maxItems = DEFAULT_MAX_ITEMS,
+      maxItems = DEFAULT_MAX_INVENTORY_ITEMS,
       gotoWaitUntil = 'domcontentloaded',
     } = options;
 

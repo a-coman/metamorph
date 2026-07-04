@@ -9,8 +9,8 @@ export const DEFAULT_CAPTURE_VIEWPORT: ViewportSize = {
 /** Max visible capture height (no full-page expansion beyond the viewport cap). */
 export const DEFAULT_MAX_CAPTURE_HEIGHT = DEFAULT_CAPTURE_VIEWPORT.height;
 
-/** No cap by default — viewport filtering limits item count. Tests/CLI may pass a finite cap. */
-export const DEFAULT_MAX_ITEMS = Number.POSITIVE_INFINITY;
+/** Default cap for action and observation inventory after merge (tier1 controls ranked first). */
+export const DEFAULT_MAX_INVENTORY_ITEMS = 300;
 
 export { DEFAULT_MAX_A11Y_TREE_CHARS } from '@metamorph/core';
 

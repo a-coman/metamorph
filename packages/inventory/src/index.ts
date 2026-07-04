@@ -22,7 +22,7 @@ export { scanObservationInventory } from './infrastructure/playwright/scan-obser
 export {
   DEFAULT_CAPTURE_VIEWPORT,
   DEFAULT_MAX_CAPTURE_HEIGHT,
-  DEFAULT_MAX_ITEMS,
+  DEFAULT_MAX_INVENTORY_ITEMS,
   DEFAULT_MAX_A11Y_TREE_CHARS,
   DEFAULT_BROWSER_LOCALE,
   buildBrowserContextOptions,

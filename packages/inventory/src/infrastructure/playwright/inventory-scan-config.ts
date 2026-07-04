@@ -1,6 +1,3 @@
-/** Single cap applied once after a11y + DOM merge (tier1 controls ranked before links). */
-export const DEFAULT_MAX_INVENTORY_ITEMS = 300;
-
 /** Tuned heuristics for filter aria-label shortening (Spanish/English travel UIs). */
 export const FILTER_ARIA_LABEL_PATTERNS: RegExp[] = [
   /^aplicar filtro de (.+?) para reducir/i,

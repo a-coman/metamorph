@@ -1,11 +1,15 @@
 import type { SlotAction } from '../../domain/schemas/generation-slots.schema.js';
 import type { InventoryItem } from '../../domain/schemas/page-snapshot.schema.js';
 
-const FILLABLE_TAGS = new Set(['input', 'textarea', 'select']);
+const FILLABLE_TAGS = new Set(['input', 'textarea']);
 const FILLABLE_ROLES = new Set(['textbox', 'searchbox', 'combobox', 'spinbutton']);
 
 export function isFillableInventoryItem(item: InventoryItem): boolean {
   const tag = item.tagName.toLowerCase();
+  // Native <select> uses selectOption, not fill.
+  if (tag === 'select') {
+    return false;
+  }
   if (FILLABLE_TAGS.has(tag)) {
     return true;
   }
@@ -13,10 +17,11 @@ export function isFillableInventoryItem(item: InventoryItem): boolean {
   return role !== undefined && FILLABLE_ROLES.has(role);
 }
 
+/** Custom combobox/searchbox targets that need autocomplete fill — not native <select>. */
 export function isComboboxInventoryItem(item: InventoryItem): boolean {
   const tag = item.tagName.toLowerCase();
   if (tag === 'select') {
-    return true;
+    return false;
   }
 
   const role = item.role?.toLowerCase();

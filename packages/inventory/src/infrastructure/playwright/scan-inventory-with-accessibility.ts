@@ -10,7 +10,8 @@ import {
   paintAdditionalInventoryLabels,
   scanAndLabelPage,
 } from './inventory.browser.js';
-import { DEFAULT_MAX_INVENTORY_ITEMS, INVENTORY_SCAN_CONFIG } from './inventory-scan-config.js';
+import { DEFAULT_MAX_INVENTORY_ITEMS } from './capture-defaults.js';
+import { INVENTORY_SCAN_CONFIG } from './inventory-scan-config.js';
 import {
   appendSupplementalDomItems,
   assignInventoryShortIds,
@@ -36,9 +37,7 @@ export type ScanInventoryOptions = {
 const VALIDATION_CONCURRENCY = 8;
 
 function resolveMaxItems(maxItems?: number): number {
-  return Number.isFinite(maxItems ?? Number.NaN)
-    ? (maxItems as number)
-    : DEFAULT_MAX_INVENTORY_ITEMS;
+  return maxItems ?? DEFAULT_MAX_INVENTORY_ITEMS;
 }
 
 async function validateDomSelectorCounts(

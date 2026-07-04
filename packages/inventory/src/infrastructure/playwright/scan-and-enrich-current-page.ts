@@ -1,6 +1,9 @@
 import type { Page } from 'playwright';
 import type { InventoryItem } from '@metamorph/core';
-import { DEFAULT_MAX_CAPTURE_HEIGHT, DEFAULT_MAX_ITEMS } from './capture-defaults.js';
+import {
+  DEFAULT_MAX_CAPTURE_HEIGHT,
+  DEFAULT_MAX_INVENTORY_ITEMS,
+} from './capture-defaults.js';
 import {
   captureViewportScreenshot,
   prepareCaptureViewport,
@@ -30,7 +33,7 @@ export async function scanAndEnrichCurrentPage(
     preserveScrollPosition?: boolean;
   },
 ): Promise<ScanAndEnrichResult> {
-  const maxItems = options?.maxItems ?? DEFAULT_MAX_ITEMS;
+  const maxItems = options?.maxItems ?? DEFAULT_MAX_INVENTORY_ITEMS;
   const waitAfterViewportMs = options?.waitAfterViewportMs ?? 500;
 
   await page.waitForTimeout(waitAfterViewportMs);
