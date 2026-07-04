@@ -1,5 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { DEFAULT_BROWSER_LOCALE } from '@metamorph/inventory';
+import {
+  DEFAULT_BROWSER_LOCALE,
+  DEFAULT_CAPTURE_VIEWPORT,
+} from '@metamorph/inventory';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,6 +46,7 @@ module.exports = {
   use: {
     trace: 'on',
     headless: ${process.env.PLAYWRIGHT_HEADLESS !== 'false'},
+    viewport: ${JSON.stringify(DEFAULT_CAPTURE_VIEWPORT)},
     locale: ${JSON.stringify(DEFAULT_BROWSER_LOCALE)},
     actionTimeout: 60000,
     navigationTimeout: 60000,
