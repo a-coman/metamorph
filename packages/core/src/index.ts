@@ -85,6 +85,7 @@ export {
 
 export {
   resolveInventoryItemTarget,
+  resolveInventoryItemTargetCandidates,
   applyResolvedTargetToStep,
   renderTargetExpression,
   resolveStepTargetExpression,

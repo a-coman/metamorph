@@ -40,9 +40,7 @@ describe('scanInventoryWithAccessibility', () => {
         </main>
       `);
 
-      const { items, labeledCount } = await scanInventoryWithAccessibility(page, {
-        paintLabels: false,
-      });
+      const { items, labeledCount } = await scanInventoryWithAccessibility(page, {});
 
       const sortItem = items.find((item) => item.tagName === 'select');
       assert.ok(sortItem, 'expected select in viewport inventory');
@@ -72,10 +70,47 @@ describe('scanInventoryWithAccessibility', () => {
 
       const { items } = await scanInventoryWithAccessibility(page, {
         maxItems: 5,
-        paintLabels: false,
       });
 
       assert.equal(items.length, 5);
+    });
+  });
+
+  it('drops DOM supplements without a unique selector and verifies every item', async () => {
+    await withPage(async (page) => {
+      // Duplicate ids make the fallback path selector (#dup > span) match both
+      // spans. Pointer-cursor spans have no promotable a11y role, so they only
+      // enter the inventory as DOM supplements, which must now be verified.
+      await page.setContent(`
+        <main>
+          <button id="real">Real action</button>
+          <div id="dup"><span style="cursor:pointer;display:inline-block;padding:8px">Card A</span></div>
+          <div id="dup"><span style="cursor:pointer;display:inline-block;padding:8px">Card B</span></div>
+        </main>
+      `);
+
+      const { items } = await scanInventoryWithAccessibility(page, {});
+
+      const ambiguous = items.filter(
+        (item) => item.textPreview === 'Card A' || item.textPreview === 'Card B',
+      );
+      assert.equal(
+        ambiguous.length,
+        0,
+        `ambiguous supplements should be dropped, got: ${JSON.stringify(ambiguous)}`,
+      );
+
+      assert.ok(items.find((item) => item.id === 'real'));
+      for (const item of items) {
+        assert.ok(
+          item.locatorMatchCount === 1 || item.selectorMatchCount === 1,
+          `every inventory item must carry a verified target: ${JSON.stringify(item)}`,
+        );
+        assert.ok(
+          (item.candidates?.length ?? 0) > 0,
+          `every inventory item must carry candidates: ${JSON.stringify(item)}`,
+        );
+      }
     });
   });
 
@@ -90,9 +125,7 @@ describe('scanInventoryWithAccessibility', () => {
         </aside>
       `);
 
-      const { items } = await scanInventoryWithAccessibility(page, {
-        paintLabels: false,
-      });
+      const { items } = await scanInventoryWithAccessibility(page, {});
 
       const xiaomi = items.find(
         (item) => item.role === 'checkbox' && item.textPreview === 'XIAOMI',
@@ -137,9 +170,7 @@ describe('scanInventoryWithAccessibility', () => {
         </aside>
       `);
 
-      const { items } = await scanInventoryWithAccessibility(page, {
-        paintLabels: false,
-      });
+      const { items } = await scanInventoryWithAccessibility(page, {});
 
       for (const brand of ['OPPO', 'TCL', 'HONOR']) {
         const facet = items.find(
@@ -160,16 +191,17 @@ describe('scanInventoryWithAccessibility', () => {
         </aside>
       `);
 
-      const { items } = await scanInventoryWithAccessibility(page, {
-        paintLabels: false,
-      });
+      const { items } = await scanInventoryWithAccessibility(page, {});
 
       const oppo = items.find((item) => item.textPreview === 'OPPO');
       const tcl = items.find((item) => item.textPreview === 'TCL');
 
       assert.ok(oppo, 'expected OPPO aria-checkbox link in inventory');
       assert.equal(oppo?.role, 'checkbox');
-      assert.ok(oppo?.score && oppo.score > 100, 'expected filter-panel choice score boost');
+      assert.ok(
+        oppo?.score && oppo.score >= 100,
+        'expected checkbox to rank at the top of its scoring scale',
+      );
       assert.ok(tcl, 'expected TCL aria-checkbox link in inventory');
       assert.equal(tcl?.role, 'checkbox');
     });
@@ -196,9 +228,7 @@ describe('scanInventoryWithAccessibility', () => {
         </aside>
       `);
 
-      const { items } = await scanInventoryWithAccessibility(page, {
-        paintLabels: false,
-      });
+      const { items } = await scanInventoryWithAccessibility(page, {});
 
       const oppo = items.find((item) => item.textPreview === 'OPPO');
       const tcl = items.find((item) => item.textPreview === 'TCL');
@@ -224,7 +254,7 @@ describe('scanObservationInventory', () => {
       `);
 
       const [actionItems, observationItems] = await Promise.all([
-        scanInventoryWithAccessibility(page, { paintLabels: false }),
+        await scanInventoryWithAccessibility(page, {}),
         scanObservationInventory(page),
       ]);
 

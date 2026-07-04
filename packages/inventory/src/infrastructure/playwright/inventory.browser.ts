@@ -2,7 +2,8 @@ import type { InventoryItem } from '@metamorph/core';
 
 export type ScanPageInventoryOptions = {
   maxItems?: number;
-  paintLabels?: boolean;
+  minVisibleSizePx?: number;
+  headerNavBelowFoldPx?: number;
 };
 
 /**
@@ -13,7 +14,8 @@ export function scanAndLabelPage(
   options: ScanPageInventoryOptions = {},
 ): InventoryItem[] {
   const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
-  const paintLabels = options.paintLabels ?? false;
+  const minVisibleSizePx = options.minVisibleSizePx ?? 10;
+  const headerNavBelowFoldPx = options.headerNavBelowFoldPx ?? 120;
   const overlayClassName = 'metamorph-selector-overlay';
   const highlightClassName = 'metamorph-highlight-overlay';
   const legendId = 'metamorph-selector-legend';
@@ -98,7 +100,7 @@ export function scanAndLabelPage(
 
   const isVisibleEnough = (el: Element) => {
     const rect = el.getBoundingClientRect();
-    if (rect.width < 10 || rect.height < 10) return false;
+    if (rect.width < minVisibleSizePx || rect.height < minVisibleSizePx) return false;
     if (rect.right <= 0 || rect.left >= window.innerWidth) return false;
     if (rect.bottom <= 0 || rect.top >= window.innerHeight) return false;
 
@@ -165,7 +167,7 @@ export function scanAndLabelPage(
       }
     }
 
-    if (rect.top > 120 && isHeaderNavChrome(el)) {
+    if (rect.top > headerNavBelowFoldPx && isHeaderNavChrome(el)) {
       return false;
     }
 
@@ -352,17 +354,19 @@ export function scanAndLabelPage(
     return null;
   };
 
-  const getVisibleLabelForHiddenControl = getVisibleClickTargetForHiddenControl;
-
   const getImplicitRole = (el: Element): string | null => {
     const tagName = el.tagName.toLowerCase();
     if (tagName === 'a' && el.hasAttribute('href')) return 'link';
     if (tagName === 'button') return 'button';
     if (tagName === 'input') {
       const type = (el.getAttribute('type') || 'text').toLowerCase();
+      if (type === 'hidden') return null;
       if (type === 'search') return 'searchbox';
       if (type === 'checkbox') return 'checkbox';
       if (type === 'radio') return 'radio';
+      if (['submit', 'button', 'reset', 'image'].includes(type)) return 'button';
+      if (type === 'range') return 'slider';
+      if (type === 'number') return 'spinbutton';
       return 'textbox';
     }
     if (tagName === 'select') return 'combobox';
@@ -370,25 +374,13 @@ export function scanAndLabelPage(
     return null;
   };
 
-  const getElementRole = (el: Element): string | null =>
-    el.getAttribute('role') || getImplicitRole(el);
-
-  const accessibleNameMatches = (
-    candidateName: string,
-    queryName: string,
-  ): boolean => {
-    const normalizedCandidate = candidateName.trim().toLowerCase();
-    const normalizedQuery = queryName.trim().toLowerCase();
-    return normalizedCandidate.includes(normalizedQuery);
+  const getElementRole = (el: Element): string | null => {
+    const explicitRole = el.getAttribute('role');
+    if (explicitRole && !['none', 'presentation'].includes(explicitRole.toLowerCase())) {
+      return explicitRole;
+    }
+    return getImplicitRole(el);
   };
-
-  const elementMatchesRoleAndName = (
-    el: Element,
-    role: string,
-    name: string,
-  ): boolean =>
-    getElementRole(el) === role &&
-    accessibleNameMatches(getAccessibleName(el), name);
 
   const countSelectorMatches = (selector: string): number | undefined => {
     try {
@@ -396,116 +388,6 @@ export function scanAndLabelPage(
     } catch {
       return undefined;
     }
-  };
-
-  const countByRoleAndName = (role: string, name: string): number => {
-    const candidates = document.querySelectorAll(
-      '[role], button, a[href], input, select, textarea',
-    );
-    let count = 0;
-    for (const el of candidates) {
-      if (elementMatchesRoleAndName(el, role, name)) {
-        count += 1;
-      }
-    }
-    return count;
-  };
-
-  const countByLabel = (label: string): number => {
-    const candidates = document.querySelectorAll(
-      'button, input, select, textarea',
-    );
-    let count = 0;
-    for (const el of candidates) {
-      const ariaLabel = (el.getAttribute('aria-label') || '').trim();
-      if (ariaLabel && accessibleNameMatches(ariaLabel, label)) {
-        count += 1;
-      }
-    }
-    return count;
-  };
-
-  const countLocatorMatches = (locator: string): number | undefined => {
-    const testIdMatch = /^getByTestId\((.+)\)$/.exec(locator);
-    if (testIdMatch) {
-      try {
-        const testId = JSON.parse(testIdMatch[1]!) as string;
-        return document.querySelectorAll(
-          `[data-testid="${escapeCssString(testId)}"]`,
-        ).length;
-      } catch {
-        return undefined;
-      }
-    }
-
-    const roleMatch = /^getByRole\((.+), \{ name: (.+) \}\)$/.exec(locator);
-    if (roleMatch) {
-      try {
-        const role = JSON.parse(roleMatch[1]!) as string;
-        const name = JSON.parse(roleMatch[2]!) as string;
-        return countByRoleAndName(role, name);
-      } catch {
-        return undefined;
-      }
-    }
-
-    const labelMatch = /^getByLabel\((.+)\)$/.exec(locator);
-    if (labelMatch) {
-      try {
-        const label = JSON.parse(labelMatch[1]!) as string;
-        return countByLabel(label);
-      } catch {
-        return undefined;
-      }
-    }
-
-    return undefined;
-  };
-
-  const buildPreferredLocator = (el: Element): string | null => {
-    const tagName = el.tagName.toLowerCase();
-    const testId = el.getAttribute('data-testid');
-    if (testId) {
-      return `getByTestId(${JSON.stringify(testId)})`;
-    }
-
-    const role = el.getAttribute('role');
-    const accessibleName = getAccessibleName(el);
-    const ariaLabel = (el.getAttribute('aria-label') || '').trim();
-    const implicitRole = getElementRole(el);
-
-    if (implicitRole && accessibleName) {
-      return `getByRole(${JSON.stringify(implicitRole)}, { name: ${JSON.stringify(accessibleName)} })`;
-    }
-
-    if (role && accessibleName) {
-      return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(accessibleName)} })`;
-    }
-
-    if (tagName === 'a' && accessibleName) {
-      return `getByRole("link", { name: ${JSON.stringify(accessibleName)} })`;
-    }
-
-    if (tagName === 'label') {
-      const labelText = getLabelDisplayText(el);
-      const control = getLabelAssociatedControl(el);
-      if (labelText && control) {
-        const controlRole = getElementRole(control);
-        if (controlRole === 'checkbox' || controlRole === 'radio') {
-          return `getByRole(${JSON.stringify(controlRole)}, { name: ${JSON.stringify(labelText)} })`;
-        }
-        return `getByLabel(${JSON.stringify(labelText)})`;
-      }
-    }
-
-    if (
-      ['button', 'input', 'select', 'textarea'].includes(tagName) &&
-      ariaLabel
-    ) {
-      return `getByLabel(${JSON.stringify(ariaLabel)})`;
-    }
-
-    return null;
   };
 
   const buildSelectorCandidates = (el: Element) => {
@@ -806,7 +688,7 @@ export function scanAndLabelPage(
     .filter(isTestingRelevant)
     .map((el) => ({
       el,
-      locator: buildPreferredLocator(el),
+      locator: null,
       selector: getStableSelector(el),
       score: scoreElement(el),
     }))
@@ -901,150 +783,20 @@ export function scanAndLabelPage(
   const chosen = Number.isFinite(maxItems)
     ? orderedCandidates.slice(0, maxItems)
     : orderedCandidates;
-  const chosenWithCounts = chosen.map(({ el, selector, locator, score }) => {
+  const chosenWithCounts = chosen.map(({ el, selector, score }) => {
     const selectorMatchCount = countSelectorMatches(selector);
-    const locatorMatchCount = locator ? countLocatorMatches(locator) : undefined;
 
     return {
       el,
       selector,
-      locator,
       score,
       selectorMatchCount,
-      locatorMatchCount,
     };
   });
   const shortIdFor = (index: number) => `E${index + 1}`;
-  const placedRects: Array<{
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-  }> = [];
-  const labeledElementRects: Array<{
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-    width: number;
-    height: number;
-  }> = [];
-
-  const overlaps = (
-    a: { left: number; top: number; right: number; bottom: number },
-    b: { left: number; top: number; right: number; bottom: number },
-  ) => !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
-
-  const placeLabel = (rect: {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-  }) => {
-    const labelWidth = 34;
-    const labelHeight = 16;
-    const pageWidth = Math.max(
-      document.documentElement.scrollWidth,
-      document.body.scrollWidth,
-      window.innerWidth,
-    );
-    const placements = [
-      [0, -18],
-      [0, 0],
-      [0, 18],
-      [42, -18],
-      [42, 0],
-      [-42, -18],
-      [-42, 0],
-      [84, 0],
-      [-84, 0],
-      [0, 36],
-    ] as const;
-
-    for (const [dx, dy] of placements) {
-      const left = Math.max(
-        2,
-        Math.min(rect.left + dx, pageWidth - labelWidth - 2),
-      );
-      const top = Math.max(2, rect.top + dy);
-      const candidate = {
-        left,
-        top,
-        right: left + labelWidth,
-        bottom: top + labelHeight,
-      };
-
-      if (!placedRects.some((existing) => overlaps(candidate, existing))) {
-        placedRects.push(candidate);
-        return candidate;
-      }
-    }
-
-    return null;
-  };
-
-  const getIntersectionArea = (
-    a: { left: number; top: number; right: number; bottom: number },
-    b: { left: number; top: number; right: number; bottom: number },
-  ) => {
-    const width = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
-    const height = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
-    return width * height;
-  };
-
-  const isOverlappingImportantElement = (rect: {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-    width: number;
-    height: number;
-  }) => {
-    const area = Math.max(1, rect.width * rect.height);
-    return labeledElementRects.some((existing) => {
-      const intersection = getIntersectionArea(rect, existing);
-      return intersection / area >= 0.35;
-    });
-  };
-
-  const labelThemes = [
-    { border: 'rgba(0, 123, 255, 0.95)', background: 'rgba(0, 123, 255, 0.90)' },
-    { border: 'rgba(0, 168, 120, 0.95)', background: 'rgba(0, 168, 120, 0.90)' },
-    { border: 'rgba(245, 158, 11, 0.95)', background: 'rgba(245, 158, 11, 0.90)' },
-    { border: 'rgba(239, 68, 68, 0.95)', background: 'rgba(239, 68, 68, 0.90)' },
-    { border: 'rgba(14, 165, 233, 0.95)', background: 'rgba(14, 165, 233, 0.90)' },
-    { border: 'rgba(16, 185, 129, 0.95)', background: 'rgba(16, 185, 129, 0.90)' },
-    { border: 'rgba(217, 119, 6, 0.95)', background: 'rgba(217, 119, 6, 0.90)' },
-    { border: 'rgba(99, 102, 241, 0.95)', background: 'rgba(99, 102, 241, 0.90)' },
-  ];
-
-  const pageWidth = Math.max(
-    document.documentElement.scrollWidth,
-    document.body.scrollWidth,
-    window.innerWidth,
-  );
-  const pageHeight = Math.max(
-    document.documentElement.scrollHeight,
-    document.body.scrollHeight,
-    window.innerHeight,
-  );
-
-  let overlayRoot: HTMLDivElement | null = null;
-  if (paintLabels) {
-    overlayRoot = document.createElement('div');
-    overlayRoot.id = legendId;
-    overlayRoot.style.position = 'absolute';
-    overlayRoot.style.left = '0';
-    overlayRoot.style.top = '0';
-    overlayRoot.style.width = `${pageWidth}px`;
-    overlayRoot.style.height = `${pageHeight}px`;
-    overlayRoot.style.pointerEvents = 'none';
-    overlayRoot.style.zIndex = '2147483645';
-    document.body.appendChild(overlayRoot);
-  }
 
   return chosenWithCounts.map(
-    ({ el, selector, locator, score, selectorMatchCount, locatorMatchCount }, index) => {
+    ({ el, selector, score, selectorMatchCount }, index) => {
     const shortId = shortIdFor(index);
     const rect = el.getBoundingClientRect();
     const pageRect = {
@@ -1055,54 +807,6 @@ export function scanAndLabelPage(
       width: rect.width,
       height: rect.height,
     };
-
-    const shouldHideByElementOverlap = isOverlappingImportantElement(pageRect);
-    const position =
-      paintLabels && !shouldHideByElementOverlap
-        ? placeLabel(pageRect) ?? {
-            left: Math.max(2, pageRect.left + 4),
-            top: Math.max(2, pageRect.top + 4),
-            right: Math.max(2, pageRect.left + 38),
-            bottom: Math.max(2, pageRect.top + 20),
-          }
-        : null;
-
-    const theme = labelThemes[index % labelThemes.length]!;
-
-    if (paintLabels && position && !shouldHideByElementOverlap && overlayRoot) {
-      labeledElementRects.push(pageRect);
-
-      const highlight = document.createElement('div');
-      highlight.className = highlightClassName;
-      highlight.style.position = 'absolute';
-      highlight.style.left = `${Math.max(0, pageRect.left)}px`;
-      highlight.style.top = `${Math.max(0, pageRect.top)}px`;
-      highlight.style.width = `${Math.max(2, pageRect.width)}px`;
-      highlight.style.height = `${Math.max(2, pageRect.height)}px`;
-      highlight.style.border = `2px solid ${theme.border}`;
-      highlight.style.boxSizing = 'border-box';
-      highlight.style.pointerEvents = 'none';
-      highlight.style.zIndex = '2147483646';
-      overlayRoot.appendChild(highlight);
-
-      const label = document.createElement('div');
-      label.className = overlayClassName;
-      label.textContent = shortId;
-      label.style.position = 'absolute';
-      label.style.padding = '2px 4px';
-      label.style.borderRadius = '3px';
-      label.style.background = theme.background;
-      label.style.border = `1px solid ${theme.border}`;
-      label.style.boxShadow = `0 1px 2px rgba(15, 23, 42, 0.35), 0 0 0 1px ${theme.border}`;
-      label.style.color = '#fff';
-      label.style.font = '11px/1.1 monospace';
-      label.style.whiteSpace = 'nowrap';
-      label.style.pointerEvents = 'none';
-      label.style.zIndex = '2147483647';
-      label.style.left = `${position.left}px`;
-      label.style.top = `${position.top}px`;
-      overlayRoot.appendChild(label);
-    }
 
     const textPreview = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80);
     const tagName = el.tagName.toLowerCase();
@@ -1131,18 +835,18 @@ export function scanAndLabelPage(
     return {
       index,
       shortId,
-      locator,
+      locator: null,
       selector,
       score,
-      labelShown: Boolean(paintLabels && position && !shouldHideByElementOverlap),
+      labelShown: false,
       tagName,
       id: el.id || null,
       role: effectiveRole,
       name: el.getAttribute('name'),
       ariaLabel: el.getAttribute('aria-label'),
       textPreview: effectiveTextPreview,
+      source: 'dom',
       ...(selectorMatchCount !== undefined ? { selectorMatchCount } : {}),
-      ...(locatorMatchCount !== undefined ? { locatorMatchCount } : {}),
       boundingBox: {
         x: pageRect.left,
         y: pageRect.top,
@@ -1155,18 +859,6 @@ export function scanAndLabelPage(
   );
 }
 
-const OBSERVATION_EXCLUDED_TAGS = new Set([
-  'script',
-  'style',
-  'svg',
-  'path',
-  'noscript',
-  'template',
-  'head',
-  'meta',
-  'link',
-]);
-
 /**
  * Broad DOM inventory for observation anchors: visible nodes with meaningful text
  * or accessibility metadata. No on-page labels; document-order shortIds (E1…).
@@ -1175,6 +867,21 @@ export function scanObservationPage(
   options: ScanPageInventoryOptions = {},
 ): InventoryItem[] {
   const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
+  const minVisibleSizePx = options.minVisibleSizePx ?? 10;
+
+  // Must live inside the function: this code is serialized into the page and
+  // loses access to module scope.
+  const OBSERVATION_EXCLUDED_TAGS = new Set([
+    'script',
+    'style',
+    'svg',
+    'path',
+    'noscript',
+    'template',
+    'head',
+    'meta',
+    'link',
+  ]);
 
   const normalizeText = (value: string) => value.trim().replace(/\s+/g, ' ');
 
@@ -1218,7 +925,7 @@ export function scanObservationPage(
 
   const isObservationVisible = (el: Element) => {
     const rect = el.getBoundingClientRect();
-    if (rect.width < 10 || rect.height < 10) return false;
+    if (rect.width < minVisibleSizePx || rect.height < minVisibleSizePx) return false;
     if (rect.right <= 0 || rect.left >= window.innerWidth) return false;
     if (rect.bottom <= 0 || rect.top >= window.innerHeight) return false;
 
@@ -1351,9 +1058,13 @@ export function scanObservationPage(
     if (tagName === 'button') return 'button';
     if (tagName === 'input') {
       const type = (el.getAttribute('type') || 'text').toLowerCase();
+      if (type === 'hidden') return null;
       if (type === 'search') return 'searchbox';
       if (type === 'checkbox') return 'checkbox';
       if (type === 'radio') return 'radio';
+      if (['submit', 'button', 'reset', 'image'].includes(type)) return 'button';
+      if (type === 'range') return 'slider';
+      if (type === 'number') return 'spinbutton';
       return 'textbox';
     }
     if (tagName === 'select') return 'combobox';
@@ -1361,45 +1072,12 @@ export function scanObservationPage(
     return null;
   };
 
-  const getElementRole = (el: Element): string | null =>
-    el.getAttribute('role') || getImplicitRole(el);
-
-  const getAccessibleName = (el: Element) => {
-    const ariaLabel = normalizeText(el.getAttribute('aria-label') ?? '');
-    const title = normalizeText(el.getAttribute('title') ?? '');
-    const text = normalizeText(el.textContent ?? '');
-    return ariaLabel || title || text;
-  };
-
-  const buildPreferredLocator = (el: Element): string | null => {
-    const tagName = el.tagName.toLowerCase();
-    const testId = el.getAttribute('data-testid');
-    if (testId) {
-      return `getByTestId(${JSON.stringify(testId)})`;
+  const getElementRole = (el: Element): string | null => {
+    const explicitRole = el.getAttribute('role');
+    if (explicitRole && !['none', 'presentation'].includes(explicitRole.toLowerCase())) {
+      return explicitRole;
     }
-
-    const role = el.getAttribute('role');
-    const accessibleName = getAccessibleName(el);
-    const ariaLabel = normalizeText(el.getAttribute('aria-label') ?? '');
-    const implicitRole = getElementRole(el);
-
-    if (implicitRole && accessibleName) {
-      return `getByRole(${JSON.stringify(implicitRole)}, { name: ${JSON.stringify(accessibleName)} })`;
-    }
-
-    if (role && accessibleName) {
-      return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(accessibleName)} })`;
-    }
-
-    if (tagName === 'a' && accessibleName) {
-      return `getByRole("link", { name: ${JSON.stringify(accessibleName)} })`;
-    }
-
-    if (['button', 'input', 'select', 'textarea'].includes(tagName) && ariaLabel) {
-      return `getByLabel(${JSON.stringify(ariaLabel)})`;
-    }
-
-    return null;
+    return getImplicitRole(el);
   };
 
   const buildSelectorCandidates = (el: Element) => {
@@ -1521,7 +1199,7 @@ export function scanObservationPage(
     return {
       index,
       shortId,
-      locator: buildPreferredLocator(el),
+      locator: null,
       selector: getStableSelector(el),
       score: 0,
       labelShown: false,
@@ -1561,17 +1239,18 @@ export function paintAdditionalInventoryLabels(
   const legendId = 'metamorph-selector-legend';
 
   let overlayRoot = document.getElementById(legendId) as HTMLDivElement | null;
+  const pageWidth = Math.max(
+    document.documentElement.scrollWidth,
+    document.body.scrollWidth,
+    window.innerWidth,
+  );
+  const pageHeight = Math.max(
+    document.documentElement.scrollHeight,
+    document.body.scrollHeight,
+    window.innerHeight,
+  );
+
   if (!overlayRoot) {
-    const pageWidth = Math.max(
-      document.documentElement.scrollWidth,
-      document.body.scrollWidth,
-      window.innerWidth,
-    );
-    const pageHeight = Math.max(
-      document.documentElement.scrollHeight,
-      document.body.scrollHeight,
-      window.innerHeight,
-    );
     overlayRoot = document.createElement('div');
     overlayRoot.id = legendId;
     overlayRoot.style.position = 'absolute';
@@ -1595,6 +1274,110 @@ export function paintAdditionalInventoryLabels(
     { border: 'rgba(99, 102, 241, 0.95)', background: 'rgba(99, 102, 241, 0.90)' },
   ];
 
+  const viewportLeft = window.scrollX;
+  const viewportTop = window.scrollY;
+  const viewportRight = viewportLeft + window.innerWidth;
+  const viewportBottom = viewportTop + window.innerHeight;
+
+  const placedRects: Array<{
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }> = [];
+
+  const labeledElementRects: Array<{
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  }> = [];
+
+  const overlaps = (
+    a: { left: number; top: number; right: number; bottom: number },
+    b: { left: number; top: number; right: number; bottom: number },
+  ) => !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+
+  const placeLabel = (rect: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }) => {
+    const labelWidth = 34;
+    const labelHeight = 16;
+    const placements = [
+      [0, -18],
+      [0, 0],
+      [0, 18],
+      [42, -18],
+      [42, 0],
+      [-42, -18],
+      [-42, 0],
+      [84, 0],
+      [-84, 0],
+      [0, 36],
+    ] as const;
+
+    for (const [dx, dy] of placements) {
+      const left = Math.max(
+        2,
+        Math.min(rect.left + dx, pageWidth - labelWidth - 2),
+      );
+      const top = Math.max(2, rect.top + dy);
+      const candidate = {
+        left,
+        top,
+        right: left + labelWidth,
+        bottom: top + labelHeight,
+      };
+
+      if (!placedRects.some((existing) => overlaps(candidate, existing))) {
+        placedRects.push(candidate);
+        return candidate;
+      }
+    }
+
+    return null;
+  };
+
+  const getIntersectionArea = (
+    a: { left: number; top: number; right: number; bottom: number },
+    b: { left: number; top: number; right: number; bottom: number },
+  ) => {
+    const width = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    const height = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    return width * height;
+  };
+
+  const isOverlappingImportantElement = (rect: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  }) => {
+    const area = Math.max(1, rect.width * rect.height);
+    return labeledElementRects.some((existing) => {
+      const intersection = getIntersectionArea(rect, existing);
+      return intersection / area >= 0.35;
+    });
+  };
+
+  const isInViewport = (rect: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }) =>
+    rect.right > viewportLeft &&
+    rect.left < viewportRight &&
+    rect.bottom > viewportTop &&
+    rect.top < viewportBottom;
+
   const painted: string[] = [];
 
   for (const [index, item] of items.entries()) {
@@ -1606,6 +1389,22 @@ export function paintAdditionalInventoryLabels(
       width: item.boundingBox.width,
       height: item.boundingBox.height,
     };
+
+    if (!isInViewport(pageRect)) {
+      continue;
+    }
+
+    const shouldHideByElementOverlap = isOverlappingImportantElement(pageRect);
+    if (shouldHideByElementOverlap) {
+      continue;
+    }
+
+    const position = placeLabel(pageRect);
+    if (!position) {
+      continue;
+    }
+
+    labeledElementRects.push(pageRect);
     const theme = labelThemes[index % labelThemes.length]!;
 
     const highlight = document.createElement('div');
@@ -1635,8 +1434,8 @@ export function paintAdditionalInventoryLabels(
     label.style.whiteSpace = 'nowrap';
     label.style.pointerEvents = 'none';
     label.style.zIndex = '2147483647';
-    label.style.left = `${Math.max(2, pageRect.left + 4)}px`;
-    label.style.top = `${Math.max(2, pageRect.top + 4)}px`;
+    label.style.left = `${position.left}px`;
+    label.style.top = `${position.top}px`;
     overlayRoot.appendChild(label);
     painted.push(item.shortId);
   }

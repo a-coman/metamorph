@@ -24,6 +24,7 @@ function sampleInventory(): PageSnapshotInventory {
         tagName: 'input',
         role: 'searchbox',
         name: 'q',
+        id: 'search',
         ariaLabel: null,
         textPreview: 'Search',
       },
@@ -37,6 +38,7 @@ function sampleInventory(): PageSnapshotInventory {
         tagName: 'select',
         role: null,
         name: null,
+        id: 'sort',
         ariaLabel: 'Sort',
         textPreview: null,
         options: [

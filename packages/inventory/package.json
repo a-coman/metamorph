@@ -5,8 +5,7 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "build": "tsc",
-    "build:browser": "esbuild src/infrastructure/playwright/inventory.browser.ts --bundle --platform=browser --format=iife --global-name=__metamorphInventory --outfile=src/infrastructure/playwright/inventory.browser.bundle.js --legal-comments=none --log-level=warning",
-    "capture": "pnpm build:browser && tsx scripts/capture-cli.ts",
+    "capture": "tsx scripts/capture-cli.ts",
     "test": "node --import tsx --test $(find src -name '*.test.ts')"
   },
   "type": "module",

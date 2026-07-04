@@ -1,12 +1,26 @@
 import type { Page } from 'playwright';
 import type { InventoryItem } from '@metamorph/core';
-import { captureAccessibilitySnapshot } from './capture-accessibility-snapshot.js';
-import { loadBrowserScanScript } from './load-browser-scan-script.js';
 import {
-  DEFAULT_MAX_A11Y_PROMOTIONS,
-  mergeDomAndPromotedInventory,
-  promoteA11yInventoryItems,
-} from './promote-a11y-inventory-items.js';
+  buildA11yInventory,
+  shouldResnapshotA11yInventory,
+} from './build-a11y-inventory.js';
+import { captureAccessibilitySnapshot } from './capture-accessibility-snapshot.js';
+import { evaluatePageFunction } from './evaluate-browser-function.js';
+import {
+  paintAdditionalInventoryLabels,
+  scanAndLabelPage,
+} from './inventory.browser.js';
+import { DEFAULT_MAX_INVENTORY_ITEMS, INVENTORY_SCAN_CONFIG } from './inventory-scan-config.js';
+import {
+  appendSupplementalDomItems,
+  assignInventoryShortIds,
+  capInventoryItems,
+  enrichA11yItemsFromDomItems,
+  filterSupplementalDomItems,
+} from './merge-inventory-items.js';
+import { formatLocatorSegment } from './parse-locator-chain.js';
+import { runInParallelBatches } from './run-in-parallel-batches.js';
+import { scanFrameInventories } from './scan-frame-inventories.js';
 
 export type ScannedInventoryWithAccessibility = {
   items: InventoryItem[];
@@ -19,61 +33,84 @@ export type ScanInventoryOptions = {
   paintLabels?: boolean;
 };
 
+const VALIDATION_CONCURRENCY = 8;
+
+function resolveMaxItems(maxItems?: number): number {
+  return Number.isFinite(maxItems ?? Number.NaN)
+    ? (maxItems as number)
+    : DEFAULT_MAX_INVENTORY_ITEMS;
+}
+
+async function validateDomSelectorCounts(
+  page: Page,
+  items: InventoryItem[],
+): Promise<InventoryItem[]> {
+  return runInParallelBatches(items, VALIDATION_CONCURRENCY, async (item) => {
+    try {
+      const selectorMatchCount = await page.locator(item.selector).count();
+      return { ...item, selectorMatchCount };
+    } catch {
+      return { ...item, selectorMatchCount: 0 };
+    }
+  });
+}
+
 export async function scanInventoryWithAccessibility(
   page: Page,
   options: ScanInventoryOptions = {},
 ): Promise<ScannedInventoryWithAccessibility> {
-  const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
+  const effectiveMaxItems = resolveMaxItems(options.maxItems);
   const paintLabels = options.paintLabels ?? false;
-  const accessibilitySnapshot = await captureAccessibilitySnapshot(page);
+  let accessibilitySnapshot = await captureAccessibilitySnapshot(page);
 
-  const browserScript = loadBrowserScanScript();
-  const domItems = (await page.evaluate(
-    ({ script, opts }) => {
-      const api = (0, eval)(`${script}\n; __metamorphInventory`) as {
-        scanAndLabelPage: (options: {
-          maxItems?: number;
-          paintLabels?: boolean;
-        }) => unknown[];
-      };
-      return api.scanAndLabelPage(opts);
-    },
-    { script: browserScript, opts: { maxItems, paintLabels } },
-  )) as InventoryItem[];
+  let a11yResult = await buildA11yInventory(page, accessibilitySnapshot);
+  if (shouldResnapshotA11yInventory(a11yResult)) {
+    accessibilitySnapshot = await captureAccessibilitySnapshot(page);
+    a11yResult = await buildA11yInventory(page, accessibilitySnapshot);
+  }
 
-  const promotionBudget = Number.isFinite(maxItems)
-    ? Math.max(0, maxItems - domItems.length)
-    : DEFAULT_MAX_A11Y_PROMOTIONS;
+  const frameItems = await scanFrameInventories(page);
 
-  const { enrichedDom, promoted } = await promoteA11yInventoryItems(
-    page,
-    accessibilitySnapshot,
-    domItems,
-    { maxPromotions: promotionBudget },
+  const rawDomItems = await evaluatePageFunction(page, scanAndLabelPage, {
+    minVisibleSizePx: INVENTORY_SCAN_CONFIG.minVisibleSizePx,
+    headerNavBelowFoldPx: INVENTORY_SCAN_CONFIG.headerNavBelowFoldPx,
+  });
+
+  // Frame items stay out of the box overlap merge: the main-page DOM scan
+  // cannot see into iframes, so overlap with a frame item never means the
+  // same element and would only donate wrong-document selectors.
+  const enrichedA11y = enrichA11yItemsFromDomItems(a11yResult.items, rawDomItems);
+  const supplementalDomItems = filterSupplementalDomItems(rawDomItems, enrichedA11y);
+  const validatedSupplements = (
+    await validateDomSelectorCounts(page, supplementalDomItems)
+  )
+    .filter((item) => item.selectorMatchCount === 1)
+    .map((item) => ({
+      ...item,
+      candidates: [formatLocatorSegment(item.selector)],
+    }));
+
+  const merged = appendSupplementalDomItems(
+    [...enrichedA11y, ...frameItems],
+    validatedSupplements,
   );
-
-  let items = mergeDomAndPromotedInventory(enrichedDom, promoted);
+  const capped = capInventoryItems(merged, effectiveMaxItems);
+  let items = assignInventoryShortIds(capped);
 
   if (paintLabels) {
     const toPaint = items
-      .filter((item) => !item.labelShown && item.boundingBox)
+      .filter((item) => item.boundingBox)
       .map((item) => ({
         shortId: item.shortId,
         boundingBox: item.boundingBox!,
       }));
 
     if (toPaint.length > 0) {
-      const paintedIds = (await page.evaluate(
-        ({ script, payload }) => {
-          const api = (0, eval)(`${script}\n; __metamorphInventory`) as {
-            paintAdditionalInventoryLabels: (
-              items: typeof payload,
-            ) => string[];
-          };
-          return api.paintAdditionalInventoryLabels(payload);
-        },
-        { script: browserScript, payload: toPaint },
-      )) as string[];
+      const paintedIds = await evaluatePageFunction(
+        page,
+        paintAdditionalInventoryLabels,
+        toPaint,
+      );
 
       const paintedSet = new Set(paintedIds);
       items = items.map((item) =>

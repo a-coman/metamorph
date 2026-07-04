@@ -66,7 +66,7 @@ export async function prepareCaptureViewport(
   };
 }
 
-export async function captureRawScreenshot(page: Page): Promise<Buffer> {
+export async function captureViewportScreenshot(page: Page): Promise<Buffer> {
   const viewport = page.viewportSize();
   return page.screenshot({
     fullPage: false,
@@ -78,14 +78,8 @@ export async function captureRawScreenshot(page: Page): Promise<Buffer> {
   });
 }
 
-export async function captureAnnotatedScreenshot(page: Page): Promise<Buffer> {
-  const viewport = page.viewportSize();
-  return page.screenshot({
-    fullPage: false,
-    animations: 'disabled',
-    type: 'png',
-    clip: viewport
-      ? { x: 0, y: 0, width: viewport.width, height: viewport.height }
-      : undefined,
-  });
-}
+/** @deprecated Use {@link captureViewportScreenshot}. */
+export const captureRawScreenshot = captureViewportScreenshot;
+
+/** @deprecated Use {@link captureViewportScreenshot}. */
+export const captureAnnotatedScreenshot = captureViewportScreenshot;

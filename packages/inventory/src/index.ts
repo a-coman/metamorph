@@ -29,23 +29,28 @@ export {
 } from './infrastructure/playwright/capture-defaults.js';
 
 export {
-  captureAnnotatedScreenshot,
-  captureRawScreenshot,
+  captureViewportScreenshot,
   prepareCaptureViewport,
   readPageMetrics,
 } from './infrastructure/playwright/prepare-viewport.js';
 
-export { loadBrowserScanScript } from './infrastructure/playwright/load-browser-scan-script.js';
 
 export { evaluateLocatorChain } from './infrastructure/playwright/evaluate-locator-chain.js';
+
+export {
+  resolveInventoryItemLocator,
+  resolveUniqueTargetLocator,
+  UniqueTargetResolutionError,
+  type ResolveUniqueTargetOptions,
+} from './infrastructure/playwright/resolve-unique-target.js';
 
 export { fillWithAutocomplete } from './infrastructure/playwright/fill-with-autocomplete.js';
 
 export { scanAndEnrichCurrentPage } from './infrastructure/playwright/scan-and-enrich-current-page.js';
 
+export { buildA11yInventory, shouldResnapshotA11yInventory } from './infrastructure/playwright/build-a11y-inventory.js';
 export { annotateAccessibilityTree } from './infrastructure/playwright/annotate-accessibility-tree.js';
 export { captureAccessibilitySnapshot } from './infrastructure/playwright/capture-accessibility-snapshot.js';
-export { promoteA11yInventoryItems } from './infrastructure/playwright/promote-a11y-inventory-items.js';
 
 export { toPageSnapshotPayload } from './application/mappers/page-snapshot.mapper.js';
 

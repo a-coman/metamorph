@@ -23,6 +23,11 @@ export const InventoryItemSchema = z.object({
   textPreview: z.string().nullable().optional(),
   locatorMatchCount: z.number().int().nonnegative().optional(),
   selectorMatchCount: z.number().int().nonnegative().optional(),
+  /**
+   * Ordered locator chains for self healing resolution at probe time (best first).
+   * Every entry is parseable by parseLocatorSegments (getByRole chains, locator("css"), frameLocator chains).
+   */
+  candidates: z.array(z.string()).optional(),
   boundingBox: z
     .object({
       x: z.number(),
@@ -41,6 +46,8 @@ export const InventoryItemSchema = z.object({
       }),
     )
     .optional(),
+  /** Origin of the inventory entry when known (a11y-primary vs DOM supplement). */
+  source: z.enum(['a11y', 'dom']).optional(),
 });
 
 export const PageSnapshotInventorySchema = z.object({

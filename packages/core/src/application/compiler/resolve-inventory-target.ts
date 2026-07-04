@@ -6,34 +6,66 @@ export type ResolvedInventoryTarget =
   | { kind: 'locator'; value: string }
   | { kind: 'selector'; value: string };
 
-function hasMatchCountMetadata(item: InventoryItem): boolean {
-  return (
-    item.locatorMatchCount !== undefined || item.selectorMatchCount !== undefined
-  );
+/** selector "#x" and chain locator("#x") resolve identically, so they share a dedupe key. */
+function candidateKey(target: ResolvedInventoryTarget): string {
+  return target.kind === 'selector'
+    ? `locator(${JSON.stringify(target.value)})`
+    : target.value;
+}
+
+/**
+ * Ordered target candidates for an inventory item, best first. Scan-time
+ * verified candidates come before legacy locator/selector fields; unverified
+ * targets are included last so the probe can still attempt them and verify
+ * uniqueness at runtime instead of failing at compile time.
+ */
+export function resolveInventoryItemTargetCandidates(
+  item: InventoryItem,
+): ResolvedInventoryTarget[] {
+  const candidates: ResolvedInventoryTarget[] = [];
+  const seen = new Set<string>();
+
+  const push = (target: ResolvedInventoryTarget) => {
+    const key = candidateKey(target);
+    if (!seen.has(key)) {
+      seen.add(key);
+      candidates.push(target);
+    }
+  };
+
+  for (const chain of item.candidates ?? []) {
+    push({ kind: 'locator', value: chain });
+  }
+
+  if (item.locator && item.locatorMatchCount === 1) {
+    push({ kind: 'locator', value: item.locator });
+  }
+  if (item.selector && item.selectorMatchCount === 1) {
+    push({ kind: 'selector', value: item.selector });
+  }
+
+  if (candidates.length === 0) {
+    if (item.locator) {
+      push({ kind: 'locator', value: item.locator });
+    }
+    if (item.selector) {
+      push({ kind: 'selector', value: item.selector });
+    }
+  }
+
+  return candidates;
 }
 
 export function resolveInventoryItemTarget(
   item: InventoryItem,
 ): ResolvedInventoryTarget {
-  if (hasMatchCountMetadata(item)) {
-    if (item.locator && item.locatorMatchCount === 1) {
-      return { kind: 'locator', value: item.locator };
-    }
-
-    if (item.selectorMatchCount === 1) {
-      return { kind: 'selector', value: item.selector };
-    }
-
+  const [best] = resolveInventoryItemTargetCandidates(item);
+  if (!best) {
     throw new PlaybookCompileError(
-      `Ambiguous target for ${item.shortId}: locator matches ${item.locatorMatchCount ?? 'n/a'}, selector matches ${item.selectorMatchCount ?? 'n/a'}`,
+      `No target for ${item.shortId}: locator, selector, and candidates are all missing`,
     );
   }
-
-  if (item.locator) {
-    return { kind: 'locator', value: item.locator };
-  }
-
-  return { kind: 'selector', value: item.selector };
+  return best;
 }
 
 export function applyResolvedTargetToStep(

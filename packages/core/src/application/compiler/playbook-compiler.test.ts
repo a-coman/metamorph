@@ -108,4 +108,53 @@ describe('compilePlaybook with observation anchors', () => {
     assert.match(compiled.playbookContent, /parseLocalizedNumbers/);
     assert.equal(compiled.templateVersion, 'playbook-template@4');
   });
+
+  it('allows press steps whose element_id belongs to a later snapshot inventory', () => {
+    const crossSnapshotSlots: GenerationSlots = {
+      source: {
+        steps: [
+          {
+            id: 1,
+            action: 'fill',
+            element_id: 'E1',
+            value: 'laptop',
+            resolved_locator: 'getByRole("searchbox", { name: "Search", exact: true })',
+          },
+          { id: 2, action: 'press', element_id: 'E1', key: 'Enter' },
+        ],
+      },
+      follow_up: {
+        steps: [
+          {
+            id: 1,
+            action: 'fill',
+            element_id: 'E94',
+            value: 'laptop',
+            resolved_locator: 'getByRole("searchbox", { name: "Search", exact: true })',
+          },
+          { id: 2, action: 'press', element_id: 'E94', key: 'Enter' },
+        ],
+      },
+      observation: { fields: [] },
+    };
+
+    const compiled = compilePlaybook(
+      crossSnapshotSlots,
+      {
+        precondition: { description: 'pre' },
+        transformation: {
+          transform_family: 'idempotence',
+          description: 'repeat search',
+        },
+        relation: {
+          type: 'equal',
+          on: ['url'],
+          description: 'same results',
+        },
+      },
+      inventory,
+    );
+
+    assert.match(compiled.playbookContent, /keyboard\.press\("Enter"\)/);
+  });
 });

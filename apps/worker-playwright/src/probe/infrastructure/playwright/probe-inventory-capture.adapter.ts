@@ -1,4 +1,4 @@
-import { chromium, type BrowserContext, type Page } from 'playwright';
+import { chromium, type BrowserContext, type Locator, type Page } from 'playwright';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,17 +9,18 @@ import {
   NETWORK_IDLE_LOAD_TIMEOUT_MS,
   NETWORK_IDLE_WAIT_UNTIL,
   POST_ACTION_SETTLE_MS,
-  resolveInventoryItemTarget,
+  resolveInventoryItemTargetCandidates,
   shouldStabilizeAfterAction,
   type InventoryItem,
   type PageSnapshotInventory,
+  type ResolvedInventoryTarget,
   type SlotStep,
 } from '@metamorph/core';
 import {
   buildBrowserContextOptions,
-  captureRawScreenshot,
-  evaluateLocatorChain,
+  captureViewportScreenshot,
   fillWithAutocomplete,
+  resolveUniqueTargetLocator,
   scanAndEnrichCurrentPage,
   type PageInventory,
 } from '@metamorph/inventory';
@@ -61,7 +62,7 @@ export class ProbeInventoryCaptureAdapter {
       await page.route(/\.(woff2?|ttf|otf|eot)(\?.*)?$/i, (route) => route.abort());
 
       try {
-        let screenshotBeforeStep = await captureRawScreenshot(page);
+        let screenshotBeforeStep = await captureViewportScreenshot(page);
 
         for (let index = 0; index < steps.length; index++) {
           if (sessionId && (await sessionControlChecker.isPauseRequested(sessionId))) {
@@ -74,7 +75,7 @@ export class ProbeInventoryCaptureAdapter {
 
           try {
             await this.executeStep(page, step, inventory);
-            screenshotBeforeStep = await captureRawScreenshot(page);
+            screenshotBeforeStep = await captureViewportScreenshot(page);
           } catch (stepError) {
             traceZip = await this.exportTrace(context, jobId, tracingStarted);
             tracingStarted = false;
@@ -191,11 +192,11 @@ export class ProbeInventoryCaptureAdapter {
         break;
 
       case 'click':
-        await resolveTarget(page, step, itemMap).click();
+        await (await resolveTarget(page, step, itemMap)).click();
         break;
 
       case 'fill': {
-        const fillLocator = resolveTarget(page, step, itemMap);
+        const fillLocator = await resolveTarget(page, step, itemMap);
         const fillValue = step.value ?? '';
         const item = step.element_id ? itemMap.get(step.element_id) : undefined;
 
@@ -213,7 +214,7 @@ export class ProbeInventoryCaptureAdapter {
       }
 
       case 'selectOption':
-        await resolveTarget(page, step, itemMap).selectOption(step.value ?? '');
+        await (await resolveTarget(page, step, itemMap)).selectOption(step.value ?? '');
         break;
 
       case 'press':
@@ -248,32 +249,56 @@ async function stabilizePage(page: Page): Promise<void> {
   await page.waitForTimeout(POST_ACTION_SETTLE_MS);
 }
 
-function resolveTarget(
+/**
+ * Collects target candidates for a step (compile-time resolved target first,
+ * then the inventory item's own candidates) and resolves the first one that
+ * matches exactly one element on the live page. Recounting at action time
+ * catches pages that drifted since the snapshot; the fallback chain lets a
+ * stale primary locator self-heal via the alternatives.
+ */
+async function resolveTarget(
   page: Page,
   step: SlotStep,
   itemMap: Map<string, InventoryItem>,
-) {
+): Promise<Locator> {
+  const candidates: ResolvedInventoryTarget[] = [];
+  const seen = new Set<string>();
+
+  const push = (candidate: ResolvedInventoryTarget) => {
+    const key =
+      candidate.kind === 'selector'
+        ? `locator(${JSON.stringify(candidate.value)})`
+        : candidate.value;
+    if (!seen.has(key)) {
+      seen.add(key);
+      candidates.push(candidate);
+    }
+  };
+
   if (step.resolved_locator) {
-    return evaluateLocatorChain(page, step.resolved_locator);
+    push({ kind: 'locator', value: step.resolved_locator });
   }
-
   if (step.resolved_selector) {
-    return page.locator(step.resolved_selector);
+    push({ kind: 'selector', value: step.resolved_selector });
   }
 
-  if (!step.element_id) {
-    throw new Error(`Step ${step.id}: ${step.action} requires element_id`);
+  const item = step.element_id ? itemMap.get(step.element_id) : undefined;
+  if (item) {
+    for (const candidate of resolveInventoryItemTargetCandidates(item)) {
+      push(candidate);
+    }
   }
 
-  const item = itemMap.get(step.element_id);
-  if (!item) {
+  if (candidates.length === 0) {
+    if (!step.element_id) {
+      throw new Error(`Step ${step.id}: ${step.action} requires element_id`);
+    }
     throw new Error(`element_id ${step.element_id} not found in inventory`);
   }
 
-  const target = resolveInventoryItemTarget(item);
-  if (target.kind === 'locator') {
-    return evaluateLocatorChain(page, target.value);
-  }
+  const description = step.element_id
+    ? `step ${step.id} (${step.action} ${step.element_id})`
+    : `step ${step.id} (${step.action})`;
 
-  return page.locator(target.value);
+  return resolveUniqueTargetLocator(page, candidates, description);
 }

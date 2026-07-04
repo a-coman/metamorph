@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { InventoryItem } from '../../domain/schemas/page-snapshot.schema.js';
 import { PlaybookCompileError } from './playbook-compiler.js';
-import { resolveInventoryItemTarget } from './resolve-inventory-target.js';
+import {
+  resolveInventoryItemTarget,
+  resolveInventoryItemTargetCandidates,
+} from './resolve-inventory-target.js';
 import { resolveStepTargets } from './probe-spec-compiler.js';
 
 function baseItem(overrides: Partial<InventoryItem> = {}): InventoryItem {
@@ -48,25 +51,13 @@ describe('resolveInventoryItemTarget', () => {
     assert.equal(target.value, '#nav-logo-sprites');
   });
 
-  it('throws when both locator and selector are ambiguous', () => {
-    assert.throws(
-      () =>
-        resolveInventoryItemTarget(
-          baseItem({
-            locatorMatchCount: 3,
-            selectorMatchCount: 2,
-          }),
-        ),
-      (error: unknown) => {
-        assert.ok(error instanceof PlaybookCompileError);
-        assert.match((error as Error).message, /Ambiguous target for E3/);
-        return true;
-      },
+  it('falls back to the unverified locator when nothing is verified', () => {
+    const target = resolveInventoryItemTarget(
+      baseItem({
+        locatorMatchCount: 3,
+        selectorMatchCount: 2,
+      }),
     );
-  });
-
-  it('uses legacy locator-first behavior when counts are missing', () => {
-    const target = resolveInventoryItemTarget(baseItem());
 
     assert.equal(target.kind, 'locator');
     assert.equal(target.value, 'getByRole("link", { name: "Amazon.es" })');
@@ -83,6 +74,112 @@ describe('resolveInventoryItemTarget', () => {
 
     assert.equal(target.kind, 'selector');
     assert.equal(target.value, '#nav-logo-sprites');
+  });
+
+  it('uses selector fallback when counts are missing', () => {
+    const target = resolveInventoryItemTarget(
+      baseItem({
+        locator: null,
+        locatorMatchCount: undefined,
+        selectorMatchCount: undefined,
+      }),
+    );
+
+    assert.equal(target.kind, 'selector');
+    assert.equal(target.value, '#nav-logo-sprites');
+  });
+
+  it('uses the unverified locator when the selector is missing', () => {
+    const target = resolveInventoryItemTarget(
+      baseItem({
+        locator: 'getByRole("link", { name: "Amazon.es" })',
+        selector: '',
+        locatorMatchCount: undefined,
+        selectorMatchCount: undefined,
+      }),
+    );
+
+    assert.equal(target.kind, 'locator');
+    assert.equal(target.value, 'getByRole("link", { name: "Amazon.es" })');
+  });
+
+  it('throws only when locator, selector, and candidates are all missing', () => {
+    assert.throws(
+      () =>
+        resolveInventoryItemTarget(
+          baseItem({
+            locator: null,
+            selector: '',
+            locatorMatchCount: undefined,
+            selectorMatchCount: undefined,
+          }),
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof PlaybookCompileError);
+        assert.match((error as Error).message, /No target for E3/);
+        return true;
+      },
+    );
+  });
+
+  it('prefers scan-time candidates over legacy locator and selector fields', () => {
+    const target = resolveInventoryItemTarget(
+      baseItem({
+        candidates: ['getByRole("button", { name: "Buy", exact: true })'],
+        locatorMatchCount: 1,
+        selectorMatchCount: 1,
+      }),
+    );
+
+    assert.equal(target.kind, 'locator');
+    assert.equal(target.value, 'getByRole("button", { name: "Buy", exact: true })');
+  });
+});
+
+describe('resolveInventoryItemTargetCandidates', () => {
+  it('orders candidates, then verified locator, then verified selector', () => {
+    const candidates = resolveInventoryItemTargetCandidates(
+      baseItem({
+        candidates: ['getByRole("button", { name: "Buy", exact: true })'],
+        locatorMatchCount: 1,
+        selectorMatchCount: 1,
+      }),
+    );
+
+    assert.deepEqual(candidates, [
+      { kind: 'locator', value: 'getByRole("button", { name: "Buy", exact: true })' },
+      { kind: 'locator', value: 'getByRole("link", { name: "Amazon.es" })' },
+      { kind: 'selector', value: '#nav-logo-sprites' },
+    ]);
+  });
+
+  it('dedupes a selector already present as a locator("css") candidate', () => {
+    const candidates = resolveInventoryItemTargetCandidates(
+      baseItem({
+        candidates: ['locator("#nav-logo-sprites")'],
+        locator: null,
+        locatorMatchCount: undefined,
+        selectorMatchCount: 1,
+      }),
+    );
+
+    assert.deepEqual(candidates, [
+      { kind: 'locator', value: 'locator("#nav-logo-sprites")' },
+    ]);
+  });
+
+  it('excludes unverified fields when a verified candidate exists', () => {
+    const candidates = resolveInventoryItemTargetCandidates(
+      baseItem({
+        candidates: ['getByRole("button", { name: "Buy", exact: true })'],
+        locatorMatchCount: 3,
+        selectorMatchCount: 2,
+      }),
+    );
+
+    assert.deepEqual(candidates, [
+      { kind: 'locator', value: 'getByRole("button", { name: "Buy", exact: true })' },
+    ]);
   });
 });
 

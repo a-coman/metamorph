@@ -44,7 +44,7 @@ RUN pnpm --filter @metamorph/worker-playwright exec prisma generate \
   && pnpm --filter @metamorph/utils build \
   && pnpm --filter @metamorph/session-control build \
   && pnpm --filter @metamorph/core build \
-  && pnpm --filter @metamorph/inventory build:browser
+  && pnpm --filter @metamorph/inventory build
 
 ENTRYPOINT ["pnpm", "--filter", "@metamorph/worker-playwright", "exec", "tsx", "src/main.ts"]
 CMD ["consume"]

@@ -11,7 +11,7 @@ import { PLAN_EXPLORE_OPTIONS } from './plan-explore.config.js';
 const PLAN_EXPLORE_EXAMPLE_ONE_STEP = {
   action: 'append_steps',
   rationale:
-    'Cookie banner blocks the main UI. Dismiss it using the accept button from Current inventory.',
+    'A banner blocks the main UI. I need to plan only one step because I can only see one element that makes sense to click on current inventory. Dismiss it using the "x" button from Current inventory, and we will continue to the next step.',
   steps: [{ id: 1, action: 'click', element_id: 'E42' }],
 };
 
@@ -28,7 +28,7 @@ const PLAN_EXPLORE_EXAMPLE_TWO_STEPS = {
 const PLAN_EXPLORE_EXAMPLE_THREE_STEPS = {
   action: 'append_steps',
   rationale:
-    'Cookie banner blocks the page. Click its accept/dismiss control from Current inventory, fill the searchbox from Current inventory, then press Enter.',
+    'I can see all elements that make sense to click on current inventory, and Im sure each step is independent enough that we can plan them all at once. Cookie banner blocks the page. Click its accept/dismiss control from Current inventory, fill the searchbox from Current inventory, then press Enter.',
   steps: [
     { id: 1, action: 'click', element_id: 'E42' },
     { id: 2, action: 'fill', element_id: 'E1', value: 'laptop' },
@@ -113,8 +113,9 @@ export function buildPlanExploreSystemPrompt(): string {
     'Rules:',
     '- Every enum field must use exactly one of the allowed values above; do not invent new values.',
     '- Each step MUST include "id" (positive integer, unique within the batch) and "action" (never "type").',
-    '- Use ONLY element_id values from the Current inventory in the user message.',
-    '- element_ids in examples and source reference are NOT valid targets; never copy them — pick from Current inventory.',
+    '- You must only use element_id values from the Current Inventory in the user message. Do not invent element_ids. Element_ids from examples and source reference are NOT valid targets, they change in each snapshot so never copy them — pick from Current inventory. If you need to plan only one step, because you can only see one element on current inventory, that is valid. Its not valid to plan future element_ids, or infer them from previous runs as they change in each snapshot.',
+    '- If the target element for the phase goal is not in Current inventory, plan scroll or waitFor to reveal it, or use existing element_ids for dismissals.',
+    '- Prefer to plan one step at a time, unless you can see all elements that make sense to click on current inventory, and you are sure each step is independent enough that we can plan them all at once.',
     '- click, fill, and selectOption MUST include element_id.',
     '- scroll scrolls the page viewport relative to the current position; use positive scroll_y to scroll down and negative scroll_y to scroll up. Include scroll_y only and omit element_id (do not attach element_id to scroll steps).',
     '- waitFor and press omit element_id unless the action targets a specific inventory element.',
@@ -122,7 +123,6 @@ export function buildPlanExploreSystemPrompt(): string {
     '- selectOption is ONLY allowed on inventory items with an options list (native <select>) or tagName=select / role=combobox.',
     '- selectOption value MUST be an exact value from that item options list; never invent option values.',
     '- If a filter/sort control has no options list, use click instead of selectOption.',
-    '- If the target element for the phase goal is not in Current inventory, plan scroll or waitFor to reveal it, or use existing element_ids for dismissals — do not invent element_ids.',
     '- Plan toward the current phase goal stated in the user message.',
     '- MR summary and phase goal describe generic intent from mr_plan; your job is to bind each step to a concrete element_id from Current inventory on this snapshot.',
     '- When the phase goal names a control type (search box, filter chip, sort dropdown), pick the matching inventory item by role, name, or text — equivalents may differ across snapshots.',
@@ -138,14 +138,12 @@ export function buildPlanExploreSystemPrompt(): string {
     '- Return action=abort when the phase goal cannot be achieved on this page (impossible MR, unrecoverable auth/captcha, or no viable path after probe failures). This ends exploration immediately.',
     '- Do NOT use abort for dismissible cookies or modals, or recoverable steps — plan append_steps to continue instead.',
     '- After a probe failure, prefer append_steps with a different approach; use abort only when continuing is pointless.',
-    '- Probe or checkpoint failure reverts the browser to the snapshot before the failed batch; committed batches in Exploration history stay committed — do not assume those steps were undone.',
-    '- Backtrack semantics: only the live browser state rewinds. Exploration history keeps every committed batch. After probe/checkpoint failure the first screenshot is the reverted current page; the optional second screenshot is the page immediately before the failed step.',
+    '- Probe or checkpoint failure reverts the browser to the snapshot before the failed batch; committed batches in Exploration history stay committed — do not assume those steps were undone. But you must not reuse element_ids from failed batches, they change in each snapshot so never copy them — pick from Current inventory.',
     '- Keep rationale concise (about 500 characters max). Name concrete actions and values in rationale (search terms, filters, controls) so follow_up can reuse the same semantic decisions without element_ids.',
     '- Do not repeat uncommitted batches or their failed approaches in Exploration history.',
     '- If a batch committed overlay dismissal, plan the next sub-goal (e.g. fill destination, submit search) — do not dismiss the same overlays again.',
-    '- element_ids from failed batches may not match Current inventory; always pick from Current inventory below.',
     '- After a probe failure, read the errors under that batch in Exploration history and the second screenshot (if present).',
-    '- The second screenshot (raw, no labels) shows the page immediately BEFORE the latest probe failure; use Current inventory for step targets on the first annotated screenshot.',
+    '- (if present) The second screenshot (raw, no labels) shows the page immediately BEFORE the latest probe failure; use Current inventory for step targets on the first annotated screenshot.',
     '- The annotated screenshot and Current inventory are the source of truth for element_id selection; not every inventory item has a visible on-image label.',
     'Examples (plan 1, 2, or 3 steps per batch):',
     '1 step:',

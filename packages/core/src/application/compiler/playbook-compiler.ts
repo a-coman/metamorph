@@ -125,6 +125,10 @@ function validateObservationAnchors(
   }
 }
 
+function stepRequiresInventoryTarget(step: SlotStep): boolean {
+  return ['click', 'fill', 'selectOption'].includes(step.action);
+}
+
 function validateElementIds(
   slots: GenerationSlots,
   itemMap: Map<string, InventoryItem>,
@@ -136,7 +140,7 @@ function validateElementIds(
       continue;
     }
 
-    if (!step.element_id) {
+    if (!step.element_id || !stepRequiresInventoryTarget(step)) {
       continue;
     }
 

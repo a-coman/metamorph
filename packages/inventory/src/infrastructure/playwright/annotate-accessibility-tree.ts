@@ -37,13 +37,15 @@ function truncateTree(tree: string, maxChars: number): string {
 export function annotateAccessibilityTree(
   snapshot: string,
   items: InventoryItem[],
-  options?: { maxChars?: number },
+  options?: { maxChars?: number; scrollOffset?: { x: number; y: number } },
 ): string {
   if (!snapshot.trim()) return '';
 
   const maxChars = options?.maxChars ?? DEFAULT_MAX_A11Y_TREE_CHARS;
   const lines = snapshot.split('\n');
-  const matchedLineIndices = findMatchedA11yLineIndices(snapshot, items);
+  const matchedLineIndices = findMatchedA11yLineIndices(snapshot, items, {
+    scrollOffset: options?.scrollOffset,
+  });
 
   const contextLines = lines
     .filter((_, index) => !matchedLineIndices.has(index))

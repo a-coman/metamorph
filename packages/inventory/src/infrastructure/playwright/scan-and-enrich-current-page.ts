@@ -2,8 +2,7 @@ import type { Page } from 'playwright';
 import type { InventoryItem } from '@metamorph/core';
 import { DEFAULT_MAX_CAPTURE_HEIGHT, DEFAULT_MAX_ITEMS } from './capture-defaults.js';
 import {
-  captureAnnotatedScreenshot,
-  captureRawScreenshot,
+  captureViewportScreenshot,
   prepareCaptureViewport,
 } from './prepare-viewport.js';
 import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
@@ -43,14 +42,14 @@ export async function scanAndEnrichCurrentPage(
     { preserveScrollPosition: options?.preserveScrollPosition },
   );
 
-  const rawScreenshot = await captureRawScreenshot(page);
+  const rawScreenshot = await captureViewportScreenshot(page);
 
   const observationItems = await scanObservationInventory(page, { maxItems });
 
   const { items, accessibilitySnapshot, labeledCount } =
     await scanInventoryWithAccessibility(page, { maxItems, paintLabels: true });
 
-  const screenshot = await captureAnnotatedScreenshot(page);
+  const screenshot = await captureViewportScreenshot(page);
 
   return {
     url: page.url(),

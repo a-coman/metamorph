@@ -7,6 +7,8 @@ export type ParsedA11yLine = {
   name: string | null;
   rawLine: string;
   box: { x: number; y: number; width: number; height: number } | null;
+  /** Playwright ariaSnapshot ref id (e.g. e12 from [ref=e12]). */
+  ref: string | null;
 };
 
 const ROLE_ALIASES: Record<string, string[]> = {
@@ -106,6 +108,69 @@ function parseBoxSuffix(suffix: string): ParsedA11yLine['box'] {
   };
 }
 
+function parseRefSuffix(suffix: string): string | null {
+  const match = suffix.match(/\[ref=([^\]]+)\]/);
+  return match ? match[1]! : null;
+}
+
+function lineFields(
+  lineIndex: number,
+  indent: number,
+  rawLine: string,
+  box: ParsedA11yLine['box'],
+  ref: string | null,
+  role: string | null,
+  name: string | null,
+): ParsedA11yLine {
+  return { lineIndex, indent, role, name, rawLine, box, ref };
+}
+
+function unescapeSnapshotQuotedString(value: string): string {
+  return value.replace(/\\(.)/g, (_, char: string) => {
+    switch (char) {
+      case '"':
+        return '"';
+      case '\\':
+        return '\\';
+      case 'n':
+        return '\n';
+      case 'r':
+        return '\r';
+      case 't':
+        return '\t';
+      default:
+        return char;
+    }
+  });
+}
+
+function parseRoleNameContent(content: string): { role: string; name: string } | null {
+  const roleMatch = content.match(/^([\w-]+)\s+"/);
+  if (!roleMatch) {
+    return null;
+  }
+
+  const role = roleMatch[1]!;
+  let index = roleMatch[0]!.length;
+  let name = '';
+
+  while (index < content.length) {
+    const char = content[index]!;
+    if (char === '\\' && index + 1 < content.length) {
+      name += content[index + 1]!;
+      index += 2;
+      continue;
+    }
+    if (char === '"') {
+      return { role, name: unescapeSnapshotQuotedString(name) };
+    }
+    name += char;
+    index += 1;
+  }
+
+  return null;
+}
+
 export function parseA11yLine(line: string, lineIndex: number): ParsedA11yLine | null {
   const match = line.match(/^(\s*)-\s+(.+)$/);
   if (!match) return null;
@@ -113,52 +178,33 @@ export function parseA11yLine(line: string, lineIndex: number): ParsedA11yLine |
   const indent = match[1]!.length;
   let content = match[2]!.trim();
   const box = parseBoxSuffix(content);
+  const ref = parseRefSuffix(content);
   content = content.replace(/\s*\[box=[^\]]+\]/g, '').replace(/\s*\[ref=[^\]]+\]/g, '').trim();
 
   const textMatch = content.match(/^text:\s*(.+)$/i);
   if (textMatch) {
-    return {
-      lineIndex,
-      indent,
-      role: 'text',
-      name: textMatch[1]!.trim(),
-      rawLine: line,
-      box,
-    };
+    return lineFields(lineIndex, indent, line, box, ref, 'text', textMatch[1]!.trim());
   }
 
-  const roleNameMatch = content.match(/^([\w-]+)\s+"([^"]*)"(.*)$/);
-  if (roleNameMatch) {
-    return {
-      lineIndex,
-      indent,
-      role: roleNameMatch[1]!,
-      name: roleNameMatch[2]!,
-      rawLine: line,
-      box,
-    };
+  const roleName = parseRoleNameContent(content);
+  if (roleName) {
+    return lineFields(lineIndex, indent, line, box, ref, roleName.role, roleName.name);
   }
 
   const roleOnlyMatch = content.match(/^([\w-]+)(?::\s*(.+))?$/);
   if (roleOnlyMatch) {
-    return {
+    return lineFields(
       lineIndex,
       indent,
-      role: roleOnlyMatch[1]!,
-      name: roleOnlyMatch[2]?.trim() ?? null,
-      rawLine: line,
+      line,
       box,
-    };
+      ref,
+      roleOnlyMatch[1]!,
+      roleOnlyMatch[2]?.trim() ?? null,
+    );
   }
 
-  return {
-    lineIndex,
-    indent,
-    role: null,
-    name: content,
-    rawLine: line,
-    box,
-  };
+  return lineFields(lineIndex, indent, line, box, ref, null, content);
 }
 
 export function parseA11ySnapshot(snapshot: string): ParsedA11yLine[] {
@@ -171,18 +217,26 @@ export function parseA11ySnapshot(snapshot: string): ParsedA11yLine[] {
 function boxOverlapScore(
   itemBox: InventoryItem['boundingBox'],
   lineBox: ParsedA11yLine['box'],
+  scrollOffset: { x: number; y: number } = { x: 0, y: 0 },
 ): number {
   if (!itemBox || !lineBox) return 0;
 
+  const adjustedLineBox = {
+    x: lineBox.x + scrollOffset.x,
+    y: lineBox.y + scrollOffset.y,
+    width: lineBox.width,
+    height: lineBox.height,
+  };
+
   const xOverlap = Math.max(
     0,
-    Math.min(itemBox.x + itemBox.width, lineBox.x + lineBox.width) -
-      Math.max(itemBox.x, lineBox.x),
+    Math.min(itemBox.x + itemBox.width, adjustedLineBox.x + adjustedLineBox.width) -
+      Math.max(itemBox.x, adjustedLineBox.x),
   );
   const yOverlap = Math.max(
     0,
-    Math.min(itemBox.y + itemBox.height, lineBox.y + lineBox.height) -
-      Math.max(itemBox.y, lineBox.y),
+    Math.min(itemBox.y + itemBox.height, adjustedLineBox.y + adjustedLineBox.height) -
+      Math.max(itemBox.y, adjustedLineBox.y),
   );
   const overlapArea = xOverlap * yOverlap;
   if (overlapArea <= 0) return 0;
@@ -229,10 +283,14 @@ function isWeakRoleLine(line: ParsedA11yLine): boolean {
   return WEAK_MATCH_ROLES.has(normalizeA11yText(line.role));
 }
 
-export function scoreA11yLineAgainstItem(item: InventoryItem, line: ParsedA11yLine): number {
+export function scoreA11yLineAgainstItem(
+  item: InventoryItem,
+  line: ParsedA11yLine,
+  scrollOffset: { x: number; y: number } = { x: 0, y: 0 },
+): number {
   const roleScore = roleMatchScore(item, line);
   const nameScore = nameMatchScore(inventoryAccessibleName(item), line.name);
-  const boxScore = boxOverlapScore(item.boundingBox, line.box);
+  const boxScore = boxOverlapScore(item.boundingBox, line.box, scrollOffset);
 
   if (nameScore === 0 && roleScore === 0 && boxScore === 0) {
     return 0;
@@ -253,14 +311,16 @@ export function scoreA11yLineAgainstItem(item: InventoryItem, line: ParsedA11yLi
 export function findMatchedA11yLineIndices(
   snapshot: string,
   items: InventoryItem[],
+  options?: { scrollOffset?: { x: number; y: number } },
 ): Set<number> {
+  const scrollOffset = options?.scrollOffset ?? { x: 0, y: 0 };
   const parsedLines = parseA11ySnapshot(snapshot);
   const candidates: Array<{ item: InventoryItem; line: ParsedA11yLine; score: number }> =
     [];
 
   for (const item of items) {
     for (const line of parsedLines) {
-      const score = scoreA11yLineAgainstItem(item, line);
+      const score = scoreA11yLineAgainstItem(item, line, scrollOffset);
       if (score >= A11Y_INVENTORY_MATCH_SCORE_THRESHOLD) {
         candidates.push({ item, line, score });
       }
@@ -281,93 +341,6 @@ export function findMatchedA11yLineIndices(
   }
 
   return matchedLineIndices;
-}
-
-const CHOICE_ENRICHMENT_ROLES = new Set(['checkbox', 'radio']);
-const INTERACTIVE_ENRICHMENT_ROLES = new Set(['link', 'button', 'checkbox', 'radio']);
-
-export const A11Y_ENRICHMENT_BOX_OVERLAP_THRESHOLD = 0.5;
-
-export function boxOverlapRatio(
-  itemBox: InventoryItem['boundingBox'],
-  lineBox: ParsedA11yLine['box'],
-): number {
-  if (!itemBox || !lineBox) return 0;
-
-  const xOverlap = Math.max(
-    0,
-    Math.min(itemBox.x + itemBox.width, lineBox.x + lineBox.width) -
-      Math.max(itemBox.x, lineBox.x),
-  );
-  const yOverlap = Math.max(
-    0,
-    Math.min(itemBox.y + itemBox.height, lineBox.y + lineBox.height) -
-      Math.max(itemBox.y, lineBox.y),
-  );
-  const overlapArea = xOverlap * yOverlap;
-  if (overlapArea <= 0) return 0;
-
-  const itemArea = Math.max(1, itemBox.width * itemBox.height);
-  return overlapArea / itemArea;
-}
-
-export function rolesCompatibleForEnrichment(
-  item: InventoryItem,
-  line: ParsedA11yLine,
-): boolean {
-  const itemRoleSet = inventoryRoles(item);
-  const lineRoleSet = lineRoles(line.role);
-
-  for (const role of itemRoleSet) {
-    if (lineRoleSet.has(role)) {
-      return true;
-    }
-  }
-
-  const lineRole = canonicalA11yRole(line.role);
-  if (!lineRole) {
-    return false;
-  }
-
-  if (CHOICE_ENRICHMENT_ROLES.has(lineRole)) {
-    for (const role of itemRoleSet) {
-      if (INTERACTIVE_ENRICHMENT_ROLES.has(role)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-export function findDomItemForEnrichment(
-  domItems: InventoryItem[],
-  line: ParsedA11yLine,
-): number | null {
-  if (!line.box) {
-    return null;
-  }
-
-  let bestIndex: number | null = null;
-  let bestOverlap = 0;
-
-  for (let index = 0; index < domItems.length; index += 1) {
-    const item = domItems[index]!;
-    if (!rolesCompatibleForEnrichment(item, line)) {
-      continue;
-    }
-
-    const overlap = boxOverlapRatio(item.boundingBox, line.box);
-    if (
-      overlap >= A11Y_ENRICHMENT_BOX_OVERLAP_THRESHOLD &&
-      overlap > bestOverlap
-    ) {
-      bestOverlap = overlap;
-      bestIndex = index;
-    }
-  }
-
-  return bestIndex;
 }
 
 export function canonicalA11yRole(role: string | null): string | null {

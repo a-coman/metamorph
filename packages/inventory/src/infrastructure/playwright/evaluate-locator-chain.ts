@@ -1,6 +1,16 @@
-import type { Locator, Page } from 'playwright';
+import type { Page } from 'playwright';
+import { buildLocatorFromChain } from './parse-locator-chain.js';
 
-export function evaluateLocatorChain(page: Page, locatorChain: string): Locator {
-  const fn = new Function('page', `return page.${locatorChain}`);
-  return fn(page) as Locator;
+export {
+  buildLocatorFromChain,
+  formatFrameLocator,
+  formatFrameLocatorChain,
+  formatGetByRoleLocator,
+  formatLocatorSegment,
+  parseLocatorSegments,
+  type LocatorRoot,
+} from './parse-locator-chain.js';
+
+export function evaluateLocatorChain(page: Page, locatorChain: string) {
+  return buildLocatorFromChain(page, locatorChain);
 }

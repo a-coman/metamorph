@@ -15,6 +15,6 @@ RUN pnpm install --frozen-lockfile --filter @metamorph/inventory...
 COPY packages/core packages/core
 COPY packages/inventory packages/inventory
 
-RUN pnpm --filter @metamorph/inventory build:browser
+RUN pnpm --filter @metamorph/inventory build
 
 CMD ["pnpm", "--filter", "@metamorph/inventory", "capture", "https://amazon.es", "/app/tmp/inventory"]
