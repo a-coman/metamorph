@@ -86,6 +86,8 @@ const ExploreAnnotation = Annotation.Root({
   maxRecoveryAttempts: Annotation<number>,
   planRecoveryAttempts: Annotation<number>,
   maxPlanRecoveryAttempts: Annotation<number>,
+  verifyRecoveryAttempts: Annotation<number>,
+  maxVerifyRecoveryAttempts: Annotation<number>,
   checkpointRecoveryAttempts: Annotation<number>,
   mrDefinition: Annotation<ExploreGraphState['mrDefinition']>,
   explorationGoals: Annotation<ExploreGraphState['explorationGoals']>,
@@ -218,6 +220,17 @@ function withPlanRejection(
       outcome: 'plan_rejected',
       error,
     }),
+  };
+}
+
+function isRetryableVerifyLlmError(error: unknown): boolean {
+  return error instanceof ExploreLlmCallError || error instanceof ExploreLlmValidationError;
+}
+
+function withVerifyRejection(state: State, error: string): Partial<State> {
+  return {
+    probeError: error,
+    verifyRecoveryAttempts: state.verifyRecoveryAttempts + 1,
   };
 }
 
@@ -470,6 +483,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           probeError: undefined,
           probeFailureContext: undefined,
           checkpointRecoveryAttempts: 0,
+          verifyRecoveryAttempts: 0,
           lastPlanLlmCallId: planLlmCallId,
         };
       }
@@ -561,6 +575,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         probeError: undefined,
         probeFailureContext: undefined,
         planRecoveryAttempts: 0,
+        verifyRecoveryAttempts: 0,
         lastPlanLlmCallId: planLlmCallId,
         snapshotBeforeId: state.currentSnapshotId,
         batchLog: appendBatchRecord(state.batchLog ?? EMPTY_BATCH_LOG, state.phase, {
@@ -680,6 +695,15 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return {};
     }
 
+    if (state.verifyRecoveryAttempts >= state.maxVerifyRecoveryAttempts) {
+      return {
+        failed: true,
+        failureReason:
+          state.probeError ??
+          `Max verify recovery attempts (${state.maxVerifyRecoveryAttempts}) exceeded`,
+      };
+    }
+
     if (state.probeStatus === 'failed') {
       logExploreGraphEvent(
         `iter=${state.iteration} phase=${state.phase} verify skipped (probe failed)`,
@@ -748,6 +772,14 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'verify LLM error';
+      if (isRetryableVerifyLlmError(error)) {
+        const attempt = state.verifyRecoveryAttempts + 1;
+        logExploreGraphEvent(
+          `iter=${state.iteration} phase=${state.phase} verify→retry (attempt ${attempt}/${state.maxVerifyRecoveryAttempts}) ${message.slice(0, 80)}`,
+        );
+        return withVerifyRejection(state, message);
+      }
+
       logExploreGraphEvent(
         `iter=${state.iteration} phase=${state.phase} verify→error ${message.slice(0, 120)}`,
       );
@@ -779,6 +811,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     return afterAssessCheckpoint({
       lastVerdict: verifyResult.output.verdict,
       checkpointSequence: state.checkpointSequence + 1,
+      verifyRecoveryAttempts: 0,
       probeError:
         verifyResult.output.verdict === 'fail'
           ? `Checkpoint failed: ${verifyResult.output.rationale}`
@@ -823,6 +856,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         checkpointRecoveryAttempts: 0,
         recoveryAttempts: 0,
         planRecoveryAttempts: 0,
+        verifyRecoveryAttempts: 0,
         batchLog: withBatchFinalized(state, 'committed'),
       };
     }
@@ -869,6 +903,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         checkpointRecoveryAttempts: 0,
         recoveryAttempts: 0,
         planRecoveryAttempts: 0,
+        verifyRecoveryAttempts: 0,
         needsPrefixInventorySync: updatedPhaseSteps.length > 0,
         batchLog: withBatchFinalized(state, 'committed'),
       };
@@ -1268,6 +1303,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       currentSnapshotId: state.initialSnapshotId,
       lastVerdict: undefined,
       checkpointRecoveryAttempts: 0,
+      verifyRecoveryAttempts: 0,
       probeError: undefined,
       smokeGatePassed: false,
       awaitingSmokeReplay: false,
@@ -1454,6 +1490,18 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     return 'assess_checkpoint';
   }
 
+  function routeAfterAssessCheckpoint(state: State): string {
+    if (state.failed) {
+      return 'fail';
+    }
+
+    if (!state.lastVerdict && state.verifyRecoveryAttempts > 0) {
+      return 'assess_checkpoint';
+    }
+
+    return 'commit_or_backtrack';
+  }
+
   function routeAfterAssessSmoke(state: State): string {
     if (state.failed) {
       return 'fail';
@@ -1553,7 +1601,11 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       assess_checkpoint: 'assess_checkpoint',
       assess_smoke: 'assess_smoke',
     })
-    .addEdge('assess_checkpoint', 'commit_or_backtrack')
+    .addConditionalEdges('assess_checkpoint', routeAfterAssessCheckpoint, {
+      assess_checkpoint: 'assess_checkpoint',
+      commit_or_backtrack: 'commit_or_backtrack',
+      fail: 'fail',
+    })
     .addConditionalEdges('commit_or_backtrack', routeAfterCommit, {
       sync_prefix_snapshot: 'sync_prefix_snapshot',
       dispatch_smoke: 'dispatch_smoke',

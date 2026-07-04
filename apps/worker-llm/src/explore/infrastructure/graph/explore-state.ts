@@ -50,6 +50,9 @@ export type ExploreGraphState = {
   /** LLM plan failures within the current iteration (capped separately from checkpoint recovery). */
   planRecoveryAttempts: number;
   maxPlanRecoveryAttempts: number;
+  /** LLM verify infra failures within the current probe batch (capped separately from checkpoint recovery). */
+  verifyRecoveryAttempts: number;
+  maxVerifyRecoveryAttempts: number;
   checkpointRecoveryAttempts: number;
   mrDefinition?: MrIntent['mr_definition'];
   explorationGoals?: MrIntent['exploration'];
@@ -99,6 +102,8 @@ export const DEFAULT_EXPLORE_STATE: Omit<
   maxRecoveryAttempts: 8,
   planRecoveryAttempts: 0,
   maxPlanRecoveryAttempts: 3,
+  verifyRecoveryAttempts: 0,
+  maxVerifyRecoveryAttempts: 3,
   checkpointRecoveryAttempts: 0,
   smokeGatePassed: false,
   awaitingSmokeReplay: false,

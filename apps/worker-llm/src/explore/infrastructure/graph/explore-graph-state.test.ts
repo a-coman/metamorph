@@ -105,4 +105,64 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.match(anchorBody, /findObservationItem/);
     assert.match(anchorBody, /observationLabelText/);
   });
+
+  it('assess_checkpoint retries retryable verify LLM errors without setting lastVerdict fail', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    const assessStart = source.indexOf('async function assessCheckpointNode');
+    const commitStart = source.indexOf('async function commitOrBacktrackNode');
+    assert.ok(assessStart >= 0);
+    assert.ok(commitStart > assessStart);
+
+    const assessBody = source.slice(assessStart, commitStart);
+    assert.match(assessBody, /isRetryableVerifyLlmError/);
+    assert.match(assessBody, /withVerifyRejection/);
+    assert.match(assessBody, /verify→retry/);
+
+    const retryBranch = assessBody.slice(assessBody.indexOf('isRetryableVerifyLlmError'));
+    const retryCatchEnd = retryBranch.indexOf('logExploreGraphEvent(\n        `iter=');
+    assert.ok(retryCatchEnd > 0);
+    const retryOnly = retryBranch.slice(0, retryCatchEnd);
+    assert.equal(retryOnly.includes("lastVerdict: 'fail'"), false);
+  });
+
+  it('assess_checkpoint fails exploration when verify recovery attempts are exhausted', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    const assessStart = source.indexOf('async function assessCheckpointNode');
+    const commitStart = source.indexOf('async function commitOrBacktrackNode');
+    assert.ok(assessStart >= 0);
+    assert.ok(commitStart > assessStart);
+
+    const assessBody = source.slice(assessStart, commitStart);
+    assert.match(
+      assessBody,
+      /verifyRecoveryAttempts >= state\.maxVerifyRecoveryAttempts/,
+    );
+    assert.match(assessBody, /Max verify recovery attempts/);
+  });
+
+  it('routeAfterAssessCheckpoint loops back to assess_checkpoint on verify infra retry', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    assert.match(source, /function routeAfterAssessCheckpoint/);
+    assert.match(
+      source,
+      /!state\.lastVerdict && state\.verifyRecoveryAttempts > 0[\s\S]*return 'assess_checkpoint'/,
+    );
+    assert.match(
+      source,
+      /addConditionalEdges\('assess_checkpoint', routeAfterAssessCheckpoint/,
+    );
+    assert.equal(source.includes(".addEdge('assess_checkpoint', 'commit_or_backtrack')"), false);
+  });
+
+  it('verify infra retry path does not revert snapshot in assess_checkpoint', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    const assessStart = source.indexOf('async function assessCheckpointNode');
+    const commitStart = source.indexOf('async function commitOrBacktrackNode');
+    assert.ok(assessStart >= 0);
+    assert.ok(commitStart > assessStart);
+
+    const assessBody = source.slice(assessStart, commitStart);
+    assert.equal(assessBody.includes('revert snapshot'), false);
+    assert.equal(assessBody.includes('revertedSnapshotId'), false);
+  });
 });
