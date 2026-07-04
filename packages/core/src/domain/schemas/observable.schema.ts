@@ -102,3 +102,6 @@ export type ObservableDef = z.infer<typeof ObservableDefSchema>;
 export type ObservationSpec = z.infer<typeof ObservationSpecSchema>;
 
 export const OBSERVATION_SPEC_SCHEMA_VERSION = 2 as const;
+
+/** Minimum bounding-box area (px²) for a valid result-count label element. */
+export const MIN_RESULT_LABEL_ELEMENT_AREA_PX = 2000;

@@ -238,6 +238,21 @@ function withVerifyRejection(state: State, error: string): Partial<State> {
   };
 }
 
+function returnObserveSpecRetry(state: State, error: string): Partial<State> {
+  const attempts = (state.observeSpecRecoveryAttempts ?? 0) + 1;
+  if (attempts >= (state.maxObserveSpecRecoveryAttempts ?? 2)) {
+    return {
+      failed: true,
+      failureReason: error,
+      observeSpecRecoveryAttempts: attempts,
+    };
+  }
+  return {
+    observeSpecRecoveryAttempts: attempts,
+    failureReason: error,
+  };
+}
+
 async function rejectPlan(
   deps: ExploreGraphDeps,
   state: State,
@@ -1178,51 +1193,111 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       };
     }
 
+    let screenshotBase64: string;
     try {
-      const screenshotBase64 = await loadRawBase64(anchorSnapshotId);
-      const { output } = await runTrackedLlmCall(
-        deps,
-        state,
-        { purpose: 'observe_spec', promptVersion: OBSERVE_SPEC_PROMPT_VERSION },
-        () =>
-          deps.openRouter.observeSpec({
-            url: snapshot.url,
-            screenshotBase64,
-            transformFamily: state.transformFamily,
-            mrIntent,
-            inventory: snapshot.inventory,
-            inventorySnapshotId: anchorSnapshotId,
-            sourceSteps: state.validatedSteps.source,
-          }),
-      );
+      screenshotBase64 = await loadRawBase64(anchorSnapshotId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'observe_spec screenshot load failed';
+      return { failed: true, failureReason: message };
+    }
+
+    const rejectionReason =
+      (state.observeSpecRecoveryAttempts ?? 0) > 0 ? state.failureReason : undefined;
+
+    let llmCallId: string | undefined;
+    let llmAuditCompleted = false;
+    let result: ExploreLlmResult<{ observables: ObservableDef[] }> | undefined;
+
+    try {
+      llmCallId = await deps.explorationRepo.beginLlmCall({
+        exploreJobId: state.exploreJobId,
+        mrVersionId: state.mrVersionId,
+        purpose: 'observe_spec',
+        model: deps.openRouter.getModel(),
+        promptVersion: OBSERVE_SPEC_PROMPT_VERSION,
+      });
+
+      try {
+        result = await deps.openRouter.observeSpec({
+          url: snapshot.url,
+          screenshotBase64,
+          transformFamily: state.transformFamily,
+          mrIntent,
+          inventory: snapshot.inventory,
+          inventorySnapshotId: anchorSnapshotId,
+          sourceSteps: state.validatedSteps.source,
+          rejectionReason,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'observe_spec LLM error';
+        const promptAudit = extractPromptAuditFromError(error);
+        await deps.explorationRepo.failLlmCall({
+          id: llmCallId,
+          error: message,
+          ...(promptAudit
+            ? {
+                systemPrompt: promptAudit.systemPrompt,
+                userPrompt: promptAudit.userPrompt,
+                userPromptImages: promptAudit.userPromptImages,
+              }
+            : {}),
+        });
+        return returnObserveSpecRetry(state, message);
+      }
 
       const validationError = validateObserveSpecOutput(
-        output.observables,
+        result.output.observables,
         state.transformFamily,
         snapshot.inventory,
         anchorSnapshotId,
       );
       if (validationError) {
-        const attempts = (state.observeSpecRecoveryAttempts ?? 0) + 1;
-        if (attempts >= (state.maxObserveSpecRecoveryAttempts ?? 2)) {
-          return {
-            failed: true,
-            failureReason: validationError,
-            observeSpecRecoveryAttempts: attempts,
-          };
-        }
-        return {
-          observeSpecRecoveryAttempts: attempts,
-          failureReason: validationError,
-        };
+        await deps.explorationRepo.failLlmCall({
+          id: llmCallId,
+          error: validationError,
+          responseJson: {
+            observables: result.output.observables,
+            error: validationError,
+          },
+          systemPrompt: result.audit.systemPrompt,
+          userPrompt: result.audit.userPrompt,
+          userPromptImages: result.audit.userPromptImages,
+        });
+        return returnObserveSpecRetry(state, validationError);
       }
 
       const anchorInventories = new Map([[anchorSnapshotId, snapshot.inventory]]);
-      validateObservableBindings(output.observables, anchorInventories);
-      const resolvedObservables = resolveObservableBindingTargets(
-        output.observables,
-        anchorInventories,
-      );
+      let resolvedObservables: ObservableDef[];
+      try {
+        validateObservableBindings(result.output.observables, anchorInventories);
+        resolvedObservables = resolveObservableBindingTargets(
+          result.output.observables,
+          anchorInventories,
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'observe_spec binding validation failed';
+        await deps.explorationRepo.failLlmCall({
+          id: llmCallId,
+          error: message,
+          responseJson: {
+            observables: result.output.observables,
+            error: message,
+          },
+          systemPrompt: result.audit.systemPrompt,
+          userPrompt: result.audit.userPrompt,
+          userPromptImages: result.audit.userPromptImages,
+        });
+        return returnObserveSpecRetry(state, message);
+      }
+
+      await deps.explorationRepo.completeLlmCall({
+        id: llmCallId,
+        audit: result.audit,
+        responseJson: result.output,
+      });
+      llmAuditCompleted = true;
 
       const observableKeys = resolvedObservables.map((observable) => observable.key);
       logExploreGraphEvent(
@@ -1244,14 +1319,31 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
             }
           : undefined,
         observeSpecRecoveryAttempts: 0,
+        failureReason: undefined,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'observe_spec LLM error';
-      const attempts = (state.observeSpecRecoveryAttempts ?? 0) + 1;
-      if (attempts >= (state.maxObserveSpecRecoveryAttempts ?? 2)) {
-        return { failed: true, failureReason: message, observeSpecRecoveryAttempts: attempts };
+      const message = error instanceof Error ? error.message : 'observe_spec error';
+
+      if (llmCallId && !llmAuditCompleted) {
+        await deps.explorationRepo.failLlmCall({
+          id: llmCallId,
+          error: message,
+          ...(result
+            ? {
+                responseJson: {
+                  observables: result.output.observables,
+                  error: message,
+                },
+                systemPrompt: result.audit.systemPrompt,
+                userPrompt: result.audit.userPrompt,
+                userPromptImages: result.audit.userPromptImages,
+              }
+            : {}),
+        });
+        return returnObserveSpecRetry(state, message);
       }
-      return { observeSpecRecoveryAttempts: attempts, failureReason: message };
+
+      return { failed: true, failureReason: message };
     }
   }
 

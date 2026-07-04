@@ -8,7 +8,8 @@ import {
   Verdict,
 } from '../../../../../../api/generated/prisma/enums.js';
 import { prisma } from '../../../../shared/infrastructure/prisma/prisma-client.js';
-import type { MrEvaluationResult } from '@metamorph/core';
+import type { MrEvaluationResult, ObservableDef } from '@metamorph/core';
+import { deriveFinalUrlFromObservation } from '@metamorph/core';
 
 export class RunPrismaRepository {
   async markRunning(runId: string): Promise<void> {
@@ -46,6 +47,8 @@ export class RunPrismaRepository {
     sessionId: string;
     mrVersionId: string;
     playbookContentHash: string;
+    sessionUrl: string;
+    observables: ObservableDef[];
     sourceObservation: Record<string, unknown>;
     followUpObservation: Record<string, unknown>;
     evaluation: MrEvaluationResult;
@@ -56,14 +59,16 @@ export class RunPrismaRepository {
   }): Promise<void> {
     const sourceHash = hashPayload(input.sourceObservation);
     const followUpHash = hashPayload(input.followUpObservation);
-    const sourceFinalUrl =
-      typeof input.sourceObservation.results_url === 'string'
-        ? input.sourceObservation.results_url
-        : null;
-    const followUpFinalUrl =
-      typeof input.followUpObservation.results_url === 'string'
-        ? input.followUpObservation.results_url
-        : null;
+    const sourceFinalUrl = deriveFinalUrlFromObservation(
+      input.sourceObservation,
+      input.observables,
+      input.sessionUrl,
+    );
+    const followUpFinalUrl = deriveFinalUrlFromObservation(
+      input.followUpObservation,
+      input.observables,
+      input.sessionUrl,
+    );
 
     await prisma.$transaction(async (tx) => {
       await tx.run.update({

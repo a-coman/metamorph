@@ -1,4 +1,4 @@
-import type { MrDefinition, ObservableDef } from '@metamorph/core';
+import type { ObservableDef } from '@metamorph/core';
 import { UniqueEntityID } from '@metamorph/utils';
 import {
   JobStatus as PrismaJobStatus,
@@ -25,7 +25,6 @@ export class ExecutePairJobMapper {
       generationSlots: unknown;
       playbookBlob: { content: string; contentHash: string } | null;
       schemaBlob: { content: string } | null;
-      mrDefinition: { definition: unknown };
     } | null;
   }): ExecutePairJob | null {
     if (!row.mrVersion?.playbookBlob || !row.mrVersion.schemaBlob) {
@@ -49,7 +48,6 @@ export class ExecutePairJobMapper {
         status: toDomainJobStatus(row.status),
         playbookContent: row.mrVersion.playbookBlob.content,
         schemaContent: row.mrVersion.schemaBlob.content,
-        mrDefinition: row.mrVersion.mrDefinition.definition as MrDefinition,
         observables,
         playbookContentHash: row.mrVersion.playbookBlob.contentHash,
         errorMessage: row.errorMessage,

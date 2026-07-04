@@ -65,4 +65,20 @@ describe('buildObserveSpecUserText', () => {
     assert.match(text, /result count stable/);
     assert.match(text, /- press/);
   });
+
+  it('includes rejection reason on retry', () => {
+    const text = buildObserveSpecUserText({
+      url: inventory.url,
+      transformFamily: 'subset',
+      mrIntent,
+      inventory,
+      inventorySnapshotId: '00000000-0000-4000-8000-000000000099',
+      sourceSteps: [],
+      rejectionReason: 'Invalid element_id E99 for search_query',
+    });
+
+    assert.match(text, /Previous observe_spec attempt was rejected/);
+    assert.match(text, /Invalid element_id E99/);
+    assert.match(text, /Fix bindings and compare operators/);
+  });
 });

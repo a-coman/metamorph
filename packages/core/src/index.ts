@@ -60,6 +60,7 @@ export {
   ObservationBindingSchema,
   ObservationSpecSchema,
   OBSERVATION_SPEC_SCHEMA_VERSION,
+  MIN_RESULT_LABEL_ELEMENT_AREA_PX,
   type ObservableDef,
   type ObservableCompare,
   type ObservableValueType,
@@ -170,12 +171,7 @@ export {
   type MrEvaluationResult,
 } from './application/mr-engine/mr-engine.js';
 
-export {
-  ObservationAnchorOutputSchema,
-  OBSERVATION_ANCHOR_PROMPT_VERSION,
-  MIN_RESULT_LABEL_ELEMENT_AREA_PX,
-  type ObservationAnchorOutput,
-} from './domain/schemas/observation-anchor-output.schema.js';
+export { deriveFinalUrlFromObservation } from './application/mr-engine/derive-final-url.js';
 
 export {
   parseLocalizedNumbers,

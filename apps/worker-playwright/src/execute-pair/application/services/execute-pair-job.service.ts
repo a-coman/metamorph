@@ -82,6 +82,8 @@ export class ExecutePairJobService {
         sessionId: job.sessionId,
         mrVersionId: job.mrVersionId,
         playbookContentHash: job.playbookContentHash,
+        sessionUrl: job.sessionUrl,
+        observables: job.observables,
         sourceObservation: playbookResult.sourceObservation,
         followUpObservation: playbookResult.followUpObservation,
         evaluation,

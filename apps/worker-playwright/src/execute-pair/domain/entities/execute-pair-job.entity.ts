@@ -1,4 +1,4 @@
-import type { MrDefinition, ObservableDef } from '@metamorph/core';
+import type { ObservableDef } from '@metamorph/core';
 import {
   Entity,
   Either,
@@ -20,7 +20,6 @@ export type ExecutePairJobProps = {
   status: JobStatus;
   playbookContent: string;
   schemaContent: string;
-  mrDefinition: MrDefinition;
   observables: ObservableDef[];
   playbookContentHash: string;
   errorMessage?: string | null;
@@ -70,10 +69,6 @@ export class ExecutePairJob extends Entity<ExecutePairJobProps> {
 
   get schemaContent(): string {
     return this.props.schemaContent;
-  }
-
-  get mrDefinition(): MrDefinition {
-    return this.props.mrDefinition;
   }
 
   get observables(): ObservableDef[] {

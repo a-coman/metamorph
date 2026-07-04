@@ -104,6 +104,10 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.match(observeBody, /loadRawBase64/);
     assert.match(observeBody, /requireObservationItems/);
     assert.match(observeBody, /resolveObservableBindingTargets/);
+    assert.match(observeBody, /failLlmCall/);
+    assert.match(observeBody, /llmAuditCompleted/);
+    assert.match(observeBody, /rejectionReason/);
+    assert.match(observeBody, /returnObserveSpecRetry/);
   });
 
   it('routes source smoke success to observe_spec before switch_phase', () => {

@@ -1,11 +1,8 @@
 import { z } from 'zod';
 import { TRANSFORM_FAMILIES } from '../mr-family-profile.js';
+import { ObservableCompareSchema } from './observable.schema.js';
 
-export const ObservableCompareSchema = z.enum([
-  'equal',
-  'set_equal',
-  'cardinality_lte',
-]);
+export { ObservableCompareSchema };
 
 export const RelationTypeSchema = ObservableCompareSchema;
 

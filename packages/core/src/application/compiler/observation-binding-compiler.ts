@@ -97,7 +97,7 @@ function resolveBindingTargets(
           );
         }
         const target = resolveInventoryItemTarget(item);
-        return target.kind === 'locator' ? target.value : target.value;
+        return target.value;
       });
       return { ...binding, resolved_locators };
     }

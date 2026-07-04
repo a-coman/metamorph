@@ -59,6 +59,7 @@ export function buildObserveSpecUserText(input: {
   inventorySnapshotId: string;
   sourceSteps: SlotStep[];
   observationIntents?: string[];
+  rejectionReason?: string;
 }): string {
   const observationItems = input.inventory.observationItems ?? [];
   const intents =
@@ -67,7 +68,7 @@ export function buildObserveSpecUserText(input: {
     [];
 
   const stepSummary = input.sourceSteps.map((step) => {
-    const parts = [step.action];
+    const parts: string[] = [step.action];
     if (step.element_id) parts.push(`element_id=${step.element_id}`);
     if (step.value) parts.push(`value=${step.value}`);
     return `- ${parts.join(' ')}`;
@@ -81,6 +82,14 @@ export function buildObserveSpecUserText(input: {
     `Relation intent: ${input.mrIntent.mr_definition.relation.description}`,
     intents.length > 0
       ? `Observation intents from MR plan:\n${intents.map((i) => `- ${i}`).join('\n')}`
+      : '',
+    input.rejectionReason
+      ? [
+          '',
+          'Previous observe_spec attempt was rejected:',
+          `- ${input.rejectionReason}`,
+          'Fix bindings and compare operators; do not repeat the same mistake.',
+        ].join('\n')
       : '',
     '',
     'Committed source steps (semantic context):',
