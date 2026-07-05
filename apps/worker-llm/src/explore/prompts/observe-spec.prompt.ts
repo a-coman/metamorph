@@ -19,7 +19,7 @@ export function buildObserveSpecSystemPrompt(transformFamily: TransformFamily): 
   const allowedValueTypes = ObservableValueTypeSchema.options.join(' | ');
 
   return [
-    'You specify what to observe on a web page after the source exploration phase completes.',
+    'You specify what to observe after both source and follow_up exploration phases complete.',
     '<output_format>',
     'Return ONLY valid JSON matching this shape (no markdown, no extra keys):',
     '{',
@@ -47,6 +47,14 @@ export function buildObserveSpecSystemPrompt(transformFamily: TransformFamily): 
     '- composite: { kind, inventory_snapshot_id, separator, parts: [{ element_id, extract: "input_value"|"text_content", prefix? }] }',
     '',
     '</binding_kinds>',
+    '<binding_value_types>',
+    'Each binding kind requires a matching valueType:',
+    '- input_value, text_content, url_pathname, url_params, composite → string',
+    '- number_from_label → number',
+    '- list_texts → string[]',
+    '- presence → boolean',
+    '- compare cardinality_lte requires valueType number (use number_from_label, not list_texts)',
+    '</binding_value_types>',
     '<rules>',
     `- Pick ${OBSERVE_SPEC_MIN_OBSERVABLES} to ${OBSERVE_SPEC_MAX_OBSERVABLES} observables that should be stable under the MR transformation.`,
     '- Keys must be snake_case (e.g. search_query, result_count, active_filters).',
@@ -54,12 +62,24 @@ export function buildObserveSpecSystemPrompt(transformFamily: TransformFamily): 
     '- element_id MUST be from observation inventory shortIds (E1, E2, ...) in the user message.',
     '- Prefer stable signals: form values, result labels, filter chips, pathname.',
     '- Avoid session tokens and opaque URL params (e.g. c=, sid=) unless clearly stable.',
+    '- Bindings must be readable on BOTH source end and follow_up end page states.',
     '- For idempotence: observables should not change when the transformation is applied correctly.',
     '- For subset: include a numeric count observable with compare cardinality_lte when relevant.',
     '- number_index is 0-based index into parsed numbers in label text.',
     '- Each observable needs a concise rationale tied to the MR transformation.',
     '</rules>',
   ].join('\n');
+}
+
+function formatStepSummary(steps: SlotStep[]): string {
+  return steps
+    .map((step) => {
+      const parts: string[] = [step.action];
+      if (step.element_id) parts.push(`element_id=${step.element_id}`);
+      if (step.value) parts.push(`value=${step.value}`);
+      return `- ${parts.join(' ')}`;
+    })
+    .join('\n');
 }
 
 export function buildObserveSpecUserText(input: {
@@ -69,6 +89,7 @@ export function buildObserveSpecUserText(input: {
   inventory: PageSnapshotInventory;
   inventorySnapshotId: string;
   sourceSteps: SlotStep[];
+  followUpSteps?: SlotStep[];
   observationIntents?: string[];
   rejectionReason?: string;
 }): string {
@@ -78,12 +99,8 @@ export function buildObserveSpecUserText(input: {
     input.mrIntent.observation_intents ??
     [];
 
-  const stepSummary = input.sourceSteps.map((step) => {
-    const parts: string[] = [step.action];
-    if (step.element_id) parts.push(`element_id=${step.element_id}`);
-    if (step.value) parts.push(`value=${step.value}`);
-    return `- ${parts.join(' ')}`;
-  });
+  const sourceStepSummary = formatStepSummary(input.sourceSteps);
+  const followUpStepSummary = formatStepSummary(input.followUpSteps ?? []);
 
   return [
     `URL: ${input.url}`,
@@ -104,7 +121,10 @@ export function buildObserveSpecUserText(input: {
       : '',
     '',
     'Committed source steps (semantic context):',
-    stepSummary.length > 0 ? stepSummary.join('\n') : '(none)',
+    sourceStepSummary.length > 0 ? sourceStepSummary : '(none)',
+    '',
+    'Committed follow_up steps (semantic context):',
+    followUpStepSummary.length > 0 ? followUpStepSummary : '(none)',
     '',
     'Observation inventory (shortId → metadata; use ONLY these IDs in bindings):',
     observationItems.length > 0

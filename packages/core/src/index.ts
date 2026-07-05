@@ -24,6 +24,11 @@ export {
 } from './domain/observation-inventory.js';
 
 export {
+  expectedValueTypeForBinding,
+  validateObservableBindingValueType,
+} from './domain/observable-spec-validation.js';
+
+export {
   RelationTypeSchema,
   TransformFamilySchema,
   MrDefinitionSchema,

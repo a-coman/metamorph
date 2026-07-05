@@ -18,6 +18,7 @@ import {
   resolveStepTargets,
   validatePlanBatch,
   validateObservableBindings,
+  validateObservableBindingValueType,
   validateSelectOptionSteps,
   formatSelectOptionValidationErrors,
   type MrIntent,
@@ -1161,11 +1162,11 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
   async function observeSpecNode(state: State): Promise<Partial<State>> {
     await checkUserPause(state.sessionId);
 
-    if (state.failed || state.observationSpec || state.phase !== 'source') {
+    if (state.failed || state.observationSpec || state.phase !== 'follow_up') {
       return {};
     }
 
-    const anchorSnapshotId = state.sourceEndSnapshotId ?? state.currentSnapshotId;
+    const anchorSnapshotId = state.sourceEndSnapshotId;
     if (!anchorSnapshotId) {
       return {
         failed: true,
@@ -1227,6 +1228,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           inventory: snapshot.inventory,
           inventorySnapshotId: anchorSnapshotId,
           sourceSteps: state.validatedSteps.source,
+          followUpSteps: state.validatedSteps.follow_up,
           rejectionReason,
         });
       } catch (error) {
@@ -1305,9 +1307,6 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       );
 
       return {
-        ...(state.phase === 'source' && !state.sourceEndSnapshotId
-          ? { sourceEndSnapshotId: anchorSnapshotId }
-          : {}),
         observationSpec: resolvedObservables,
         mrDefinition: state.mrDefinition
           ? {
@@ -1366,6 +1365,11 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
 
       if (!isCompareAllowedForFamily(transformFamily, observable.compare)) {
         return `Compare ${observable.compare} not allowed for family ${transformFamily}`;
+      }
+
+      const valueTypeError = validateObservableBindingValueType(observable);
+      if (valueTypeError) {
+        return valueTypeError;
       }
 
       if (observable.binding.inventory_snapshot_id !== anchorSnapshotId) {
@@ -1538,11 +1542,15 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return 'dispatch_smoke';
     }
 
-    if (state.phase === 'source' && !state.observationSpec) {
+    if (state.phase === 'source') {
+      return 'switch_phase';
+    }
+
+    if (!state.observationSpec) {
       return 'observe_spec';
     }
 
-    return state.phase === 'source' ? 'switch_phase' : 'compile_draft';
+    return 'compile_draft';
   }
 
   function routeAfterObserveSpec(state: State): string {
@@ -1551,7 +1559,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
     }
 
     if (state.observationSpec && state.observationSpec.length > 0) {
-      return 'switch_phase';
+      return 'compile_draft';
     }
 
     if ((state.observeSpecRecoveryAttempts ?? 0) > 0) {
@@ -1742,7 +1750,7 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       fail: 'fail',
     })
     .addConditionalEdges('observe_spec', routeAfterObserveSpec, {
-      switch_phase: 'switch_phase',
+      compile_draft: 'compile_draft',
       observe_spec: 'observe_spec',
       fail: 'fail',
     })

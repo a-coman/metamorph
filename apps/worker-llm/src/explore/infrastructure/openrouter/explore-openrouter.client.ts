@@ -123,6 +123,7 @@ export class ExploreOpenRouterClient {
     inventory: PageSnapshotInventory;
     inventorySnapshotId: string;
     sourceSteps: SlotStep[];
+    followUpSteps?: SlotStep[];
     rejectionReason?: string;
   }): Promise<ExploreLlmResult<ObserveSpecOutput>> {
     return this.call({
@@ -136,6 +137,7 @@ export class ExploreOpenRouterClient {
         inventory: input.inventory,
         inventorySnapshotId: input.inventorySnapshotId,
         sourceSteps: input.sourceSteps,
+        followUpSteps: input.followUpSteps,
         observationIntents: input.mrIntent.observation_intents,
         rejectionReason: input.rejectionReason,
       }),

@@ -73,7 +73,7 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.match(failBranch, /revertedSnapshotId/);
   });
 
-  it('observe_spec falls back to currentSnapshotId before switch_phase', () => {
+  it('observe_spec requires sourceEndSnapshotId and follow_up phase', () => {
     const source = readFileSync(graphSourcePath, 'utf8');
     const observeStart = source.indexOf('async function observeSpecNode');
     const switchPhaseStart = source.indexOf('async function switchPhaseNode');
@@ -81,11 +81,13 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.ok(switchPhaseStart > observeStart);
 
     const observeBody = source.slice(observeStart, switchPhaseStart);
-    assert.match(
-      observeBody,
-      /sourceEndSnapshotId\s*\?\?\s*state\.currentSnapshotId/,
-      'observe_spec must use currentSnapshotId when sourceEndSnapshotId is unset',
+    assert.match(observeBody, /state\.phase !== 'follow_up'/);
+    assert.equal(
+      observeBody.includes('sourceEndSnapshotId ?? state.currentSnapshotId'),
+      false,
+      'observe_spec must not fall back to currentSnapshotId',
     );
+    assert.match(observeBody, /const anchorSnapshotId = state\.sourceEndSnapshotId/);
   });
 
   it('observe_spec validates number_index and family compare constraints', () => {
@@ -97,6 +99,7 @@ describe('explore-graph pendingProbeSteps', () => {
 
     const observeBody = source.slice(observeStart, switchPhaseStart);
     assert.match(observeBody, /validateObserveSpecOutput/);
+    assert.match(observeBody, /validateObservableBindingValueType/);
     assert.match(observeBody, /parseLocalizedNumbers/);
     assert.match(observeBody, /number_index/);
     assert.match(observeBody, /MIN_RESULT_LABEL_ELEMENT_AREA_PX/);
@@ -110,13 +113,29 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.match(observeBody, /returnObserveSpecRetry/);
   });
 
-  it('routes source smoke success to observe_spec before switch_phase', () => {
+  it('routes source smoke success to switch_phase and follow_up to observe_spec', () => {
     const source = readFileSync(graphSourcePath, 'utf8');
+    assert.match(
+      source,
+      /function routeAfterGoalReached[\s\S]*state\.phase === 'source'[\s\S]*return 'switch_phase'/,
+    );
     assert.match(
       source,
       /function routeAfterGoalReached[\s\S]*!state\.observationSpec[\s\S]*return 'observe_spec'/,
     );
     assert.match(source, /addNode\('observe_spec', observeSpecNode\)/);
+  });
+
+  it('routes observe_spec success to compile_draft', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    assert.match(
+      source,
+      /function routeAfterObserveSpec[\s\S]*observationSpec[\s\S]*return 'compile_draft'/,
+    );
+    assert.match(
+      source,
+      /addConditionalEdges\('observe_spec', routeAfterObserveSpec[\s\S]*compile_draft: 'compile_draft'/,
+    );
   });
 
   it('assess_checkpoint retries retryable verify LLM errors without setting lastVerdict fail', () => {

@@ -67,6 +67,16 @@ describe('buildObserveSpecSystemPrompt allowed values', () => {
       ),
     );
   });
+
+  it('documents binding and valueType pairing rules', () => {
+    const prompt = buildObserveSpecSystemPrompt('subset');
+
+    assert.match(prompt, /binding_value_types/);
+    assert.match(prompt, /list_texts → string\[\]/);
+    assert.match(prompt, /number_from_label → number/);
+    assert.match(prompt, /cardinality_lte requires valueType number/);
+    assert.match(prompt, /readable on BOTH source end and follow_up end/);
+  });
 });
 
 describe('buildObserveSpecUserText', () => {
@@ -85,6 +95,24 @@ describe('buildObserveSpecUserText', () => {
     assert.match(text, /E7/);
     assert.match(text, /result count stable/);
     assert.match(text, /- press/);
+    assert.match(text, /Committed follow_up steps/);
+  });
+
+  it('includes follow_up steps when provided', () => {
+    const text = buildObserveSpecUserText({
+      url: inventory.url,
+      transformFamily: 'subset',
+      mrIntent,
+      inventory,
+      inventorySnapshotId: '00000000-0000-4000-8000-000000000099',
+      sourceSteps: [{ id: 1, action: 'click', element_id: 'E1' }],
+      followUpSteps: [{ id: 1, action: 'fill', element_id: 'E2', value: '500' }],
+    });
+
+    assert.match(text, /Committed source steps/);
+    assert.match(text, /- click element_id=E1/);
+    assert.match(text, /Committed follow_up steps/);
+    assert.match(text, /- fill element_id=E2 value=500/);
   });
 
   it('includes rejection reason on retry', () => {
