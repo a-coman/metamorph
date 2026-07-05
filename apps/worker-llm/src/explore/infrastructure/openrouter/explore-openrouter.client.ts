@@ -30,7 +30,7 @@ import {
 } from '../../prompts/observe-spec.prompt.js';
 import {
   buildPlanExploreSystemPrompt,
-  buildPlanExploreUserText,
+  buildPlanExploreUserPrompt,
 } from '../../prompts/plan-explore.prompt.js';
 import type { ExplorePhase, ExploreSourceReference, ExploreBatchLog } from '../graph/explore-state.js';
 import {
@@ -171,7 +171,7 @@ export class ExploreOpenRouterClient {
       purpose: 'plan_explore',
       promptVersion: PLAN_EXPLORE_PROMPT_VERSION,
       system: buildPlanExploreSystemPrompt(),
-      userText: buildPlanExploreUserText({
+      userText: buildPlanExploreUserPrompt({
         url: input.url,
         phase: input.phase,
         mrIntent: input.mrIntent,

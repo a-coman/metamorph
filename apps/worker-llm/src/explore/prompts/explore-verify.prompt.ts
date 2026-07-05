@@ -1,6 +1,6 @@
 import type { MrIntent } from '@metamorph/core';
+import { ExploreVerifyVerdictSchema } from '@metamorph/core';
 import type { ExplorePhase, ExploreSourceReference } from '../infrastructure/graph/explore-state.js';
-import { EXPLORE_VERIFY_OPTIONS } from './explore-verify.config.js';
 import {
   buildCompletedSourceReferenceSection,
   buildMrSummary,
@@ -19,11 +19,9 @@ const EXPLORE_VERIFY_EXAMPLE_OK_SEARCH = {
 };
 
 function buildAllowedValuesSection(): string {
-  const { verdicts } = EXPLORE_VERIFY_OPTIONS;
-
   return [
     'Allowed values (pick ONLY from these):',
-    `- verdict: ${verdicts.join(' | ')}`,
+    `- verdict: ${ExploreVerifyVerdictSchema.options.join(' | ')}`,
   ].join('\n');
 }
 

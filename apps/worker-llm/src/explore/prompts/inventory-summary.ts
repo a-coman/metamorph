@@ -74,7 +74,7 @@ export function truncateAccessibilityTreeForPrompt(tree: string, maxChars: numbe
 
 export function buildEnrichedInventorySection(inventory: PageSnapshotInventory): string {
   return [
-    'Current inventory (concrete UI instances for this snapshot — use ONLY these element_ids in steps):',
+    'Current inventory (concrete UI instances for this snapshot - use ONLY these element_ids in steps):',
     buildInventorySummary(inventory),
   ].join('\n');
 }

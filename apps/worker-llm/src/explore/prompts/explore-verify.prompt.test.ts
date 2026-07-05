@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { MrIntent } from '@metamorph/core';
-import { buildExploreVerifyUserText } from './explore-verify.prompt.js';
+import { ExploreVerifyVerdictSchema } from '@metamorph/core';
+import {
+  buildExploreVerifySystemPrompt,
+  buildExploreVerifyUserText,
+} from './explore-verify.prompt.js';
 
 const mrIntent: MrIntent = {
   mr_definition: {
@@ -20,6 +24,16 @@ const mrIntent: MrIntent = {
     follow_up_phase_goal: 'Repeat search with filter',
   },
 };
+
+describe('buildExploreVerifySystemPrompt allowed values', () => {
+  it('lists every schema verdict', () => {
+    const prompt = buildExploreVerifySystemPrompt();
+
+    for (const verdict of ExploreVerifyVerdictSchema.options) {
+      assert.match(prompt, new RegExp(verdict));
+    }
+  });
+});
 
 describe('buildExploreVerifyUserText', () => {
   it('includes planner rationale before executed steps when provided', () => {

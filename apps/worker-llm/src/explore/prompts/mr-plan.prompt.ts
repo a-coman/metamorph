@@ -1,18 +1,45 @@
 import {
-  getFamilyPlanProfile,
-  MR_PLAN_OPTIONS,
-  COMPARE_OPERATOR_SEMANTICS,
-  TRANSFORM_FAMILY_SEMANTICS,
-} from './mr-vertical.config.js';
-import type { TransformFamily } from '@metamorph/core';
+  getFamilyProfile,
+  type TransformFamily,
+  type ObservableCompare,
+} from '@metamorph/core';
+
+const TRANSFORM_FAMILY_SEMANTICS = {
+  idempotence:
+    'Apply an action once to reach an intermediate state P (source). Apply the same action again on P (the transformation). ' +
+    'The observable outcome should not change. ' +
+    'source_phase_goal: from a fresh context, reach P. ' +
+    'follow_up_phase_goal: from another fresh context, rebuild the path to P, then apply the transformation (P) once more. Note that is NOT merely re-running the same scenario as source — it must include the extra transformation step after reaching P.',
+  subset:
+    'From a base results state P (source), apply an additional filter or restriction (F) in follow_up. ' +
+    'The total result count reported by the site (result info label) should not increase. ' +
+    'source_phase_goal: from a fresh context, reach unfiltered search results P with a visible results summary label. ' +
+    'follow_up_phase_goal: from another fresh context, rebuild the path to P, then apply one filter (F).',
+  permutation:
+    'Apply two independent actions (e.g. filters) in different orders. The final observable state should be the same. ' +
+    'source_phase_goal: from a fresh context, apply action A then action B to reach state P. ' +
+    'follow_up_phase_goal: from another fresh context, apply action B then action A.',
+  inverse:
+    'Apply a transformation T to reach state P (source). In follow_up, reach P and apply the inverse T-1 (undo, clear filter, back). ' +
+    'The final state should match source. ' +
+    'source_phase_goal: from a fresh context, apply T to reach P. ' +
+    'follow_up_phase_goal: from another fresh context, rebuild the path to P, then undo T with T-1.',
+} satisfies Record<TransformFamily, string>;
+
+const COMPARE_OPERATOR_SEMANTICS = {
+  equal: 'The follow_up value must equal the source value.',
+  set_equal: 'The follow_up set must equal the source set (order ignored).',
+  cardinality_lte:
+    'For numeric observables, follow_up must be less than or equal to source.',
+} satisfies Record<ObservableCompare, string>;
 
 const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
   idempotence: {
     mr_definition: {
-      precondition: { description: 'User on Amazon homepage' },
+      precondition: { description: 'User on homepage' },
       transformation: {
         transform_family: 'idempotence',
-        description: "Repeat the 'laptop' search on the results page",
+        description: "Repeat the search query on the results page",
       },
       relation: {
         on: [],
@@ -22,9 +49,9 @@ const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
     },
     exploration: {
       source_phase_goal:
-        'From homepage (fresh context): dismiss cookies if visible, search for laptop, reach /s?k=laptop with results grid visible.',
+        'From homepage (fresh context): dismiss cookies if visible, search for a query to reach a results grid visible.',
       follow_up_phase_goal:
-        'From homepage (fresh context): dismiss cookies if needed, rebuild the same search path to reach /s?k=laptop, then repeat the search submit once.',
+        'From homepage (fresh context): dismiss cookies if needed, rebuild the same search path to reach the same results grid, then repeat the search submit again.',
     },
     observation_intents: [
       'search query unchanged',
@@ -34,10 +61,10 @@ const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
   },
   subset: {
     mr_definition: {
-      precondition: { description: 'User on Amazon homepage' },
+      precondition: { description: 'User on homepage' },
       transformation: {
         transform_family: 'subset',
-        description: 'Apply an additional filter on laptop results',
+        description: 'Apply an additional filter on results grid',
       },
       relation: {
         on: [],
@@ -47,9 +74,9 @@ const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
     },
     exploration: {
       source_phase_goal:
-        'From homepage: search laptop and reach results page with a visible result count label.',
+        'From homepage, search for a query and reach results page with a visible result count label.',
       follow_up_phase_goal:
-        'From homepage: rebuild search to same results, then apply one extra filter (e.g. Prime).',
+        'From homepage, rebuild the same search query to the same results grid, then apply one filter.',
     },
     observation_intents: [
       'search query stable',
@@ -58,7 +85,7 @@ const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
   },
   permutation: {
     mr_definition: {
-      precondition: { description: 'User on Amazon homepage' },
+      precondition: { description: 'User on homepage' },
       transformation: {
         transform_family: 'permutation',
         description: 'Apply two independent filters in different order',
@@ -70,15 +97,15 @@ const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
     },
     exploration: {
       source_phase_goal:
-        'From homepage: search laptop, apply filter A then filter B.',
+        'From homepage, search for a query, arrive to a results grid and apply filter A then filter B.',
       follow_up_phase_goal:
-        'From homepage: search laptop, apply filter B then filter A.',
+        'From homepage, search for the same query, arrive to the same results grid and apply filter B then filter A.',
     },
     observation_intents: ['active filters equal', 'results URL equal'],
   },
   inverse: {
     mr_definition: {
-      precondition: { description: 'User on Amazon homepage' },
+      precondition: { description: 'User on homepage' },
       transformation: {
         transform_family: 'inverse',
         description: 'Apply a filter then remove it',
@@ -90,47 +117,40 @@ const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
     },
     exploration: {
       source_phase_goal:
-        'From homepage: search laptop and apply one filter.',
+        'From homepage, search for a query and apply one filter.',
       follow_up_phase_goal:
-        'From homepage: rebuild search, apply same filter, then remove it.',
+        'From homepage, rebuild the same search query to the same results grid, then apply the same filter again, then remove it.',
     },
     observation_intents: ['query and URL restored after undo'],
   },
 };
 
-function buildAllowedValuesSection(transformFamily: TransformFamily): string {
-  const profile = getFamilyPlanProfile(transformFamily);
-
-  return [
-    'Fixed profile for this explore job (do NOT change these):',
-    `- transformation.transform_family: ${transformFamily}`,
-    `- Allowed compare operators at observe_spec (not in this response): ${profile.allowedCompares.join(', ')}`,
-    '',
-    'Observation intent hints for this family:',
-    ...profile.observationIntentHints.map((hint) => `- ${hint}`),
-  ].join('\n');
-}
-
-function buildSemanticsSection(): string {
-  const transformLines = MR_PLAN_OPTIONS.transformFamilies.map(
-    (family) => `- ${family}: ${TRANSFORM_FAMILY_SEMANTICS[family]}`,
-  );
-  const compareLines = MR_PLAN_OPTIONS.compareOperators.map(
+function buildFamilyProfileSection(transformFamily: TransformFamily): string {
+  const profile = getFamilyProfile(transformFamily);
+  const compareLines = profile.allowedCompares.map(
     (op) => `- ${op}: ${COMPARE_OPERATOR_SEMANTICS[op]}`,
   );
 
   return [
-    'Our definitions:',
-    'Transform families:',
-    ...transformLines,
-    'Compare operators (chosen per observable later at observe_spec):',
+    '<family_profile>',
+    `This explore job is locked to transform_family=${transformFamily}.`,
+    '',
+    'Family semantics:',
+    TRANSFORM_FAMILY_SEMANTICS[transformFamily],
+    '',
+    'Compare operators at observe_spec (not in your JSON; chosen per observable later):',
     ...compareLines,
+    '',
+    'Observation intent hints:',
+    ...profile.observationIntentHints.map((hint) => `- ${hint}`),
+    '</family_profile>',
   ].join('\n');
 }
 
 export function buildMrPlanSystemPrompt(transformFamily: TransformFamily): string {
   return [
     'You plan a metamorphic testing relation (MR) and exploration goals for a web application.',
+    '<output_format>',
     'Return ONLY valid JSON matching this shape (no markdown, no extra keys):',
     '{',
     '  "mr_definition": {',
@@ -150,14 +170,13 @@ export function buildMrPlanSystemPrompt(transformFamily: TransformFamily): strin
     '  },',
     '  "observation_intents": string[]',
     '}',
+    '</output_format>',
     '',
-    buildAllowedValuesSection(transformFamily),
+    buildFamilyProfileSection(transformFamily),
     '',
-    buildSemanticsSection(),
-    '',
-    'Rules:',
+    '<rules>',
     `- This explore job is locked to transform_family=${transformFamily}.`,
-    '- relation.on MUST be an empty array []; concrete observables are defined later at observe_spec.',
+    '- relation.on MUST be an empty array []; concrete observables are defined at a later stage.',
     '- observation_intents lists semantic hints for what should be measured (no element_ids).',
     '- MR relation and exploration goals are generic and element-agnostic.',
     '- Focus on concrete, verifiable transformation.description and exploration phase goals.',
@@ -165,6 +184,7 @@ export function buildMrPlanSystemPrompt(transformFamily: TransformFamily): strin
     '- Exploration goals must be achievable without login; dismiss cookie banners if visible.',
     '- Each phase is an independent Playwright scenario from the homepage with a new browser context.',
     '- Write all descriptions and phase goals in English.',
+    '</rules>',
   ].join('\n');
 }
 

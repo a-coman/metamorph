@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ExplorePlanOutputSchema } from './explore-plan-output.schema.js';
+import {
+  ExplorePlanOutputSchema,
+  PLAN_EXPLORE_MAX_STEPS_PER_BATCH,
+} from './explore-plan-output.schema.js';
 
 describe('ExplorePlanOutputSchema', () => {
   it('requires steps when action is append_steps', () => {
@@ -30,6 +33,21 @@ describe('ExplorePlanOutputSchema', () => {
       steps: [{ id: 1, action: 'scroll', scroll_y: 800 }],
     });
     assert.equal(scroll.success, true);
+  });
+
+  it('rejects append_steps with more than PLAN_EXPLORE_MAX_STEPS_PER_BATCH steps', () => {
+    const steps = Array.from({ length: PLAN_EXPLORE_MAX_STEPS_PER_BATCH + 1 }, (_, index) => ({
+      id: index + 1,
+      action: 'click' as const,
+      element_id: 'E1',
+    }));
+
+    const result = ExplorePlanOutputSchema.safeParse({
+      action: 'append_steps',
+      rationale: 'Too many steps',
+      steps,
+    });
+    assert.equal(result.success, false);
   });
 
   it('allows scenario_complete and abort without steps', () => {

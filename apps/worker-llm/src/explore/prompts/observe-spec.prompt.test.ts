@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildObserveSpecUserText } from './observe-spec.prompt.js';
+import { buildObserveSpecSystemPrompt, buildObserveSpecUserText } from './observe-spec.prompt.js';
 import type { MrIntent } from '@metamorph/core';
+import {
+  ObservableValueTypeSchema,
+  OBSERVE_SPEC_MIN_OBSERVABLES,
+  OBSERVE_SPEC_MAX_OBSERVABLES,
+} from '@metamorph/core';
 
 const mrIntent: MrIntent = {
   mr_definition: {
@@ -47,6 +52,22 @@ const inventory = {
     },
   ],
 };
+
+describe('buildObserveSpecSystemPrompt allowed values', () => {
+  it('lists every value type and observable min/max counts', () => {
+    const prompt = buildObserveSpecSystemPrompt('subset');
+
+    for (const valueType of ObservableValueTypeSchema.options) {
+      assert.match(prompt, new RegExp(valueType.replace('[]', '\\[\\]')));
+    }
+    assert.match(
+      prompt,
+      new RegExp(
+        `Pick ${OBSERVE_SPEC_MIN_OBSERVABLES} to ${OBSERVE_SPEC_MAX_OBSERVABLES} observables`,
+      ),
+    );
+  });
+});
 
 describe('buildObserveSpecUserText', () => {
   it('includes observation inventory and intents', () => {

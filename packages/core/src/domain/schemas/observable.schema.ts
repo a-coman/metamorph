@@ -3,6 +3,8 @@ import { ELEMENT_SHORT_ID_PATTERN } from '../element-short-id.js';
 
 export const OBSERVABLE_KEY_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 
+export const OBSERVE_SPEC_MAX_OBSERVABLES = 8;
+
 export const ObservableKeySchema = z
   .string()
   .regex(OBSERVABLE_KEY_PATTERN, 'Observable key must be snake_case');
@@ -94,7 +96,7 @@ export const ObservableDefSchema = z.object({
 
 export const ObservationSpecSchema = z.object({
   schemaVersion: z.literal(2),
-  observables: z.array(ObservableDefSchema).max(8),
+  observables: z.array(ObservableDefSchema).max(OBSERVE_SPEC_MAX_OBSERVABLES),
 });
 
 export type ObservationBinding = z.infer<typeof ObservationBindingSchema>;

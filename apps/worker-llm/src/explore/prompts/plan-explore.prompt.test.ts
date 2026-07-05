@@ -2,9 +2,15 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   buildCompletedSourceReferenceSection,
-  buildPlanExploreUserText,
+  buildPlanExploreSystemPrompt,
+  buildPlanExploreUserPrompt,
 } from './plan-explore.prompt.js';
 import type { MrIntent } from '@metamorph/core';
+import {
+  ExplorePlanActionSchema,
+  SlotActionSchema,
+  PLAN_EXPLORE_MAX_STEPS_PER_BATCH,
+} from '@metamorph/core';
 import type { ExploreBatchLog } from '../infrastructure/graph/explore-state.js';
 
 const mrIntent: MrIntent = {
@@ -67,9 +73,37 @@ const batchLog: ExploreBatchLog = {
   follow_up: [],
 };
 
+describe('buildPlanExploreSystemPrompt allowed values', () => {
+  it('lists every schema action, step action, and max steps per batch', () => {
+    const prompt = buildPlanExploreSystemPrompt();
+
+    for (const action of ExplorePlanActionSchema.options) {
+      assert.match(prompt, new RegExp(action));
+    }
+    for (const action of SlotActionSchema.options) {
+      assert.match(prompt, new RegExp(action));
+    }
+    assert.match(prompt, new RegExp(`${PLAN_EXPLORE_MAX_STEPS_PER_BATCH} max`));
+  });
+
+  it('documents top-level and step field semantics', () => {
+    const prompt = buildPlanExploreSystemPrompt();
+
+    assert.match(prompt, /Top-level fields:/);
+    assert.match(prompt, /action \(required\)/);
+    assert.match(prompt, /rationale \(required\)/);
+    assert.match(prompt, /Step object fields/);
+    assert.match(prompt, /element_id \(conditional\)/);
+    assert.match(prompt, /scroll_y \(conditional\)/);
+    assert.match(prompt, /Step action semantics:/);
+    assert.match(prompt, /scenario_complete: current phase goal is already satisfied/);
+    assert.match(prompt, /Never emit "type"/);
+  });
+});
+
 describe('buildPlanExploreUserText batch log', () => {
   it('includes unified exploration history with inline errors', () => {
-    const text = buildPlanExploreUserText({
+    const text = buildPlanExploreUserPrompt({
       url: 'https://www.example.com/',
       phase: 'source',
       mrIntent,
@@ -95,7 +129,7 @@ describe('buildPlanExploreUserText batch log', () => {
   });
 
   it('uses a single screenshot attachment when there is no probe failure image', () => {
-    const text = buildPlanExploreUserText({
+    const text = buildPlanExploreUserPrompt({
       url: 'https://www.example.com/',
       phase: 'source',
       mrIntent,
@@ -111,7 +145,7 @@ describe('buildPlanExploreUserText batch log', () => {
   });
 
   it('lists inventory items without accessibility tree section', () => {
-    const text = buildPlanExploreUserText({
+    const text = buildPlanExploreUserPrompt({
       url: 'https://www.example.com/',
       phase: 'source',
       mrIntent,

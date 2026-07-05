@@ -60,6 +60,7 @@ export {
   ObservationBindingSchema,
   ObservationSpecSchema,
   OBSERVATION_SPEC_SCHEMA_VERSION,
+  OBSERVE_SPEC_MAX_OBSERVABLES,
   MIN_RESULT_LABEL_ELEMENT_AREA_PX,
   type ObservableDef,
   type ObservableCompare,
@@ -70,6 +71,7 @@ export {
 
 export {
   ObserveSpecOutputSchema,
+  OBSERVE_SPEC_MIN_OBSERVABLES,
   OBSERVE_SPEC_PROMPT_VERSION,
   type ObserveSpecOutput,
 } from './domain/schemas/observe-spec-output.schema.js';
@@ -152,6 +154,7 @@ export {
 export {
   ExplorePlanActionSchema,
   ExplorePlanOutputSchema,
+  PLAN_EXPLORE_MAX_STEPS_PER_BATCH,
   PLAN_EXPLORE_PROMPT_VERSION,
   type ExplorePlanOutput,
 } from './domain/schemas/explore-plan-output.schema.js';
