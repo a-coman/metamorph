@@ -397,4 +397,46 @@ describe('buildTimelineFeed', () => {
       assert.equal(feed[1].phase, 'source');
     }
   });
+
+  it('defers checkpoint_orphan until linked explore_verify LLM is in state', () => {
+    const checkpoint = {
+      id: 'cp-1',
+      mrVersionId: 'mr-1',
+      phase: 'source',
+      sequence: 1,
+      snapshotId: 'snap-1',
+      stepsJson: [],
+      verdict: 'ok',
+      rationale: null,
+      llmCallId: 'verify-1',
+      tracePath: null,
+      traceArtifactId: null,
+      createdAt: new Date('2026-06-13T10:00:04Z'),
+    };
+
+    const withoutVerify = buildExplorationCycles({
+      llmCalls: new Map(),
+      probes: new Map(),
+      screenshots: new Map(),
+      checkpoints: new Map([['cp-1', checkpoint]]),
+    });
+    assert.equal(
+      withoutVerify.standalone.filter((item) => item.type === 'checkpoint_orphan').length,
+      0,
+    );
+
+    const withVerify = buildExplorationCycles({
+      llmCalls: new Map([['verify-1', verifyLlm('verify-1', '2026-06-13T10:00:04Z')]]),
+      probes: new Map(),
+      screenshots: new Map(),
+      checkpoints: new Map([['cp-1', checkpoint]]),
+    });
+    assert.equal(withVerify.cycles.length, 1);
+    assert.equal(withVerify.cycles[0]?.verify?.id, 'verify-1');
+    assert.equal(withVerify.cycles[0]?.checkpoint?.id, 'cp-1');
+    assert.equal(
+      withVerify.standalone.filter((item) => item.type === 'checkpoint_orphan').length,
+      0,
+    );
+  });
 });

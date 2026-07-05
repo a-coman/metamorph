@@ -126,6 +126,10 @@ export class MrVersionEventsService {
 
         for (const checkpoint of mrVersion.explorationCheckpoints) {
           if (!seenCheckpointIds.has(checkpoint.id)) {
+            seenCheckpointIds.add(checkpoint.id);
+            if (!initialized) {
+              continue;
+            }
             const traceInfo = traceInfoMap.get(checkpoint.snapshotId);
             timestampedEvents.push({
               event: {
@@ -140,7 +144,6 @@ export class MrVersionEventsService {
               },
               timestamp: checkpoint.createdAt,
             });
-            seenCheckpointIds.add(checkpoint.id);
           }
         }
 

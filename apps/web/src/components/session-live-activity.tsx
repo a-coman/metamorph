@@ -734,6 +734,19 @@ function llmCallsEqual(a: LlmCallDto, b: LlmCallDto): boolean {
   );
 }
 
+function shouldIgnoreLlmCallUpdate(existing: LlmCallDto, incoming: LlmCallDto): boolean {
+  if (llmCallsEqual(existing, incoming)) {
+    return true;
+  }
+  if (
+    (existing.status === 'done' || existing.status === 'failed') &&
+    incoming.status === 'running'
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function SessionLiveActivity({
   sessionId,
   isActive,
@@ -938,7 +951,7 @@ export function SessionLiveActivity({
       const id = `llm-${llmCall.id}`;
       ingestEvent(id, (prev) => {
         const existing = prev.llmCalls.get(llmCall.id);
-        if (existing && llmCallsEqual(existing, llmCall)) {
+        if (existing && shouldIgnoreLlmCallUpdate(existing, llmCall)) {
           return prev;
         }
         const llmCalls = new Map(prev.llmCalls);

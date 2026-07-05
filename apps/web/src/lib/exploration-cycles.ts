@@ -243,6 +243,20 @@ export function buildExplorationCycles(input: ExplorationActivityInput): {
     });
   }
 
+  for (const verify of verifyLlms) {
+    if (usedVerifyIds.has(verify.id)) continue;
+    const checkpoint = checkpointByLlmId.get(verify.id);
+    if (checkpoint) attachedCheckpointIds.add(checkpoint.id);
+    cycles.push({
+      id: `verify-${verify.id}`,
+      kind: 'incremental',
+      sortAt: activitySortAtLlm(verify),
+      phase: normalizePhase(checkpoint?.phase ?? null),
+      verify,
+      checkpoint,
+    });
+  }
+
   for (const plan of plans) {
     if (usedPlanIds.has(plan.id)) continue;
     const action = getPlanAction(plan);
@@ -279,6 +293,10 @@ export function buildExplorationCycles(input: ExplorationActivityInput): {
 
   for (const checkpoint of input.checkpoints.values()) {
     if (attachedCheckpointIds.has(checkpoint.id)) continue;
+    // Checkpoint may arrive over SSE before its explore_verify LLM call is in state.
+    if (checkpoint.llmCallId && !input.llmCalls.has(checkpoint.llmCallId)) {
+      continue;
+    }
     standalone.push({ type: 'checkpoint_orphan', checkpoint });
   }
 

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { RunDetailsDto, RunSummaryDto } from '../../application/dtos/run.dto.js';
+import type { RunDetailsDto, RunInputBundleDto, RunSummaryDto } from '../../application/dtos/run.dto.js';
 import { RunQueryPort } from '../../application/ports/run-query.port.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
 
@@ -48,7 +48,7 @@ export class RunPrismaQuery extends RunQueryPort {
       attempt: row.attempt,
       sourceFinalUrl: row.sourceFinalUrl,
       followUpFinalUrl: row.followUpFinalUrl,
-      inputBundle: row.inputBundle,
+      inputBundle: normalizeInputBundle(row.inputBundle),
       createdAt: row.createdAt,
       finishedAt: row.finishedAt,
       observations: row.observations.map((observation) => ({
@@ -73,4 +73,11 @@ export class RunPrismaQuery extends RunQueryPort {
       })),
     };
   }
+}
+
+function normalizeInputBundle(value: unknown): RunInputBundleDto {
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    return value as RunInputBundleDto;
+  }
+  return {};
 }

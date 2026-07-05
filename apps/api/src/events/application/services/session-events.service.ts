@@ -201,7 +201,7 @@ export class SessionEventsService {
             probeState.set(job.id, probeKey);
 
             const prevProbe = lastProbeState.get(job.id);
-            if (prevProbe !== probeKey) {
+            if (initialized && prevProbe !== probeKey) {
               const outputSnapshot = snapshotByJobId.get(job.id);
               const probe = mapProbeDto(
                 {
@@ -221,7 +221,7 @@ export class SessionEventsService {
             const llmKey = this.llmStateKey(llmCall);
             llmState.set(llmCall.id, llmKey);
             const prevLlm = lastLlmState.get(llmCall.id);
-            if (prevLlm !== llmKey) {
+            if (initialized && prevLlm !== llmKey) {
               const llmCallDto = mapLlmCallDto(llmCall, attributionContext);
               timestampedEvents.push({
                 event: { type: 'llm.status', llmCall: llmCallDto },
@@ -264,6 +264,10 @@ export class SessionEventsService {
 
         for (const snapshot of session.pageSnapshots) {
           if (!seenScreenshotIds.has(snapshot.id)) {
+            seenScreenshotIds.add(snapshot.id);
+            if (!initialized) {
+              continue;
+            }
             const artifactId = snapshot.annotatedScreenshotId ?? snapshot.rawScreenshotId;
             const isProbeOutput =
               snapshot.jobId !== null && probeJobIds.has(snapshot.jobId);
@@ -276,7 +280,6 @@ export class SessionEventsService {
                 });
               }
             }
-            seenScreenshotIds.add(snapshot.id);
           }
         }
 
