@@ -1,3 +1,16 @@
+export type FieldEvaluationDetailDto = {
+  source: unknown;
+  followUp: unknown;
+  ok: boolean;
+  compare: string;
+  error?: string;
+};
+
+export type RunInputBundleDto = {
+  evaluation_details?: Record<string, FieldEvaluationDetailDto>;
+  error?: string;
+};
+
 export type RunSummaryDto = {
   id: string;
   status: string;
@@ -16,7 +29,7 @@ export type RunDetailsDto = {
   attempt: number;
   sourceFinalUrl: string | null;
   followUpFinalUrl: string | null;
-  inputBundle: unknown;
+  inputBundle: RunInputBundleDto;
   createdAt: Date;
   finishedAt: Date | null;
   observations: Array<{

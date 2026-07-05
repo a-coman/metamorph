@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Play, Loader2, ChevronRight, RefreshCw, Clock, FlaskConical, CheckCircle } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/status-badge';
 import { useMrVersionEvents } from '@/hooks/use-sse';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import type { RunSummaryDto, MrVersionEvent } from '@metamorph/api-client';
 
 function formatDate(date: Date | string) {
@@ -25,6 +26,38 @@ function formatDuration(start: Date | string, end: Date | string) {
   const mins = Math.floor(secs / 60);
   const remainingSecs = secs % 60;
   return `${mins}m ${remainingSecs}s`;
+}
+
+function RunsSummaryBar({ runs }: { runs: RunSummaryDto[] }) {
+  const completed = runs.filter((run) => run.status === 'completed');
+  const passed = completed.filter((run) => run.verdictStrict === 'pass').length;
+  const failed = completed.filter((run) => run.verdictStrict === 'fail').length;
+  const active = runs.filter((run) => ['pending', 'running'].includes(run.status)).length;
+
+  if (runs.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+      <span className="text-muted-foreground">{runs.length} run{runs.length === 1 ? '' : 's'}</span>
+      {passed > 0 && (
+        <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
+          {passed} passed
+        </span>
+      )}
+      {failed > 0 && (
+        <span className="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/5 px-1.5 py-0.5 text-destructive">
+          {failed} failed
+        </span>
+      )}
+      {active > 0 && (
+        <span className="inline-flex items-center rounded-md border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-primary">
+          {active} active
+        </span>
+      )}
+    </div>
+  );
 }
 
 interface RunsTabProps {
@@ -88,19 +121,20 @@ export function RunsTab({
     }
   }, [mrVersionId]);
 
+  const sortedRuns = useMemo(
+    () => [...runs].sort((a, b) => b.attempt - a.attempt),
+    [runs],
+  );
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FlaskConical className="size-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">
-            Test Runs
-          </span>
-          {runs.length > 0 && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {runs.length}
-            </span>
-          )}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <FlaskConical className="size-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Test runs</span>
+          </div>
+          <RunsSummaryBar runs={runs} />
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -124,7 +158,7 @@ export function RunsTab({
               ) : (
                 <Play className="size-4" />
               )}
-              Execute Test
+              Execute test
             </Button>
           )}
         </div>
@@ -135,8 +169,10 @@ export function RunsTab({
           <div className="p-3 rounded-full bg-muted mb-3">
             <CheckCircle className="size-5 text-muted-foreground" />
           </div>
-          <p className="text-sm font-medium text-foreground">Playbook Approval Required</p>
-          <p className="text-sm text-muted-foreground">Approve the playbook in the Playbook tab to enable execution</p>
+          <p className="text-sm font-medium text-foreground">Playbook approval required</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Approve the playbook in the Playbook tab to enable execution
+          </p>
         </div>
       )}
 
@@ -145,43 +181,57 @@ export function RunsTab({
           <div className="p-3 rounded-full bg-primary/10 mb-3">
             <Play className="size-5 text-primary" />
           </div>
-          <p className="text-sm font-medium text-foreground">Ready to Execute</p>
-          <p className="text-sm text-muted-foreground">Click the Execute button above to start testing</p>
+          <p className="text-sm font-medium text-foreground">Ready to execute</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Click Execute test to run source and follow_up against this MR
+          </p>
         </div>
       )}
 
-      {runs.length > 0 && (
+      {sortedRuns.length > 0 && (
         <div className="space-y-2">
-          {runs.map((run) => (
-            <Link
-              key={run.id}
-              href={`/sessions/${sessionId}/mr/${mrVersionId}/runs/${run.id}`}
-              className="interactive-card group flex items-center gap-4 px-4 py-3.5 rounded-xl border border-border bg-card shadow-sm cursor-pointer"
-            >
-              <div className="interactive-icon p-2 rounded-lg">
-                <FlaskConical className="size-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Run #{run.attempt}</span>
-                  <StatusBadge status={run.status} />
-                  {run.verdictStrict && <StatusBadge status={run.verdictStrict} />}
+          {sortedRuns.map((run) => {
+            const verdictAccent =
+              run.verdictStrict === 'pass'
+                ? 'border-l-emerald-400'
+                : run.verdictStrict === 'fail'
+                  ? 'border-l-destructive'
+                  : 'border-l-border';
+
+            return (
+              <Link
+                key={run.id}
+                href={`/sessions/${sessionId}/mr/${mrVersionId}/runs/${run.id}`}
+                className={cn(
+                  'interactive-card group flex items-center gap-4 px-4 py-3.5 rounded-xl border border-border border-l-[3px] bg-card shadow-sm cursor-pointer',
+                  verdictAccent,
+                )}
+              >
+                <div className="interactive-icon p-2 rounded-lg bg-muted/40">
+                  <FlaskConical className="size-4 text-muted-foreground" />
                 </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Clock className="size-3" />
-                    {formatDate(run.createdAt)}
-                  </span>
-                  {run.finishedAt && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-muted">
-                      {formatDuration(run.createdAt, run.finishedAt)}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium font-mono">Run #{run.attempt}</span>
+                    <StatusBadge status={run.status} />
+                    {run.verdictStrict && <StatusBadge status={run.verdictStrict} />}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
+                    <span className="flex items-center gap-1">
+                      <Clock className="size-3" />
+                      {formatDate(run.createdAt)}
                     </span>
-                  )}
+                    {run.finishedAt && (
+                      <span className="px-1.5 py-0.5 rounded-md border border-border/60 bg-muted/40">
+                        {formatDuration(run.createdAt, run.finishedAt)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <ChevronRight className="interactive-chevron size-4 shrink-0" />
-            </Link>
-          ))}
+                <ChevronRight className="interactive-chevron size-4 shrink-0" />
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

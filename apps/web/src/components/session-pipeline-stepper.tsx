@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { aggregateMrPipelineStatus } from '@/lib/mr-versions';
+import { resolvePipelineStepStates, type PipelineStepState } from '@/lib/session-pipeline';
 import {
   FamilyExplorationChips,
   formatFailedFamilyNames,
@@ -19,9 +20,7 @@ import type { ActivitySelection } from '@/lib/session-activity-by-family';
 import type { SessionJobSummaryDto, SessionMrVersionSummaryDto } from '@metamorph/api-client';
 
 type StepId = 'discovery' | 'exploring' | 'review' | 'approved';
-type StepState = 'pending' | 'active' | 'done' | 'failed' | 'warning';
-
-const ACTIVE_JOB_STATUSES = new Set(['queued', 'running']);
+type StepState = PipelineStepState;
 
 const PIPELINE_STEPS: {
   id: StepId;
@@ -44,81 +43,6 @@ const STEP_MESSAGES: Record<StepId, string> = {
 const STEP_WARNING_MESSAGES: Partial<Record<StepId, string>> = {
   approved: 'Violation detected — triage required before replay',
 };
-
-function resolveStepStates(
-  mr: SessionMrVersionSummaryDto | undefined,
-  mrVersions: SessionMrVersionSummaryDto[],
-  jobs: SessionJobSummaryDto[],
-): StepState[] {
-  const discoverJob = jobs.find((job) => job.type === 'discover');
-  const discoverDone = discoverJob?.status === 'done';
-  const discoverActive =
-    discoverJob !== undefined && ACTIVE_JOB_STATUSES.has(discoverJob.status);
-  const discoverFailed =
-    discoverJob?.status === 'failed' || discoverJob?.status === 'enqueue_failed';
-
-  const pending = (): StepState[] => ['pending', 'pending', 'pending', 'pending'];
-
-  if (!mr) {
-    if (discoverFailed) {
-      return ['failed', 'pending', 'pending', 'pending'];
-    }
-    if (discoverActive) {
-      return ['active', 'pending', 'pending', 'pending'];
-    }
-    if (discoverDone) {
-      return ['done', 'pending', 'pending', 'pending'];
-    }
-    return pending();
-  }
-
-  if (mrVersions.some((version) => version.status === 'exploring')) {
-    return ['done', 'active', 'pending', 'pending'];
-  }
-
-  if (
-    mrVersions.length > 0 &&
-    mrVersions.some((version) => version.status === 'exploration_failed')
-  ) {
-    const allFailed = mrVersions.every(
-      (version) => version.status === 'exploration_failed',
-    );
-    if (allFailed) {
-      return ['done', 'failed', 'pending', 'pending'];
-    }
-    if (mrVersions.some((version) => version.status === 'draft_pending_hitl')) {
-      return ['done', 'done', 'active', 'pending'];
-    }
-    return ['done', 'warning', 'pending', 'pending'];
-  }
-
-  switch (mr.status) {
-    case 'exploring':
-      return ['done', 'active', 'pending', 'pending'];
-    case 'exploration_failed':
-      return ['done', 'failed', 'pending', 'pending'];
-    case 'draft_pending_hitl':
-      return ['done', 'done', 'active', 'pending'];
-    case 'approved':
-    case 'replayable':
-    case 'stale':
-      if (
-        mrVersions.length >= 4 &&
-        mrVersions.every((version) =>
-          ['approved', 'replayable', 'stale', 'violation_pending_triage'].includes(
-            version.status,
-          ),
-        )
-      ) {
-        return ['done', 'done', 'done', 'done'];
-      }
-      return ['done', 'done', 'active', 'pending'];
-    case 'violation_pending_triage':
-      return ['done', 'done', 'done', 'warning'];
-    default:
-      return pending();
-  }
-}
 
 function stepCircleStyles(state: StepState): string {
   switch (state) {
@@ -195,13 +119,20 @@ function PipelinePhaseMessage({
   }
 
   const activeIndex = stepStates.findIndex((state) => state === 'active');
-  if (activeIndex === -1) return null;
+  if (activeIndex !== -1) {
+    const step = PIPELINE_STEPS[activeIndex];
+    const message = STEP_MESSAGES[step.id];
+    const isRunning = step.id === 'discovery' || step.id === 'exploring';
 
-  const step = PIPELINE_STEPS[activeIndex];
-  const message = STEP_MESSAGES[step.id];
-  const isRunning = step.id === 'discovery' || step.id === 'exploring';
+    return <PhaseMessage message={message} running={isRunning} />;
+  }
 
-  return <PhaseMessage message={message} running={isRunning} />;
+  const approvedIndex = PIPELINE_STEPS.findIndex((step) => step.id === 'approved');
+  if (stepStates[approvedIndex] === 'done') {
+    return <PhaseMessage message={STEP_MESSAGES.approved} />;
+  }
+
+  return null;
 }
 
 type SessionPipelineStepperProps = {
@@ -281,7 +212,7 @@ export function SessionPipelineStepper({
   embedded = false,
 }: SessionPipelineStepperProps) {
   const mr = aggregateMrPipelineStatus(mrVersions);
-  const stepStates = resolveStepStates(mr, mrVersions, jobs);
+  const stepStates = resolvePipelineStepStates(mr, mrVersions, jobs);
   const pausedStepStates =
     controlStatus === 'paused'
       ? stepStates.map((state) => (state === 'active' ? 'warning' : state))
