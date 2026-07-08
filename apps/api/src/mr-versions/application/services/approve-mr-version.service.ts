@@ -1,11 +1,14 @@
-import { createHash } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { ApproveMrVersionResultDto } from '@metamorph/api-client';
-import { MrVersionStatus } from '../../../../generated/prisma/enums.js';
+import {
+  approveMrVersion,
+  MrPromotionError,
+  type MrPromotionPrismaClient,
+} from '@metamorph/mr-promotion';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
 
 @Injectable()
@@ -16,54 +19,29 @@ export class ApproveMrVersionService {
     mrVersionId: string,
     playbookContent?: string,
   ): Promise<ApproveMrVersionResultDto> {
-    const mrVersion = await this.prisma.mrVersion.findUnique({
-      where: { id: mrVersionId },
-      include: { playbookBlob: true },
-    });
-
-    if (!mrVersion) {
-      throw new NotFoundException(`MR version ${mrVersionId} not found`);
-    }
-
-    if (mrVersion.status !== MrVersionStatus.draft_pending_hitl) {
-      throw new BadRequestException(
-        `MR version ${mrVersionId} cannot be approved from status ${mrVersion.status}`,
+    try {
+      return await approveMrVersion(
+        this.prisma as unknown as MrPromotionPrismaClient,
+        mrVersionId,
+        playbookContent,
       );
+    } catch (error) {
+      throw this.mapError(error, mrVersionId);
     }
+  }
 
-    if (playbookContent !== undefined) {
-      if (!mrVersion.playbookBlobId) {
-        throw new BadRequestException(
-          `MR version ${mrVersionId} has no playbook to update`,
-        );
+  private mapError(error: unknown, mrVersionId: string): Error {
+    if (error instanceof MrPromotionError) {
+      if (error.code === 'not_found') {
+        return new NotFoundException(error.message);
       }
-
-      const contentHash = createHash('sha256')
-        .update(playbookContent)
-        .digest('hex');
-
-      await this.prisma.playbookBlob.update({
-        where: { id: mrVersion.playbookBlobId },
-        data: {
-          content: playbookContent,
-          contentHash,
-        },
-      });
+      return new BadRequestException(error.message);
     }
 
-    const approvedAt = new Date();
-    const updated = await this.prisma.mrVersion.update({
-      where: { id: mrVersionId },
-      data: {
-        status: MrVersionStatus.approved,
-        approvedAt,
-      },
-    });
+    if (error instanceof Error) {
+      return error;
+    }
 
-    return {
-      id: updated.id,
-      status: updated.status,
-      approvedAt,
-    };
+    return new BadRequestException(`Failed to approve MR version ${mrVersionId}`);
   }
 }

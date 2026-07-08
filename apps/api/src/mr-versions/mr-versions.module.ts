@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { EventsModule } from '../events/events.module.js';
+import { RabbitMqModule } from '../shared/infrastructure/messaging/rabbitmq.module.js';
 import { ExplorationQueryPort } from './application/ports/exploration-query.port.js';
 import { MrVersionQueryPort } from './application/ports/mr-version-query.port.js';
 import { RunQueryPort } from './application/ports/run-query.port.js';
 import { ApproveMrVersionService } from './application/services/approve-mr-version.service.js';
+import { AutoPromoteMrVersionService } from './application/services/auto-promote-mr-version.service.js';
 import { RejectMrVersionService } from './application/services/reject-mr-version.service.js';
-import { EnqueueExecutePairJobService } from './application/services/enqueue-execute-pair-job.service.js';
 import { ExecuteMrVersionService } from './application/services/execute-mr-version.service.js';
 import {
   ExplorationPrismaQuery,
@@ -20,14 +21,14 @@ import { MrVersionsController } from './presentation/controllers/mr-versions.con
 import { RunsController } from './presentation/controllers/runs.controller.js';
 
 @Module({
-  imports: [EventsModule],
+  imports: [EventsModule, RabbitMqModule],
   controllers: [MrVersionsController, RunsController],
   providers: [
     MrVersionService,
     ExplorationService,
     ApproveMrVersionService,
+    AutoPromoteMrVersionService,
     RejectMrVersionService,
-    EnqueueExecutePairJobService,
     ExecuteMrVersionService,
     { provide: MrVersionQueryPort, useClass: MrVersionPrismaQuery },
     { provide: ExplorationQueryPort, useClass: ExplorationPrismaQuery },

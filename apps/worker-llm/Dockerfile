@@ -13,6 +13,8 @@ COPY packages/utils/package.json packages/utils/
 COPY packages/utils/tsconfig.json packages/utils/
 COPY packages/session-control/package.json packages/session-control/
 COPY packages/session-control/tsconfig.json packages/session-control/
+COPY packages/mr-promotion/package.json packages/mr-promotion/
+COPY packages/mr-promotion/tsconfig.json packages/mr-promotion/
 COPY apps/worker-llm/package.json apps/worker-llm/
 COPY apps/worker-llm/tsconfig.json apps/worker-llm/
 COPY apps/api/package.json apps/api/
@@ -29,6 +31,7 @@ COPY packages/contracts packages/contracts
 COPY packages/core packages/core
 COPY packages/utils packages/utils
 COPY packages/session-control packages/session-control
+COPY packages/mr-promotion packages/mr-promotion
 COPY apps/worker-llm apps/worker-llm
 
 RUN pnpm --filter @metamorph/worker-llm exec prisma generate \
@@ -36,6 +39,7 @@ RUN pnpm --filter @metamorph/worker-llm exec prisma generate \
   && pnpm --filter @metamorph/contracts build \
   && pnpm --filter @metamorph/utils build \
   && pnpm --filter @metamorph/session-control build \
+  && pnpm --filter @metamorph/mr-promotion build \
   && pnpm --filter @metamorph/core build
 
 ENTRYPOINT ["pnpm", "--filter", "@metamorph/worker-llm", "exec", "tsx", "src/main.ts"]

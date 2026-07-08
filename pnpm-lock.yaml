@@ -234,6 +234,9 @@ importers:
       '@metamorph/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@metamorph/mr-promotion':
+        specifier: workspace:*
+        version: link:../../packages/mr-promotion
       '@metamorph/session-control':
         specifier: workspace:*
         version: link:../../packages/session-control
@@ -455,6 +458,9 @@ importers:
       '@metamorph/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@metamorph/mr-promotion':
+        specifier: workspace:*
+        version: link:../../packages/mr-promotion
       '@metamorph/session-control':
         specifier: workspace:*
         version: link:../../packages/session-control
@@ -607,6 +613,18 @@ importers:
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
+      tsx:
+        specifier: ^4.22.3
+        version: 4.22.3
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/mr-promotion:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
       tsx:
         specifier: ^4.22.3
         version: 4.22.3

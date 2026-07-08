@@ -8,6 +8,8 @@ import { ExploreSnapshotRepository } from './infrastructure/persistence/explore-
 import { ExploreJobPrismaRepository } from './infrastructure/persistence/repositories/explore-job-prisma.repository.js';
 import { S3ArtifactReaderAdapter } from '../shared/infrastructure/minio/s3-artifact-reader.adapter.js';
 import { sessionControlChecker } from '../shared/infrastructure/session-control/session-control.js';
+import { AutoPromoter } from './infrastructure/messaging/auto-promoter.js';
+import { ExecutePairJobPublisher } from './infrastructure/messaging/execute-pair-job.publisher.js';
 
 function requireRabbitMqUrl(): string {
   const url = process.env.RABBITMQ_URL;
@@ -30,10 +32,12 @@ function createExploreGraphRunner(): ExploreGraphRunner {
 
 export function createExploreJobService(): ExploreJobService {
   const explorationRepo = new ExplorationPrismaRepository();
+  const executePairPublisher = new ExecutePairJobPublisher(requireRabbitMqUrl());
   return new ExploreJobService(
     new ExploreJobPrismaRepository(),
     createExploreGraphRunner(),
     explorationRepo,
+    new AutoPromoter(executePairPublisher),
   );
 }
 

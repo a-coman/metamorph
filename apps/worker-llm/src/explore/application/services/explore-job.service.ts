@@ -17,6 +17,7 @@ import { ExploreJobRepositoryPort } from '../../domain/repositories/explore-job.
 import { ExploreGraphRunner } from '../../infrastructure/graph/explore-graph-runner.js';
 import type { ProbeResumeValue } from '../../infrastructure/graph/explore-state.js';
 import { ExplorationPrismaRepository } from '../../infrastructure/persistence/exploration-prisma.repository.js';
+import type { AutoPromoter } from '../../infrastructure/messaging/auto-promoter.js';
 
 type ExploreOutcome = {
   status: 'completed' | 'interrupted' | 'failed' | 'paused';
@@ -34,6 +35,7 @@ export class ExploreJobService {
     private readonly jobRepository: ExploreJobRepositoryPort,
     private readonly graphRunner: ExploreGraphRunner,
     private readonly explorationRepo: ExplorationPrismaRepository,
+    private readonly autoPromoter: AutoPromoter,
   ) {}
 
   async run(jobId: string): Promise<Either<DomainError, { mrVersionId?: string }>> {
@@ -233,6 +235,20 @@ export class ExploreJobService {
     await this.jobRepository.save(job);
 
     console.log(`Explore job ${jobId} done — mr_version ${outcome.mrVersionId}`);
+
+    if (outcome.mrVersionId) {
+      const promotion = await this.autoPromoter.promoteIfAuto(outcome.mrVersionId);
+      if (promotion.outcome === 'promoted') {
+        console.log(
+          `Auto promoted MR ${outcome.mrVersionId} — execute_pair job ${promotion.jobId} run ${promotion.runId}`,
+        );
+      } else if (promotion.outcome === 'failed') {
+        console.error(
+          `Auto promotion failed for MR ${outcome.mrVersionId} at ${promotion.step}: ${promotion.error}`,
+        );
+      }
+    }
+
     return right({ mrVersionId: outcome.mrVersionId });
   }
 

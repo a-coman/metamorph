@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
  * E2E: session → discover → 4 explore jobs → draft_pending_hitl for each family.
+ * Set E2E_AUTO=true to create an auto-mode session and skip manual approve/execute.
  */
 const API = process.env.API ?? 'http://localhost:3001';
 const URL = process.env.E2E_URL ?? 'https://www.amazon.es/';
+const AUTO_MODE = process.env.E2E_AUTO === 'true';
 const EXPECTED_FAMILIES = ['idempotence', 'subset', 'permutation', 'inverse'];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -107,9 +109,37 @@ async function waitForDraftMrs(sessionId) {
   throw new Error('Timeout waiting for 4 draft_pending_hitl MR versions');
 }
 
+async function waitForAutoPromotion(sessionId, mrVersionId) {
+  for (let i = 1; i <= 60; i++) {
+    const mr = await api('GET', `/mr-versions/${mrVersionId}`);
+    const runs = await api('GET', `/mr-versions/${mrVersionId}/runs`);
+    const activeRun = runs.find((run) => ['pending', 'running'].includes(run.status));
+    const latestRun = runs[0];
+
+    console.log(
+      `[${i}/60] auto mr_status=${mr.status} runs=${runs.length} latest=${latestRun?.status ?? 'none'}`,
+    );
+
+    if (mr.status === 'approved' && latestRun) {
+      return latestRun.id;
+    }
+
+    if (activeRun) {
+      return activeRun.id;
+    }
+
+    await sleep(10_000);
+  }
+
+  throw new Error('Timeout waiting for auto promotion and execute_pair run');
+}
+
 async function main() {
-  console.log('=== 1. Crear sesión', URL, '===');
-  const created = await api('POST', '/sessions', { url: URL });
+  console.log('=== 1. Crear sesión', URL, AUTO_MODE ? '(auto mode)' : '(hitl)', '===');
+  const created = await api('POST', '/sessions', {
+    url: URL,
+    ...(AUTO_MODE ? { mode: 'auto' } : {}),
+  });
   console.log(JSON.stringify(created, null, 2));
   const sessionId = created.sessionId;
 
@@ -127,12 +157,19 @@ async function main() {
   const idempotenceMr = mrVersions.find((mr) => mr.transformFamily === 'idempotence');
   assert(idempotenceMr, 'idempotence MR missing');
 
-  console.log('\n=== 4. Approve idempotence MR ===');
-  await api('POST', `/mr-versions/${idempotenceMr.id}/approve`);
+  let runId;
 
-  console.log('\n=== 5. Execute idempotence MR ===');
-  const exec = await api('POST', `/mr-versions/${idempotenceMr.id}/execute`);
-  const runId = exec.runId;
+  if (AUTO_MODE) {
+    console.log('\n=== 4. Esperar auto promote + execute (idempotence) ===');
+    runId = await waitForAutoPromotion(sessionId, idempotenceMr.id);
+  } else {
+    console.log('\n=== 4. Approve idempotence MR ===');
+    await api('POST', `/mr-versions/${idempotenceMr.id}/approve`);
+
+    console.log('\n=== 5. Execute idempotence MR ===');
+    const exec = await api('POST', `/mr-versions/${idempotenceMr.id}/execute`);
+    runId = exec.runId;
+  }
 
   console.log('\n=== 6. Esperar run completado ===');
   for (let i = 1; i <= 60; i++) {
