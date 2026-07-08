@@ -50,11 +50,11 @@ const FAMILY_PROFILES: Record<TransformFamily, FamilyProfile> = {
   },
   inverse: {
     transformFamily: 'inverse',
-    allowedCompares: ['equal'],
+    allowedCompares: ['equal', 'not_equal'],
     observationIntentHints: [
-      'state restored after undo',
-      'filters cleared',
-      'URL returns to prior state',
+      'header chrome unchanged after undo (equal)',
+      'transformation-specific fields differ from source after undo (not_equal)',
+      'search input or pathname encodes T vs T⁻¹ state',
     ],
   },
 };

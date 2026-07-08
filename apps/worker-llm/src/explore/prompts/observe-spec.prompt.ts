@@ -7,16 +7,50 @@ import type {
 } from '@metamorph/core';
 import {
   getFamilyProfile,
+  COMPARE_OPERATOR_SEMANTICS,
   ObservableValueTypeSchema,
   OBSERVE_SPEC_MIN_OBSERVABLES,
   OBSERVE_SPEC_MAX_OBSERVABLES,
 } from '@metamorph/core';
 import { buildInventoryItemsSummary } from './inventory-summary.js';
 
+function buildCompareSemanticsSection(transformFamily: TransformFamily): string {
+  const profile = getFamilyProfile(transformFamily);
+  const lines = profile.allowedCompares.map(
+    (op) => `- ${op}: ${COMPARE_OPERATOR_SEMANTICS[op]}`,
+  );
+
+  return ['<compare_operators>', ...lines, '</compare_operators>'].join('\n');
+}
+
+function buildFamilyObserveRules(transformFamily: TransformFamily): string[] {
+  switch (transformFamily) {
+    case 'inverse':
+      return [
+        '- For inverse: source records state P after applying T; follow_up records state after reaching P and applying T⁻¹.',
+        '- Use equal for observables that should stay unchanged across undo (header chrome, cart label, persistent nav).',
+        '- Use not_equal for observables that encode T itself (search input value, pathname, active filter chips).',
+        '- Never use equal on a field your rationale says should change after undo.',
+        '- Include at least one not_equal observable that captures the undone transformation.',
+      ];
+    case 'subset':
+      return [
+        '- For subset: include a numeric count observable with compare cardinality_lte when relevant.',
+      ];
+    case 'idempotence':
+      return [
+        '- For idempotence: observables should not change when the transformation is applied correctly.',
+      ];
+    default:
+      return [];
+  }
+}
+
 export function buildObserveSpecSystemPrompt(transformFamily: TransformFamily): string {
   const profile = getFamilyProfile(transformFamily);
   const allowedCompares = profile.allowedCompares.join(' | ');
   const allowedValueTypes = ObservableValueTypeSchema.options.join(' | ');
+  const familyRules = buildFamilyObserveRules(transformFamily);
 
   return [
     'You specify what to observe after both source and follow_up exploration phases complete.',
@@ -34,6 +68,8 @@ export function buildObserveSpecSystemPrompt(transformFamily: TransformFamily): 
     '  ]',
     '}',
     '</output_format>',
+    '',
+    buildCompareSemanticsSection(transformFamily),
     '',
     '<binding_kinds>',
     'Binding kinds (use inventory_snapshot_id from user message for every binding):',
@@ -63,8 +99,7 @@ export function buildObserveSpecSystemPrompt(transformFamily: TransformFamily): 
     '- Prefer stable signals: form values, result labels, filter chips, pathname.',
     '- Avoid session tokens and opaque URL params (e.g. c=, sid=) unless clearly stable.',
     '- Bindings must be readable on BOTH source end and follow_up end page states.',
-    '- For idempotence: observables should not change when the transformation is applied correctly.',
-    '- For subset: include a numeric count observable with compare cardinality_lte when relevant.',
+    ...familyRules,
     '- number_index is 0-based index into parsed numbers in label text.',
     '- Each observable needs a concise rationale tied to the MR transformation.',
     '</rules>',

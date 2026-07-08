@@ -66,6 +66,10 @@ export function evaluateSetEqual(source: unknown, followUp: unknown): boolean {
   return true;
 }
 
+export function evaluateNotEqual(source: unknown, followUp: unknown): boolean {
+  return !evaluateEqual(source, followUp);
+}
+
 export function evaluateCardinalityLte(source: unknown, followUp: unknown): boolean {
   if (typeof source !== 'number' || typeof followUp !== 'number') {
     return false;

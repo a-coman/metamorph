@@ -12,6 +12,7 @@ import { evaluateMr } from './mr-engine.js';
 import {
   evaluateCardinalityLte,
   evaluateEqual,
+  evaluateNotEqual,
   evaluateSetEqual,
 } from './relation-evaluators.js';
 
@@ -79,6 +80,13 @@ describe('relation-evaluators', () => {
     assert.equal(evaluateCardinalityLte(10, 12), false);
     assert.equal(evaluateCardinalityLte(null, 1), false);
     assert.equal(evaluateCardinalityLte(1, Number.NaN), false);
+  });
+
+  it('evaluateNotEqual negates evaluateEqual', () => {
+    assert.equal(evaluateNotEqual('laptop', ''), true);
+    assert.equal(evaluateNotEqual('/s', '/'), true);
+    assert.equal(evaluateNotEqual('foo', 'foo'), false);
+    assert.equal(evaluateNotEqual(' foo ', 'foo'), false);
   });
 });
 
@@ -149,5 +157,64 @@ describe('evaluateMr', () => {
 
     assert.equal(result.verdict, 'pass');
     assert.equal(result.details.titles?.ok, true);
+  });
+
+  it('passes inverse MR when transformation fields differ and chrome matches', () => {
+    const inverseObservables: ObservableDef[] = [
+      {
+        key: 'search_box_value',
+        valueType: 'string',
+        compare: 'not_equal',
+        binding: {
+          kind: 'input_value',
+          inventory_snapshot_id: '00000000-0000-4000-8000-000000000001',
+          element_id: 'E1',
+        },
+        rationale: 'search encodes T vs T-1',
+      },
+      {
+        key: 'url_pathname',
+        valueType: 'string',
+        compare: 'not_equal',
+        binding: {
+          kind: 'url_pathname',
+          inventory_snapshot_id: '00000000-0000-4000-8000-000000000001',
+        },
+        rationale: 'pathname encodes T vs T-1',
+      },
+      {
+        key: 'header_amazon_haul',
+        valueType: 'string',
+        compare: 'equal',
+        binding: {
+          kind: 'text_content',
+          inventory_snapshot_id: '00000000-0000-4000-8000-000000000001',
+          element_id: 'E2',
+        },
+        rationale: 'header chrome stable',
+      },
+    ];
+
+    const result = evaluateMr(
+      inverseObservables,
+      {
+        search_box_value: 'laptop',
+        url_pathname: '/s',
+        header_amazon_haul: 'Amazon Haul',
+      },
+      {
+        search_box_value: '',
+        url_pathname: '/',
+        header_amazon_haul: 'Amazon Haul',
+      },
+    );
+
+    assert.equal(result.verdict, 'pass');
+  });
+
+  it('allows not_equal for inverse family profile', () => {
+    assert.deepEqual(getFamilyProfile('inverse').allowedCompares, ['equal', 'not_equal']);
+    assert.ok(isCompareAllowedForFamily('inverse', 'not_equal'));
+    assert.equal(isCompareAllowedForFamily('inverse', 'cardinality_lte'), false);
   });
 });

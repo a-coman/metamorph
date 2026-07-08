@@ -3,6 +3,7 @@ import { buildObservationPayloadSchema } from '../../domain/schemas/observation-
 import {
   evaluateCardinalityLte,
   evaluateEqual,
+  evaluateNotEqual,
   evaluateSetEqual,
 } from './relation-evaluators.js';
 
@@ -38,6 +39,8 @@ function evaluateObservableCompare(
   switch (compare) {
     case 'equal':
       return evaluateEqual(source, followUp);
+    case 'not_equal':
+      return evaluateNotEqual(source, followUp);
     case 'set_equal':
       return evaluateSetEqual(source, followUp);
     case 'cardinality_lte':

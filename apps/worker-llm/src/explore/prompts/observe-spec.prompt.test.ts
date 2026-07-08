@@ -77,6 +77,15 @@ describe('buildObserveSpecSystemPrompt allowed values', () => {
     assert.match(prompt, /cardinality_lte requires valueType number/);
     assert.match(prompt, /readable on BOTH source end and follow_up end/);
   });
+
+  it('documents inverse compare steering rules', () => {
+    const prompt = buildObserveSpecSystemPrompt('inverse');
+
+    assert.match(prompt, /not_equal:/);
+    assert.match(prompt, /Use not_equal for observables that encode T itself/);
+    assert.match(prompt, /Never use equal on a field your rationale says should change after undo/);
+    assert.match(prompt, /Include at least one not_equal observable/);
+  });
 });
 
 describe('buildObserveSpecUserText', () => {

@@ -75,6 +75,7 @@ const failRunBundle = {
 describe('formatCompareOperator', () => {
   it('maps compare operators to short labels', () => {
     assert.equal(formatCompareOperator('equal'), '=');
+    assert.equal(formatCompareOperator('not_equal'), '≠');
     assert.equal(formatCompareOperator('set_equal'), 'set =');
     assert.equal(formatCompareOperator('cardinality_lte'), '≤');
     assert.equal(formatCompareOperator('custom'), 'custom');

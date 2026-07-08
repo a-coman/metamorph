@@ -100,6 +100,8 @@ export function formatCompareOperator(compare: string): string {
   switch (compare) {
     case 'equal':
       return '=';
+    case 'not_equal':
+      return '≠';
     case 'set_equal':
       return 'set =';
     case 'cardinality_lte':

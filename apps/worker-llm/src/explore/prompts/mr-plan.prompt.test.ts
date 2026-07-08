@@ -21,10 +21,11 @@ describe('buildMrPlanSystemPrompt family profile', () => {
     }
   });
 
-  it('lists only equal for inverse', () => {
+  it('lists equal and not_equal for inverse', () => {
     const prompt = buildMrPlanSystemPrompt('inverse');
 
     assert.match(prompt, /equal:/);
+    assert.match(prompt, /not_equal:/);
     assert.doesNotMatch(prompt, /cardinality_lte:/);
     assert.doesNotMatch(prompt, /set_equal:/);
     assert.doesNotMatch(prompt, /idempotence:/);

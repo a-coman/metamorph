@@ -29,6 +29,10 @@ export {
 } from './domain/observable-spec-validation.js';
 
 export {
+  COMPARE_OPERATOR_SEMANTICS,
+} from './domain/compare-operator-semantics.js';
+
+export {
   RelationTypeSchema,
   TransformFamilySchema,
   MrDefinitionSchema,

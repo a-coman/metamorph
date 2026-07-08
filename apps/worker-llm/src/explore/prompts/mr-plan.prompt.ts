@@ -1,7 +1,7 @@
 import {
   getFamilyProfile,
   type TransformFamily,
-  type ObservableCompare,
+  COMPARE_OPERATOR_SEMANTICS,
 } from '@metamorph/core';
 
 const TRANSFORM_FAMILY_SEMANTICS = {
@@ -25,13 +25,6 @@ const TRANSFORM_FAMILY_SEMANTICS = {
     'source_phase_goal: from a fresh context, apply T to reach P. ' +
     'follow_up_phase_goal: from another fresh context, rebuild the path to P, then undo T with T-1.',
 } satisfies Record<TransformFamily, string>;
-
-const COMPARE_OPERATOR_SEMANTICS = {
-  equal: 'The follow_up value must equal the source value.',
-  set_equal: 'The follow_up set must equal the source set (order ignored).',
-  cardinality_lte:
-    'For numeric observables, follow_up must be less than or equal to source.',
-} satisfies Record<ObservableCompare, string>;
 
 const MR_PLAN_EXAMPLES: Record<TransformFamily, object> = {
   idempotence: {

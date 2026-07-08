@@ -18,6 +18,7 @@ export const ObservableValueTypeSchema = z.enum([
 
 export const ObservableCompareSchema = z.enum([
   'equal',
+  'not_equal',
   'set_equal',
   'cardinality_lte',
 ]);
