@@ -14,6 +14,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@metamorph/core": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

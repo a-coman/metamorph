@@ -1,13 +1,12 @@
 import { z } from 'zod';
+import { TransformFamilySchema } from '@metamorph/core';
 import {
   probeFailureContextSchema,
 } from '../schemas/slot-step.schema.js';
 
 export const exploreJobPayloadSchema = z.object({
   url: z.url(),
-  transform_family: z
-    .enum(['idempotence', 'subset', 'permutation', 'inverse'])
-    .optional(),
+  transform_family: TransformFamilySchema.optional(),
 });
 
 export const llmExploreJobMessageSchema = z.object({
@@ -60,7 +59,7 @@ export type LlmJobMessage = z.infer<typeof llmJobMessageSchema>;
 export const exploreJobDbPayloadSchema = z.object({
   page_snapshot_id: z.string().uuid(),
   parent_discover_job_id: z.string().uuid().optional(),
-  transform_family: z.enum(['idempotence', 'subset', 'permutation', 'inverse']),
+  transform_family: TransformFamilySchema,
 });
 
 export type ExploreJobDbPayload = z.infer<typeof exploreJobDbPayloadSchema>;

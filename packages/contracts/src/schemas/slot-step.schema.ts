@@ -1,31 +1,9 @@
 import { z } from 'zod';
+import { SlotStepSchema, type SlotStep } from '@metamorph/core';
 
-export const slotStepSchema = z.object({
-  id: z.number().int().positive(),
-  action: z.enum([
-    'goto',
-    'click',
-    'fill',
-    'selectOption',
-    'press',
-    'scroll',
-    'waitFor',
-  ]),
-  element_id: z
-    .string()
-    .regex(/^E[1-9]\d*$/)
-    .optional(),
-  value: z.string().optional(),
-  url: z.string().optional(),
-  key: z.string().optional(),
-  scroll_y: z.number().optional(),
-  timeout_ms: z.number().int().positive().optional(),
-  resolved_locator: z.string().optional(),
-  resolved_selector: z.string().optional(),
-  fill_behavior: z.enum(['plain', 'autocomplete']).optional(),
-});
+export const slotStepSchema = SlotStepSchema;
 
-export type SlotStepMessage = z.infer<typeof slotStepSchema>;
+export type SlotStepMessage = SlotStep;
 
 export const probeFailureContextSchema = z.object({
   failed_step: slotStepSchema,
