@@ -70,7 +70,23 @@
       "vhost": "/",
       "destination": "q.playwright",
       "destination_type": "queue",
-      "routing_key": "job.playwright.#",
+      "routing_key": "job.playwright.discover",
+      "arguments": {}
+    },
+    {
+      "source": "metamorph.topic",
+      "vhost": "/",
+      "destination": "q.playwright",
+      "destination_type": "queue",
+      "routing_key": "job.playwright.probe",
+      "arguments": {}
+    },
+    {
+      "source": "metamorph.topic",
+      "vhost": "/",
+      "destination": "q.playwright",
+      "destination_type": "queue",
+      "routing_key": "job.playwright.execute_pair",
       "arguments": {}
     },
     {
@@ -86,7 +102,23 @@
       "vhost": "/",
       "destination": "q.llm",
       "destination_type": "queue",
-      "routing_key": "job.llm.#",
+      "routing_key": "job.llm.explore",
+      "arguments": {}
+    },
+    {
+      "source": "metamorph.topic",
+      "vhost": "/",
+      "destination": "q.llm",
+      "destination_type": "queue",
+      "routing_key": "job.llm.explore_resume",
+      "arguments": {}
+    },
+    {
+      "source": "metamorph.topic",
+      "vhost": "/",
+      "destination": "q.llm",
+      "destination_type": "queue",
+      "routing_key": "job.llm.explore_user_resume",
       "arguments": {}
     },
     {
