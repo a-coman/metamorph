@@ -117,13 +117,15 @@ describe('compilePlaybook with observables', () => {
         },
       },
       inventory,
-      { anchorInventories },
+      { anchorInventories, sessionUrl: 'https://example.com/' },
     );
 
     assert.match(compiled.playbookContent, /result_count:/);
     assert.match(compiled.playbookContent, /search_query:/);
     assert.match(compiled.playbookContent, /\.s-breadcrumb-header-text/);
     assert.match(compiled.playbookContent, /parseLocalizedNumbers/);
+    assert.match(compiled.playbookContent, /__stablePollCount/);
+    assert.match(compiled.playbookContent, /waitUntil: 'load'/);
     assert.equal(compiled.templateVersion, 'playbook-template@5');
   });
 

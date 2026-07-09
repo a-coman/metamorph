@@ -1,5 +1,9 @@
 import amqplib, { type Channel, type ChannelModel, type ConsumeMessage } from 'amqplib';
-import { QUEUE_LLM, llmJobMessageSchema } from '@metamorph/contracts';
+import {
+  QUEUE_LLM,
+  llmJobMessageSchema,
+  resolveLlmConcurrency,
+} from '@metamorph/contracts';
 import { ExploreJobService } from '../../application/services/explore-job.service.js';
 import {
   JobNotFoundError,
@@ -24,7 +28,8 @@ export class LlmExploreSubscriber {
   async start(): Promise<void> {
     this.connection = await amqplib.connect(this.config.url);
     this.channel = await this.connection.createChannel();
-    await this.channel.prefetch(1);
+    const concurrency = resolveLlmConcurrency(process.env);
+    await this.channel.prefetch(concurrency);
 
     const { consumerTag } = await this.channel.consume(
       QUEUE_LLM,
@@ -34,7 +39,9 @@ export class LlmExploreSubscriber {
     );
 
     this.consumerTag = consumerTag;
-    console.log(`Consuming queue ${QUEUE_LLM}`);
+    console.log(
+      `Consuming queue ${QUEUE_LLM} (up to ${concurrency} parallel explore jobs)`,
+    );
   }
 
   async stop(): Promise<void> {

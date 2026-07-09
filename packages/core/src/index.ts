@@ -130,12 +130,29 @@ export {
 } from './application/compiler/resolve-inventory-target.js';
 
 export {
+  GOTO_NAVIGATION_WAIT_UNTIL,
   GOTO_WAIT_UNTIL,
   NETWORK_IDLE_WAIT_UNTIL,
   LOAD_STATE_TIMEOUT_MS,
   NETWORK_IDLE_LOAD_TIMEOUT_MS,
   POST_ACTION_SETTLE_MS,
+  ADAPTIVE_SETTLE_INITIAL_MS,
+  ADAPTIVE_SETTLE_POLL_MS,
+  ADAPTIVE_SETTLE_MAX_MS_GOTO,
+  ADAPTIVE_SETTLE_MAX_MS_ACTION,
+  ADAPTIVE_SETTLE_MAX_MS_CAPTURE,
+  PAGE_READY_MIN_BODY_TEXT,
+  PAGE_READY_MAIN_TEXT_MIN,
+  COLLECT_PAGE_READY_METRICS_BODY,
+  assessPageReady,
+  shouldStopAdaptiveSettle,
+  getAdaptiveSettleMaxMs,
+  renderAdaptiveSettleCode,
+  renderFinalCaptureStabilizationCode,
+  shouldEndProbeBatchAfterStep,
+  shouldRefreshInventoryAfterAction,
   shouldStabilizeAfterAction,
+  trimProbeBatchAtMutatingStep,
   FINAL_PAGE_STABILIZATION_CODE,
   isFillableInventoryItem,
   isComboboxInventoryItem,
@@ -143,6 +160,8 @@ export {
   renderFillCode,
   renderComboboxFillCode,
   type FillBehavior,
+  type StabilizePhase,
+  type PageReadyMetrics,
 } from './application/compiler/step-execution-policy.js';
 
 export {

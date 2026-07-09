@@ -231,10 +231,6 @@ async function resolveRefHandle(
   ref: string,
 ): Promise<{ handle: ElementHandle<Element> | null; stale: boolean }> {
   const refLocator = scope.locator(`aria-ref=${ref}`);
-  const count = await refLocator.count();
-  if (count === 0) {
-    return { handle: null, stale: true };
-  }
 
   try {
     const handle = await refLocator.elementHandle({ timeout: STALE_REF_HANDLE_TIMEOUT_MS });

@@ -97,7 +97,15 @@ describe('buildPlanExploreSystemPrompt allowed values', () => {
     assert.match(prompt, /scroll_y \(conditional\)/);
     assert.match(prompt, /Step action semantics:/);
     assert.match(prompt, /scenario_complete: current phase goal is already satisfied/);
-    assert.match(prompt, /Never emit "type"/);
+    assert.match(prompt, /one mutating step per batch/);
+  });
+
+  it('documents runtime probe batch trimming after mutating steps', () => {
+    const prompt = buildPlanExploreSystemPrompt();
+
+    assert.match(prompt, /one mutating step per batch/);
+    assert.match(prompt, /first mutating step/);
+    assert.match(prompt, /fresh <inventory>/);
   });
 });
 
@@ -138,7 +146,7 @@ describe('buildPlanExploreUserText batch log', () => {
     });
 
     assert.match(text, /Attached: annotated screenshot/);
-    assert.match(text, /Current inventory \(concrete UI instances for this snapshot — use ONLY these element_ids in steps\):/);
+    assert.match(text, /Current inventory \(concrete UI instances for this snapshot - use ONLY these element_ids in steps\):/);
     assert.doesNotMatch(text, /Page structure/);
     assert.match(text, /Exploration history \(all batches in this phase\):/);
     assert.match(text, /\(none yet\)/);

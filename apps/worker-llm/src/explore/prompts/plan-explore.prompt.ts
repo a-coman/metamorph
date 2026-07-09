@@ -15,28 +15,28 @@ import { buildEnrichedInventorySection } from './inventory-summary.js';
 const PLAN_EXPLORE_EXAMPLE_ONE_STEP = {
   action: 'append_steps',
   rationale:
-    'A banner blocks the main UI. I need to plan only one step because I can only see one element that makes sense to click on current inventory. Dismiss it using the "x" button from Current inventory, and we will continue to the next step.',
+    'Everything loaded correctly. A banner blocks the main UI. Dismiss it using the "x" button from Current inventory.',
   steps: [{ id: 1, action: 'click', element_id: 'E42' }],
 };
 
 const PLAN_EXPLORE_EXAMPLE_TWO_STEPS = {
   action: 'append_steps',
   rationale:
-    'Searchbox is visible. Fill it from Current inventory, then press Enter to submit the search.',
+    'Destination combobox is still hydrating. Wait briefly, then fill it from current inventory. Submit with Enter in the next batch after the fresh inventory snapshot.',
   steps: [
-    { id: 1, action: 'fill', element_id: 'E1', value: 'laptop' },
-    { id: 2, action: 'press', element_id: 'E1', key: 'Enter' },
+    { id: 1, action: 'waitFor', timeout_ms: 400 },
+    { id: 2, action: 'fill', element_id: 'E1', value: 'laptop' },
   ],
 };
 
 const PLAN_EXPLORE_EXAMPLE_THREE_STEPS = {
   action: 'append_steps',
   rationale:
-    'I can see all elements that make sense to click on current inventory, and Im sure each step is independent (elements_ids and their positions on the page wont change after each independent step) so we can plan them all at once. Cookie banner blocks the page. Click its accept/dismiss control from Current inventory, fill the searchbox from Current inventory, then press Enter.',
+    'Cookie banner animation may still be running. Wait for it to settle, then click its accept control from current inventory, and wait for the next inventory snapshot. Plan further search steps only after the next inventory snapshot.',
   steps: [
-    { id: 1, action: 'click', element_id: 'E42' },
-    { id: 2, action: 'fill', element_id: 'E1', value: 'laptop' },
-    { id: 3, action: 'press', element_id: 'E1', key: 'Enter' },
+    { id: 2, action: 'waitFor', timeout_ms: 300 },
+    { id: 3, action: 'click', element_id: 'E42' },
+    { id: 1, action: 'waitFor', timeout_ms: 300 },
   ],
 };
 
@@ -154,7 +154,7 @@ ${buildSystemPromptSemanticsSection()}
 - SCROLLING: Use positive \`scroll_y\` to scroll down, negative to scroll up. Omit \`element_id\` for scroll steps.
 - FILL & SELECT: \`fill\` is ONLY for inventory items marked fillable. \`selectOption\` is ONLY for items with an options list (native <select> or role=combobox). The \`selectOption\` value MUST be an exact match from the item's options list.
 - SEARCH BOXES: Prefer \`fill\` + press Enter over ambiguous clicks.
-- STEP BATCHING: Prefer planning one step at a time, unless you see all necessary elements in the current <inventory>...</inventory> and you are certain that the steps are independent (their positions and element_ids on the page wont change after each independent step) and can be executed in one batch.
+- STEP BATCHING: Plan one mutating step per batch. Mutating actions are goto, click, fill, press, scroll, and selectOption. The runtime executes only through the first mutating step, then captures a fresh <inventory>...</inventory> for the next plan. A short waitFor prefix may precede that mutating step. Do not chain fill then click, click then click, or similar sequences in one batch — element_ids from the current snapshot become stale after the first mutating step.
 </interaction_rules>
 
 <exploration_strategy>

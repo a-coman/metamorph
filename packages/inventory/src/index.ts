@@ -50,6 +50,8 @@ export { fillWithAutocomplete } from './infrastructure/playwright/fill-with-auto
 
 export { scanAndEnrichCurrentPage } from './infrastructure/playwright/scan-and-enrich-current-page.js';
 
+export { runWithoutTrace } from './infrastructure/playwright/run-without-trace.js';
+
 export { buildA11yInventory, shouldResnapshotA11yInventory } from './infrastructure/playwright/build-a11y-inventory.js';
 export { annotateAccessibilityTree } from './infrastructure/playwright/annotate-accessibility-tree.js';
 export { captureAccessibilitySnapshot } from './infrastructure/playwright/capture-accessibility-snapshot.js';

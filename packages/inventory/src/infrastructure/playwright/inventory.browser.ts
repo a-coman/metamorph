@@ -1464,3 +1464,15 @@ export function paintAdditionalInventoryLabels(
 
   return painted;
 }
+
+/** Removes Set-of-Marks overlays so later traced actions show a clean page. */
+export function removeInventoryLabels(): void {
+  const overlayClassName = 'metamorph-selector-overlay';
+  const highlightClassName = 'metamorph-highlight-overlay';
+  const legendId = 'metamorph-selector-legend';
+
+  document
+    .querySelectorAll(`.${overlayClassName}, .${highlightClassName}`)
+    .forEach((node) => node.remove());
+  document.getElementById(legendId)?.remove();
+}

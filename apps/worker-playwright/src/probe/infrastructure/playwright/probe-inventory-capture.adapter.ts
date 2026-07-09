@@ -3,22 +3,26 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  GOTO_WAIT_UNTIL,
+  GOTO_NAVIGATION_WAIT_UNTIL,
   resolveStepFillBehavior,
   resolveInventoryItemTargetCandidates,
+  shouldRefreshInventoryAfterAction,
   shouldStabilizeAfterAction,
   type InventoryItem,
   type PageSnapshotInventory,
   type ResolvedInventoryTarget,
   type SlotStep,
+  type StabilizePhase,
 } from '@metamorph/core';
 import {
   buildBrowserContextOptions,
   captureViewportScreenshot,
   fillWithAutocomplete,
   resolveUniqueTargetLocator,
+  runWithoutTrace,
   scanAndEnrichCurrentPage,
   stabilizePage,
+  toPageSnapshotPayload,
   type PageInventory,
 } from '@metamorph/inventory';
 import { ProbeInventoryCaptureError } from '../../domain/errors/probe-capture.errors.js';
@@ -59,7 +63,10 @@ export class ProbeInventoryCaptureAdapter {
       await page.route(/\.(woff2?|ttf|otf|eot)(\?.*)?$/i, (route) => route.abort());
 
       try {
-        let screenshotBeforeStep = await captureViewportScreenshot(page);
+        let screenshotBeforeStep = await runWithoutTrace(page, () =>
+          captureViewportScreenshot(page),
+        );
+        let workingInventory = inventory;
 
         for (let index = 0; index < steps.length; index++) {
           if (sessionId && (await sessionControlChecker.isPauseRequested(sessionId))) {
@@ -71,8 +78,16 @@ export class ProbeInventoryCaptureAdapter {
           const beforeScreenshot = screenshotBeforeStep;
 
           try {
-            await this.executeStep(page, step, inventory);
-            screenshotBeforeStep = await captureViewportScreenshot(page);
+            await this.executeStep(page, step, workingInventory);
+            if (shouldRefreshInventoryAfterAction(step.action)) {
+              const refreshedInventory = await this.scanCurrentPage(page);
+              workingInventory = toPageSnapshotPayload(refreshedInventory);
+              screenshotBeforeStep = refreshedInventory.screenshot;
+            } else {
+              screenshotBeforeStep = await runWithoutTrace(page, () =>
+                captureViewportScreenshot(page),
+              );
+            }
           } catch (stepError) {
             traceZip = await this.exportTrace(context, jobId, tracingStarted);
             tracingStarted = false;
@@ -93,7 +108,7 @@ export class ProbeInventoryCaptureAdapter {
           }
         }
 
-        await stabilizePage(page);
+        await stabilizePage(page, 'before_capture');
 
         traceZip = await this.exportTrace(context, jobId, tracingStarted);
         tracingStarted = false;
@@ -185,7 +200,7 @@ export class ProbeInventoryCaptureAdapter {
         if (!step.url) {
           throw new Error(`Step ${step.id}: goto requires url`);
         }
-        await page.goto(step.url, { waitUntil: GOTO_WAIT_UNTIL });
+        await page.goto(step.url, { waitUntil: GOTO_NAVIGATION_WAIT_UNTIL });
         break;
 
       case 'click':
@@ -229,8 +244,13 @@ export class ProbeInventoryCaptureAdapter {
         throw new Error(`Unsupported action: ${step.action}`);
     }
 
-    if (shouldStabilizeAfterAction(step.action)) {
-      await stabilizePage(page);
+    if (
+      shouldStabilizeAfterAction(step.action) ||
+      shouldRefreshInventoryAfterAction(step.action)
+    ) {
+      const phase: StabilizePhase =
+        step.action === 'goto' ? 'after_goto' : 'after_action';
+      await stabilizePage(page, phase);
     }
   }
 }

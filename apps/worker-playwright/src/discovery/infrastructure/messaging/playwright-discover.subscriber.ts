@@ -1,5 +1,5 @@
 import amqplib, { type Channel, type ChannelModel, type ConsumeMessage } from 'amqplib';
-import { QUEUE_PLAYWRIGHT } from '@metamorph/contracts';
+import { QUEUE_PLAYWRIGHT, resolvePlaywrightConcurrency } from '@metamorph/contracts';
 import { DiscoverJobService } from '../../application/services/discover-job.service.js';
 import {
   JobNotFoundError,
@@ -24,7 +24,8 @@ export class PlaywrightDiscoverSubscriber {
   async start(): Promise<void> {
     this.connection = await amqplib.connect(this.config.url);
     this.channel = await this.connection.createChannel();
-    await this.channel.prefetch(1);
+    const concurrency = resolvePlaywrightConcurrency(process.env);
+    await this.channel.prefetch(concurrency);
 
     const { consumerTag } = await this.channel.consume(
       QUEUE_PLAYWRIGHT,
@@ -34,7 +35,9 @@ export class PlaywrightDiscoverSubscriber {
     );
 
     this.consumerTag = consumerTag;
-    console.log(`Consuming queue ${QUEUE_PLAYWRIGHT}`);
+    console.log(
+      `Consuming queue ${QUEUE_PLAYWRIGHT} (up to ${concurrency} parallel browser jobs)`,
+    );
   }
 
   async stop(): Promise<void> {

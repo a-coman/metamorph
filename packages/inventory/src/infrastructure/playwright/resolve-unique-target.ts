@@ -5,6 +5,7 @@ import {
   type ResolvedInventoryTarget,
 } from '@metamorph/core';
 import { buildLocatorFromChain } from './parse-locator-chain.js';
+import { runWithoutTrace } from './run-without-trace.js';
 
 const DEFAULT_RESOLVE_TIMEOUT_MS = 5000;
 const RESOLVE_POLL_INTERVAL_MS = 250;
@@ -52,37 +53,43 @@ export async function resolveUniqueTargetLocator(
     );
   }
 
-  const timeoutMs = options?.timeoutMs ?? DEFAULT_RESOLVE_TIMEOUT_MS;
-  const deadline = Date.now() + timeoutMs;
-  let attempts: string[] = [];
+  return runWithoutTrace(
+    page,
+    async () => {
+      const timeoutMs = options?.timeoutMs ?? DEFAULT_RESOLVE_TIMEOUT_MS;
+      const deadline = Date.now() + timeoutMs;
+      let attempts: string[] = [];
 
-  for (;;) {
-    attempts = [];
-    for (const candidate of candidates) {
-      let count: number;
-      let locator: Locator;
-      try {
-        locator = buildCandidateLocator(page, candidate);
-        count = await locator.count();
-      } catch (error) {
-        attempts.push(`${candidate.value} -> invalid (${firstLine(error)})`);
-        continue;
+      for (;;) {
+        attempts = [];
+        for (const candidate of candidates) {
+          let count: number;
+          let locator: Locator;
+          try {
+            locator = buildCandidateLocator(page, candidate);
+            count = await locator.count();
+          } catch (error) {
+            attempts.push(`${candidate.value} -> invalid (${firstLine(error)})`);
+            continue;
+          }
+
+          if (count === 1) {
+            return locator;
+          }
+          attempts.push(`${candidate.value} -> ${count} matches`);
+        }
+
+        if (Date.now() >= deadline) {
+          break;
+        }
+        await page.waitForTimeout(RESOLVE_POLL_INTERVAL_MS);
       }
 
-      if (count === 1) {
-        return locator;
-      }
-      attempts.push(`${candidate.value} -> ${count} matches`);
-    }
-
-    if (Date.now() >= deadline) {
-      break;
-    }
-    await page.waitForTimeout(RESOLVE_POLL_INTERVAL_MS);
-  }
-
-  throw new UniqueTargetResolutionError(
-    `No unique target for ${description} after ${timeoutMs}ms. Tried: ${attempts.join('; ')}`,
+      throw new UniqueTargetResolutionError(
+        `No unique target for ${description} after ${timeoutMs}ms. Tried: ${attempts.join('; ')}`,
+      );
+    },
+    { title: 'Resolve target' },
   );
 }
 

@@ -35,3 +35,9 @@ export {
   type PlaywrightProbeJobMessage,
   type PlaywrightJobMessage,
 } from './messages/playwright-job.message.js';
+export {
+  DEFAULT_WORKER_CONCURRENCY,
+  resolveLlmConcurrency,
+  resolvePlaywrightConcurrency,
+  resolveWorkerConcurrency,
+} from './worker-concurrency.js';

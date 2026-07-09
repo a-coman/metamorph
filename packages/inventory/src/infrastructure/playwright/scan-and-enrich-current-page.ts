@@ -8,6 +8,8 @@ import {
   captureViewportScreenshot,
   prepareCaptureViewport,
 } from './prepare-viewport.js';
+import { clearInventoryLabelsFromPage } from './evaluate-browser-function.js';
+import { runWithoutTrace } from './run-without-trace.js';
 import { scanInventoryWithAccessibility } from './scan-inventory-with-accessibility.js';
 import { scanObservationInventory } from './scan-observation-inventory.js';
 
@@ -36,23 +38,53 @@ export async function scanAndEnrichCurrentPage(
   const maxItems = options?.maxItems ?? DEFAULT_MAX_INVENTORY_ITEMS;
   const waitAfterViewportMs = options?.waitAfterViewportMs ?? 500;
 
-  await page.waitForTimeout(waitAfterViewportMs);
-
-  const { pageMetrics, viewport } = await prepareCaptureViewport(
+  const {
+    pageMetrics,
+    viewport,
+    observationItems,
+    items,
+    accessibilitySnapshot,
+    labeledCount,
+    rawScreenshot,
+    screenshot,
+  } = await runWithoutTrace(
     page,
-    DEFAULT_MAX_CAPTURE_HEIGHT,
-    waitAfterViewportMs,
-    { preserveScrollPosition: options?.preserveScrollPosition },
+    async () => {
+      await page.waitForTimeout(waitAfterViewportMs);
+
+      const { pageMetrics, viewport } = await prepareCaptureViewport(
+        page,
+        DEFAULT_MAX_CAPTURE_HEIGHT,
+        waitAfterViewportMs,
+        { preserveScrollPosition: options?.preserveScrollPosition },
+      );
+
+      const rawScreenshot = await captureViewportScreenshot(page);
+
+      const observationItems = await scanObservationInventory(page, { maxItems });
+      const { items, accessibilitySnapshot, labeledCount } =
+        await scanInventoryWithAccessibility(page, { maxItems, paintLabels: true });
+
+      let screenshot: Buffer;
+      try {
+        screenshot = await captureViewportScreenshot(page);
+      } finally {
+        await clearInventoryLabelsFromPage(page);
+      }
+
+      return {
+        pageMetrics,
+        viewport,
+        observationItems,
+        items,
+        accessibilitySnapshot,
+        labeledCount,
+        rawScreenshot,
+        screenshot,
+      };
+    },
+    { title: 'Inventory scan' },
   );
-
-  const rawScreenshot = await captureViewportScreenshot(page);
-
-  const observationItems = await scanObservationInventory(page, { maxItems });
-
-  const { items, accessibilitySnapshot, labeledCount } =
-    await scanInventoryWithAccessibility(page, { maxItems, paintLabels: true });
-
-  const screenshot = await captureViewportScreenshot(page);
 
   return {
     url: page.url(),

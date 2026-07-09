@@ -1,4 +1,5 @@
 import type { ElementHandle, Page } from 'playwright';
+import { removeInventoryLabels } from './inventory.browser.js';
 
 /**
  * tsx/esbuild transpilation injects `__name(...)` helper calls into functions
@@ -32,4 +33,9 @@ export async function evaluateHandleFunction<E extends Element, R>(
 ): Promise<R> {
   await handle.evaluate(installEsbuildNameShim);
   return (await handle.evaluate(fn as (el: E) => unknown)) as R;
+}
+
+export async function clearInventoryLabelsFromPage(page: Page): Promise<void> {
+  await page.evaluate(installEsbuildNameShim);
+  await page.evaluate(removeInventoryLabels);
 }

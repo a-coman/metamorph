@@ -1,4 +1,4 @@
-import { FINAL_PAGE_STABILIZATION_CODE } from '../../application/compiler/step-execution-policy.js';
+import { renderFinalCaptureStabilizationCode } from '../../application/compiler/page-stabilization.js';
 import type { ObservableDef } from '../../domain/schemas/observable.schema.js';
 import type { PageSnapshotInventory } from '../../domain/schemas/page-snapshot.schema.js';
 import {
@@ -32,7 +32,7 @@ ${observationBody}
 test('source', async ({ page }) => {
 ${sourceSteps}
 
-${FINAL_PAGE_STABILIZATION_CODE}
+${renderFinalCaptureStabilizationCode('  ')}
   const observation = await extractObservation(page);
   await test.info().attach('observation', {
     body: JSON.stringify(observation),
@@ -43,7 +43,7 @@ ${FINAL_PAGE_STABILIZATION_CODE}
 test('follow_up', async ({ page }) => {
 ${followUpSteps}
 
-${FINAL_PAGE_STABILIZATION_CODE}
+${renderFinalCaptureStabilizationCode('  ')}
   const observation = await extractObservation(page);
   await test.info().attach('observation', {
     body: JSON.stringify(observation),

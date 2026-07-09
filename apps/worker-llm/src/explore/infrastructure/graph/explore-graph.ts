@@ -16,6 +16,7 @@ import {
   PLAN_EXPLORE_PROMPT_VERSION,
   resolveObservableBindingTargets,
   resolveStepTargets,
+  trimProbeBatchAtMutatingStep,
   validatePlanBatch,
   validateObservableBindings,
   validateObservableBindingValueType,
@@ -576,9 +577,11 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         );
       }
 
-      const pendingProbeSteps = resolveStepTargets(steps, snapshot.inventory);
+      const executableSteps = trimProbeBatchAtMutatingStep(steps);
+      const pendingProbeSteps = resolveStepTargets(executableSteps, snapshot.inventory);
+      const trimmedCount = steps.length - executableSteps.length;
       logExploreGraphEvent(
-        `iter=${nextIteration} phase=${state.phase} plan→probe | prefix=${state.validatedSteps[state.phase].length} batch=${pendingProbeSteps.length}`,
+        `iter=${nextIteration} phase=${state.phase} plan→probe | prefix=${state.validatedSteps[state.phase].length} batch=${pendingProbeSteps.length}${trimmedCount > 0 ? ` trimmed=${trimmedCount}` : ''}`,
       );
 
       return {

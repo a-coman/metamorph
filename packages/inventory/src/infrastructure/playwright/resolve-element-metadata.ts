@@ -185,10 +185,6 @@ export async function resolveElementMetadataFromAriaRef(
 ): Promise<ResolvedElementMetadata | null> {
   try {
     const locator = scope.locator(`aria-ref=${ref}`);
-    const count = await locator.count();
-    if (count === 0) {
-      return null;
-    }
     const handle = await locator.elementHandle({
       timeout: options?.handleTimeoutMs ?? 30_000,
     });
