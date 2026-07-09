@@ -14,6 +14,7 @@ export class ExploreGraphRunner {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private compiled: any = null;
   private checkpointer: PostgresSaver | null = null;
+  private setupPromise: Promise<void> | null = null;
 
   constructor(private readonly deps: ExploreGraphDeps) {}
 
@@ -31,6 +32,30 @@ export class ExploreGraphRunner {
     this.compiled = graph.compile({ checkpointer: this.checkpointer });
   }
 
+  // `start`/`resume` can be called concurrently when RabbitMQ prefetch > 1.
+  // Share the first setup promise so we do not create multiple pg.Pools or
+  // overwrite the compiled graph during cold start.
+  private async ensureCompiled() {
+    if (this.compiled) {
+      return this.compiled;
+    }
+
+    if (!this.setupPromise) {
+      this.setupPromise = (async () => {
+        await this.setup();
+        if (!this.compiled) {
+          throw new Error('Explore graph setup completed without compiled graph');
+        }
+      })().catch((error) => {
+        this.setupPromise = null;
+        throw error;
+      });
+    }
+
+    await this.setupPromise;
+    return this.compiled!;
+  }
+
   private threadConfig(exploreJobId: string) {
     return { configurable: { thread_id: exploreJobId } };
   }
@@ -42,11 +67,7 @@ export class ExploreGraphRunner {
     pageSnapshotId: string;
     transformFamily: TransformFamily;
   }): Promise<{ status: 'completed' | 'interrupted' | 'failed' | 'paused'; mrVersionId?: string; reason?: string }> {
-    if (!this.compiled) {
-      await this.setup();
-    }
-
-    const graph = this.compiled!;
+    const graph = await this.ensureCompiled();
     const config = this.threadConfig(input.exploreJobId);
 
     const initialState = {
@@ -77,11 +98,7 @@ export class ExploreGraphRunner {
     exploreJobId: string,
     resumeValue: ProbeResumeValue,
   ): Promise<{ status: 'completed' | 'interrupted' | 'failed' | 'paused'; mrVersionId?: string; reason?: string }> {
-    if (!this.compiled) {
-      await this.setup();
-    }
-
-    const graph = this.compiled!;
+    const graph = await this.ensureCompiled();
     const config = this.threadConfig(exploreJobId);
 
     const result = (await graph.invoke(
@@ -95,11 +112,7 @@ export class ExploreGraphRunner {
   async resumeFromUserPause(
     exploreJobId: string,
   ): Promise<{ status: 'completed' | 'interrupted' | 'failed' | 'paused'; mrVersionId?: string; reason?: string }> {
-    if (!this.compiled) {
-      await this.setup();
-    }
-
-    const graph = this.compiled!;
+    const graph = await this.ensureCompiled();
     const config = this.threadConfig(exploreJobId);
 
     const result = (await graph.invoke(null, config)) as Record<string, unknown>;
@@ -115,7 +128,7 @@ export class ExploreGraphRunner {
     mrVersionId?: string;
     reason?: string;
   }> {
-    const graph = this.compiled!;
+    const graph = await this.ensureCompiled();
     const snapshot = (await graph.getState(config)) as GraphStateSnapshot;
     return interpretExploreGraphOutcome(result, snapshot);
   }
