@@ -46,6 +46,8 @@ export type TimelineFeedItem =
   | { kind: 'standalone'; item: StandaloneActivity }
   | { kind: 'phase_divider'; phase: ExplorationPhase };
 
+type CycleStepFeedItem = Extract<TimelineFeedItem, { kind: 'cycle_step' }>;
+
 /** @deprecated Use TimelineFeedItem */
 export type CycleFeedItem = TimelineFeedItem;
 
@@ -350,8 +352,8 @@ function timelinePhaseForItem(item: TimelineFeedItem): ExplorationPhase | null {
   return null;
 }
 
-export function expandCycleToTimelineEntries(cycle: ExplorationCycle): TimelineFeedItem[] {
-  const entries: TimelineFeedItem[] = [];
+export function expandCycleToTimelineEntries(cycle: ExplorationCycle): CycleStepFeedItem[] {
+  const entries: CycleStepFeedItem[] = [];
 
   if (cycle.kind === 'smoke') {
     if (cycle.plan) {
