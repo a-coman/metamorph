@@ -18,7 +18,7 @@ export async function pollSessionUntilTerminal(
   sessionId: string,
   options?: { maxIterations?: number; intervalMs?: number },
 ): Promise<PollSessionResult> {
-  const maxIterations = options?.maxIterations ?? 180;
+  const maxIterations = options?.maxIterations ?? 300;
   const intervalMs = options?.intervalMs ?? 10_000;
 
   for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
