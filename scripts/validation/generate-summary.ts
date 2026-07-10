@@ -499,10 +499,23 @@ async function main(): Promise<void> {
       failRate: number | null;
       byFamily: Record<string, { total: number; pass: number; fail: number; passRate: number | null }>;
     };
-    const perObservable = rq3.perObservableFailureRate as Record<
-      string,
-      { failures: number; opportunities: number; failureRate: number | null }
-    >;
+    const observableItems = rq3.observableItems as {
+      total: number;
+      pass: number;
+      fail: number;
+      passRate: number | null;
+      failRate: number | null;
+      byFamily: Record<
+        string,
+        {
+          total: number;
+          pass: number;
+          fail: number;
+          passRate: number | null;
+          failRate: number | null;
+        }
+      >;
+    };
 
     lines.push(
       section(
@@ -529,14 +542,27 @@ async function main(): Promise<void> {
               formatPercent(row.passRate),
             ]),
           ),
-          '### Per observable failure rate (failing runs)\n',
+          '### Observable-item outcomes (completed initial runs)\n',
           mdTable(
-            ['Observable', 'Failures', 'Opportunities', 'Failure rate'],
-            Object.entries(perObservable).map(([key, row]) => [
-              key,
-              String(row.failures),
-              String(row.opportunities),
-              formatPercent(row.failureRate),
+            ['Metric', 'Value'],
+            [
+              ['Evaluated observable items', String(observableItems.total)],
+              ['Pass', String(observableItems.pass)],
+              ['Fail', String(observableItems.fail)],
+              ['Pass rate', formatPercent(observableItems.passRate)],
+              ['Fail rate', formatPercent(observableItems.failRate)],
+            ],
+          ),
+          '### Observable-item outcomes per family\n',
+          mdTable(
+            ['Family', 'Evaluated observable items', 'Pass', 'Fail', 'Pass rate', 'Fail rate'],
+            Object.entries(observableItems.byFamily).map(([family, row]) => [
+              family,
+              String(row.total),
+              String(row.pass),
+              String(row.fail),
+              formatPercent(row.passRate),
+              formatPercent(row.failRate),
             ]),
           ),
         ].join('\n'),

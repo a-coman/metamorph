@@ -66,26 +66,45 @@ export async function computeRq3Metrics(manifest: BatchManifest) {
   );
 
   const failingRuns = verdicts.filter((run) => run.verdictStrict === 'fail');
-  const observableFailures: Record<string, { failures: number; opportunities: number; failureRate: number | null }> = {};
+  const observableItemsByFamily: Record<
+    string,
+    { pass: number; fail: number; total: number; passRate: number | null; failRate: number | null }
+  > = Object.fromEntries(
+    TRANSFORM_FAMILIES.map((family) => [
+      family,
+      { pass: 0, fail: 0, total: 0, passRate: null, failRate: null },
+    ]),
+  );
 
-  for (const failingRun of failingRuns) {
-    const run = runById.get(failingRun.runId);
+  // Count every observable evaluated in every completed run. A strict verdict is
+  // an all-observable result, so restricting this to failing runs would make the
+  // observable failure rate incomparable with its corresponding success rate.
+  for (const verdict of verdicts) {
+    const run = runById.get(verdict.runId);
     const details = parseEvaluationDetails(run?.inputBundle);
-    for (const [key, detail] of Object.entries(details)) {
-      if (!observableFailures[key]) {
-        observableFailures[key] = { failures: 0, opportunities: 0, failureRate: null };
+    for (const detail of Object.values(details)) {
+      if (detail.ok !== true && detail.ok !== false) {
+        continue;
       }
-      observableFailures[key]!.opportunities += 1;
-      if (detail.ok === false) {
-        observableFailures[key]!.failures += 1;
-      }
+      const outcome = observableItemsByFamily[verdict.transformFamily]!;
+      outcome.total += 1;
+      outcome[detail.ok ? 'pass' : 'fail'] += 1;
     }
   }
 
-  for (const key of Object.keys(observableFailures)) {
-    const row = observableFailures[key]!;
-    row.failureRate = rate(row.failures, row.opportunities);
+  for (const outcome of Object.values(observableItemsByFamily)) {
+    outcome.passRate = rate(outcome.pass, outcome.total);
+    outcome.failRate = rate(outcome.fail, outcome.total);
   }
+
+  const observableItems = Object.values(observableItemsByFamily).reduce(
+    (total, outcome) => ({
+      pass: total.pass + outcome.pass,
+      fail: total.fail + outcome.fail,
+      total: total.total + outcome.total,
+    }),
+    { pass: 0, fail: 0, total: 0 },
+  );
 
   return {
     strictVerdicts: {
@@ -96,7 +115,12 @@ export async function computeRq3Metrics(manifest: BatchManifest) {
       failRate: rate(failCount, verdicts.length),
       byFamily,
     },
-    perObservableFailureRate: observableFailures,
+    observableItems: {
+      ...observableItems,
+      passRate: rate(observableItems.pass, observableItems.total),
+      failRate: rate(observableItems.fail, observableItems.total),
+      byFamily: observableItemsByFamily,
+    },
     failingRunCount: failingRuns.length,
   };
 }
