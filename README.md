@@ -1,131 +1,115 @@
 # Metamorph
 
-Phase 1: API creates sessions and discover jobs in PostgreSQL; the Playwright worker captures page inventory and persists JSON to Postgres plus annotated PNG to MinIO.
+Metamorph is a research prototype for discovering and replaying metamorphic tests on arbitrary web interfaces. Given a user-supplied URL, it explores the rendered page, proposes candidate relations with bounded LLM assistance, compiles them into Playwright playbooks, and evaluates their source and follow-up executions with a strict deterministic verdict.
 
-**Playwright runs in Docker** — no need to install Chromium on the host.
+## The problem
 
-## Prerequisites
+End-to-end web tests often face the oracle problem: the expected result of one execution is difficult to define in advance. Dynamic content, asynchronous rendering, and changing layouts make fixed assertions costly and brittle.
 
-- Node.js 22.13+ (API only)
-- pnpm 11.5+
-- Docker (Postgres, MinIO, worker)
+Metamorphic testing addresses this problem by checking a relation between two executions instead of checking one absolute output. A metamorphic relation defines a source interaction, a transformed follow-up interaction, and an expected relation between their observations. For example, adding a restrictive filter should not increase the reported number of results.
 
-## Quick start (phase 1)
+Metamorph applies four relation families during discovery:
+
+| Family | Expected relation |
+| --- | --- |
+| Idempotence | Repeating an action preserves the observable outcome. |
+| Subset | Adding a restriction does not increase the result set. |
+| Permutation | Reordering independent actions preserves the final state. |
+| Inverse | Applying an action and undoing it restores the previous state. |
+
+The LLM is used only during bounded exploration. Once a relation has been compiled and approved, replay executes fixed Playwright steps and evaluates predefined observations without further LLM inference.
+
+## Workflow
+
+```mermaid
+flowchart LR
+    A[URL] --> B[Page inventory]
+    B --> C[LLM-guided exploration]
+    C --> D[Compiled draft]
+    D --> E{Review or auto-promotion}
+    E --> F[Paired Playwright execution]
+    F --> G[Strict verdict]
+```
+
+The browser worker builds a Set of Marks inventory that labels interactable page elements as `E1`, `E2`, and so on. The exploration worker uses that grounded inventory to propose and validate actions. Drafts can be reviewed in the web interface before promotion, while auto mode executes successful drafts immediately. Screenshots, Playwright traces, observations, and verdicts remain linked to the session for later triage.
+
+## Workspace
+
+The monorepo separates deployable applications from shared packages so that browser automation, LLM exploration, and deterministic replay use the same contracts and metamorphic semantics.
+
+| Module | Kind | Responsibility |
+| --- | --- | --- |
+| `@metamorph/web` | App | Human-in-the-loop interface for sessions, live activity, review, and run triage. |
+| `@metamorph/api` | App | REST API, job orchestration, artifact URLs, and server-sent events. |
+| `@metamorph/worker-playwright` | App | Page inventory capture, exploration probes, and paired browser execution. |
+| `@metamorph/worker-llm` | App | LangGraph-based exploration and draft-compilation orchestration. |
+| `@metamorph/core` | Package | Shared MR schemas, relation engine, compiler, and Playwright playbook templates. |
+| `@metamorph/inventory` | Package | Set of Marks inventory capture over Playwright. |
+| `@metamorph/mr-promotion` | Package | Approval, auto-promotion, and execution-enqueueing use cases. |
+| `@metamorph/contracts` | Package | Validated RabbitMQ messages and routing keys. |
+| `@metamorph/api-client` | Package | Typed HTTP client and SSE helpers shared with the web app. |
+| `@metamorph/session-control` | Package | Cooperative pause and resume signals across workers. |
+| `@metamorph/utils` | Package | Shared domain and infrastructure utilities. |
+
+PostgreSQL stores lifecycle state, MinIO stores screenshots and traces, and RabbitMQ connects the API with both worker types.
+
+## Run locally
+### Prerequisites
+
+- Node.js 22.13 or newer
+- pnpm 11.5 or newer
+- Docker Compose v2
+- An OpenRouter API key for LLM-assisted exploration
+
+Create a local environment file, install dependencies, and start the infrastructure:
 
 ```bash
-# 1. Infra
-docker compose up -d postgres minio minio-init
+cp .env.example .env
+pnpm install
+```
+Set `OPENROUTER_API_KEY` in `.env`, then start the workers in Docker:
 
-# 2. Database
-cp .env.example .env   # if needed
-pnpm db:push         # or pnpm db:migrate
+```bash
+docker compose up -d
+```
+
+Generate the database schema:
+
+```bash
+pnpm db:migrate
 pnpm db:generate
-
-# 3. API (on host)
-pnpm --filter @metamorph/api dev
-
-# 4. Create session + discover job
-curl -s -X POST localhost:3001/sessions \
-  -H 'Content-Type: application/json' \
-  -d '{"url":"https://example.com"}'
-# → note sessionId and jobId
-
-# 5. Run discover worker (Docker — builds image on first run)
-pnpm discover <JOB_ID>
-
-# 6. Verify
-curl -s localhost:3001/health
-curl -s localhost:3001/sessions/<SESSION_ID>
 ```
 
-Equivalent without the helper script:
+Run the API and web application:
 
 ```bash
-docker compose --profile workers build worker-playwright
-docker compose --profile workers run --rm worker-playwright discover --job-id <JOB_ID>
+pnpm dev
 ```
 
-## Services
 
-| Service            | Port  | Where        | Notes                    |
-|--------------------|-------|--------------|--------------------------|
-| API                | 3001  | host         | Sessions, health         |
-| Postgres           | 5432  | Docker       | `metamorph` / `metamorph`|
-| MinIO              | 9000  | Docker       | Console: :9001           |
-| worker-playwright  | —     | Docker       | `pnpm discover <jobId>`  |
+Open [http://localhost:3000](http://localhost:3000), create a session with a public URL, choose the relation families and either review mode or auto mode. The API health endpoint is available at [http://localhost:3001/health](http://localhost:3001/health).
 
-## Dev utilities
+## Validation
 
-| Command | Description |
-|---------|-------------|
-| `pnpm discover <job-id>` | Phase 1 worker in Docker |
-| `pnpm inventory:capture -- <url>` | Capture to `packages/inventory/tmp/` (no DB) |
+The thesis validation protocol defines a case study on Amazon, Booking, Airbnb, MediaMarkt, and GitHub. It uses 25 sessions across the five domains and explores all four relation families, yielding 100 discovery attempts. The evaluation measures:
 
-## Job lifecycle (no RabbitMQ yet)
+| Research question | Evidence |
+| --- | --- |
+| RQ1 | Exploration and compilation success, failure causes, cost, and time to draft. |
+| RQ2 | LLM-free replay completion, execution time, and stable verdict and observation extraction. |
+| RQ3 | Strict verdicts, observable failures, manual triage, and relation quality. |
 
-| Status    | Meaning                    |
-|-----------|----------------------------|
-| `queued`  | Waiting for worker         |
-| `running` | Worker processing          |
-| `done`    | Snapshot persisted         |
-| `failed`  | See `error_message` on job |
-
-After a failed job, create a new one:
+With the stack, API, and workers running, execute a single validation session and then extract its results:
 
 ```bash
-curl -s -X POST localhost:3001/sessions/<SESSION_ID>/discover
+pnpm validation:batch -- --domain github --generation 1
+pnpm validation:metrics
+pnpm validation:replay
+pnpm validation:summary
 ```
 
-## Phase 5: Exploración incremental (LangGraph)
+Use `pnpm validation:batch -- --all` for the complete study. The scripts write their manifest, metric exports, review CSV files, and Markdown summary to `scripts/validation/out/`.
 
-Tras `discover`, el pipeline encadena `explore` (worker-llm):
+## Notes
 
-```
-discover (raw + annotated PNG) → snapshot_0 → mr_plan → plan_explore ⇄ probe → explore_verify → compile_draft → draft_pending_hitl
-```
-
-**Fresh start** (sin retrocompatibilidad con datos legacy):
-
-```bash
-docker compose down -v
-docker compose up -d postgres minio minio-init rabbitmq
-```
-
-**Workers requeridos** (RabbitMQ + ambos workers en marcha):
-
-```bash
-docker compose up -d postgres minio minio-init rabbitmq
-pnpm db:migrate   # incluye exploring, ExplorationCheckpoint, JobType explore/probe
-pnpm db:generate
-
-# Terminal 1 — API
-pnpm --filter @metamorph/api dev
-
-# Terminal 2 — worker-playwright (discover + probe + execute_pair)
-pnpm --filter @metamorph/worker-playwright consume
-
-# Terminal 3 — worker-llm (explore + explore_resume)
-pnpm --filter @metamorph/worker-llm consume
-```
-
-Verificar que los workers están Up:
-
-```bash
-docker compose --profile workers ps
-# o procesos consume activos en terminales 2 y 3
-```
-
-**E2E explore** (Airbnb/Amazon):
-
-```bash
-node scripts/e2e-explore.mjs
-# E2E_URL=https://www.amazon.es/ node scripts/e2e-explore.mjs
-```
-
-Observa progreso en:
-
-```bash
-curl -s localhost:3001/mr-versions/<MR_VERSION_ID>/exploration | jq
-```
-
-Estados MR nuevos: `exploring`, `exploration_failed` → `draft_pending_hitl` tras compilar playbook validado.
+This project was carried out as part of the Master's Thesis at the University of Murcia, within the Master's program in Software Engineering.
