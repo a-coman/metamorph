@@ -16,6 +16,7 @@ import {
   Zap,
   Eye,
   Pause,
+  RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -518,7 +519,7 @@ function isPrefixSyncProbe(probe: ProbeStatusDto): boolean {
 
 function probeActivityLabel(probe: ProbeStatusDto): string {
   if (isSmokeProbe(probe)) return 'Smoke replay';
-  if (isPrefixSyncProbe(probe)) return 'Smoke Probe';
+  if (isPrefixSyncProbe(probe)) return 'Sync Inventory';
   return 'Probe';
 }
 
@@ -571,7 +572,7 @@ function ProbeCycleCard({
                 {smoke
                   ? 'Screenshot after smoke replay'
                   : prefixSync
-                    ? 'Screenshot after smoke probe'
+                    ? 'Screenshot after sync inventory'
                     : 'Screenshot after probe'}
               </p>
               <CheckpointScreenshot snapshotId={outputSnapshotId} />
@@ -593,12 +594,17 @@ function ProbeCycleHeader({
   const smoke = isSmokeProbe(probe);
   const prefixSync = isPrefixSyncProbe(probe);
   const replayFromHomepage = smoke || prefixSync;
-  const ProbeKindIcon = smoke ? Flame : Crosshair;
+  const ProbeKindIcon = smoke ? Flame : prefixSync ? RefreshCw : Crosshair;
   const status = resolveProbeBadgeStatus(probe, statusContext);
 
   return (
     <>
-      <div className="p-1.5 rounded-md shrink-0 bg-amber-100 text-amber-600">
+      <div
+        className={cn(
+          'p-1.5 rounded-md shrink-0',
+          prefixSync ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600',
+        )}
+      >
         <ProbeKindIcon className="size-3.5" />
       </div>
       <div className="flex-1 min-w-0">
