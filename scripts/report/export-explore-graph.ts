@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import {
   buildExploreGraph,
   type ExploreGraphDeps,
-} from '../apps/worker-llm/src/explore/infrastructure/graph/explore-graph.js';
+} from '../../apps/worker-llm/src/explore/infrastructure/graph/explore-graph.js';
 
 const repoRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 
