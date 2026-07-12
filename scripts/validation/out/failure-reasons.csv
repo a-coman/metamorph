@@ -1,0 +1,101 @@
+reason,frequency,taxonomy
+"page.evaluate: Execution context was destroyed, most likely because of a navigation",4,
+Max iterations (30) exceeded,3,
+"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('button', { name: 'Dismiss sign-in info.', exact: true })
+    - locator resolved to <button type=""button"" aria-label=""Dismiss sign-in info."" class=""de576f5064 b46cd7aad7 e26a59bb37 c295306d66 c7a901b0e7 daf5d4cb1c e7f2b1a356"">…</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    56 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+",3,
+OpenRouter returned empty content,3,
+"page._wrapApiCall: No unique target for step 5 (click E17) after 5000ms. Tried: getByRole(""button"", { name: ""Filtros"", exact: true }) -> 0 matches",2,
+"page._wrapApiCall: No unique target for step 2 (click E4) after 5000ms. Tried: getByRole(""button"", { name: ""Accept"", exact: true }) -> 0 matches",2,
+"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('checkbox', { name: 'Friday, July 10, 2026', exact: true })
+    - locator resolved to <span role=""checkbox"" aria-disabled=""true"" aria-checked=""false"" data-date=""2026-07-10"" class=""ecb788f3b7 ad9d5181d0"" aria-label=""Friday, July 10, 2026"">…</span>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+      - waiting 100ms
+    58 × waiting for element to be visible, enabled and stable
+       - element is not enabled
+     - retrying click action
+       - waiting 500ms
+",2,
+"Plan aborted: The phase requires arriving at the unfiltered results page first, then applying one filter. We filled the search box with 'laptop' but never submitted. There is no submit/Enter control in the current inventory (no E15 searchbox is visible at the top — actually E15 is the searchbox 'Buscar en Amazon.es'). I need to submit the search first. Let me re-examine: E15 is the searchbox with 'laptop' already filled. E4 is 'Ir' (Go) button. I should press Enter on E15 or click E4 to submit. Let me plan that.",1,
+"Plan aborted: Phase goal is permanently unachievable in a single batch without login/auth. The page shows a cookies banner with Accept/Reject buttons (E1/E2), but the task requires both dismissing the cookie banner AND typing a search term in one step-batch chain. The rules say one mutating step per batch (no chaining click then fill). I can do dismiss-cookie in this batch, but cannot complete the full source phase goal. Actually wait - the phase goal can be split across batches: dismiss cookie in batch 1, then search in batch 2. So I should just dismiss the cookie banner first.",1,
+"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('link', { name: 'Saltar a los resultados de búsqueda principales', exact: true })
+    - locator resolved to <a class=""a-link-normal aok-offscreen"" href=""#s-skipLinkTargetForMainSearchResults"" title=""pulsa el tabulador para saltar a los resultados de búsqueda principales"">↵                Saltar a los resultados de búsqu…</a>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <li class=""a-spacing-micro"" aria-labelledby=""-title"" id=""p_n_feature_browse-bin/212351143031"">…</li> from <div class=""a-section"">…</div> subtree intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <li class=""a-spacing-micro"" aria-labelledby=""-title"" id=""p_n_feature_browse-bin/212351143031"">…</li> from <div class=""a-section"">…</div> subtree intercepts pointer events
+  2 × retrying click action
+      - waiting 100ms
+      - waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div aria-level=""2"" role=""heading"" class=""a-section a-spacing-small"" id=""p_n_size_two_browse-vebin-title"">…</div> from <div class=""a-section"">…</div> subtree intercepts pointer events
+  52 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div aria-level=""2"" role=""heading"" class=""a-section a-spacing-small"" id=""p_n_size_two_browse-vebin-title"">…</div> from <div class=""a-section"">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+",1,
+"Phase source smoke replay failed after 2 attempts: page._wrapApiCall: No unique target for step 2 (click E3) after 5000ms. Tried: getByRole(""button"", { name: ""Decline"", exact: true }) -> 0 matches",1,
+"Plan aborted: Phase goal cannot be achieved. The Booking.com homepage presents a full-page cookie consent overlay (Manage cookie settings with Decline/Accept/Manage settings) covering the search UI. Although E5/E6 dismiss the cookie banner, the goal requires applying two filters on the search-results page, but per the avoidance rules I cannot reach a login wall and must abort for permanently unachievable goals. The cookie banner is dismissible, however, so I'll continue with append_steps instead — start by dismissing the cookie banner via Decline (E5).",1,
+"Plan aborted: Platform dropdown is persistently open. Escape and clicking the trigger (E1) both failed to close it in the prior two batches — the panel stays visible. The follow_up phase requires the dropdown to be closed and the homepage reloaded to compare against source state. Since neither approach (Escape, re-click trigger) works on this implementation, the inverse MR is unrecoverable in this session. Aborting rather than retrying the same failed approaches.",1,
+"Plan aborted: The phase goal is permanently unachievable in the current state. The follow_up requires reaching a combined state with filters 'CECOTEC brand + price 100-500', but the CECOTEC brand option has been completely removed from the current results (87 results for 'portátil', likely an algorithmic/narrowed result set without CECOTEC). Active filters now show 'Campañas destacadas: 27 Aniversario', 'Campañas destacadas: Alquiler', and 'Precio: 102 - 500 €'. The CECOTEC brand filter is not present in the visible brand list (E7 ACER, E8 HP, E9 SANDISK, E10 JBL). Multiple previous attempts (Batches 7-13) have shown the page is unstable - filling the max price field caused navigation to login, and the wrong price range was applied previously. Combined with multiple failures recovering from incorrect filter states, this MR cannot be reached.",1,
+"plan failed validation - observables: expected array, got undefined",1,
+"Plan aborted: The inverse transformation T⁻¹ (clearing the search input to collapse the typeahead dropdown) is permanently unachievable in this environment. In prior batches (5, 9), filling the search input with 'react' caused immediate form submission to the search results page (github.com/search?q=react&type=repositories), so the typeahead suggestions dropdown never appeared. Without a populated typeahead dropdown, there is no MR observable to invert. The source phase itself never produced the typeahead state required by the relation, so the follow_up inverse is impossible.",1,
+"action=scenario_complete rationale=""The phase goal is satisfied. All three facets have been applied on the search..."" steps=(empty) failed validation - steps: Too small: expected array to have >=1 items (got [])",1,
+"Plan aborted: Phase goal permanently unachievable. Current search results show 1-48 of more than 2,000 resultados for 'auriculares inalambricos bluetooth' but no price filter or Sony checkbox is visible in current inventory. The search term was auto-completed to 'auriculares inalambricos bluetooth' instead of the bare 'auriculares'. More critically, E105 'Eliminar selección' is present suggesting a filter is already applied, and the price slider shows E110=40 EUR, E111=50 EUR with checkboxes E106 (De 0 a 20), E107 (De 20 a 30), E108 (De 30 a 40), E109 (De 40 a 50). No checkbox is marked as checked in the aria labels. The state is inconsistent — prior batch 6 clicked E14 'Ver más' to expand brands, and the current snapshot shows 'Ver menos' E18 indicating brands ARE expanded (XIAOMI E85, Sony E86, Soundcore E87... OneOdio E103 visible). However the search query expanded unexpectedly. Cannot recover to a clean state to apply filters B then A in correct order without re-doing the search.",1,
+"Plan aborted: Filter elements (E1-E5 star rating, E13-E16 review score) are systematically causing page navigation to the Booking.com homepage with empty destination and default dates (Sat Jul 11 - Sun Jul 12), losing the Paris search context. Four consecutive attempts (batches 11-14) with different filters and longer waits all failed with the same regression pattern. The role=link elements appear to be anchor tags with broken/malformed hrefs that navigate to the homepage instead of triggering in-page filter updates. Since the MR requires applying two independent filter facets on the Paris results page and verifying the result set is order-independent, but no filter can be applied without the page regressing, the phase goal is permanently unachievable through the UI.",1,
+"Plan aborted: The phase goal is to reach the search results grid and apply two filters, but the destination is blocked by the Genius modal which cannot be dismissed (click on E1 fails because body intercepts pointer events, Escape does not close the calendar popup, and the modal persists across batches). Without a working way to dismiss the modal or close the calendar, the search form cannot be submitted reliably to reach the results grid.",1,
+"page._wrapApiCall: No unique target for step 5 (click E11) after 5000ms. Tried: getByRole(""button"", { name: ""Destino Alojamientos en Madrid"", exact: true }) -> 0 matches",1,
+"Plan aborted: Phase goal is impossible: the date picker is open overlaying the page and selecting day 15 (E11) in the prior batch did not finalize check-out. The current inventory still shows day 11 (E7) as 'Fecha de llegada seleccionada' and day 15 (E11) as 'Fecha de salida seleccionada', meaning both dates ARE selected in the picker. However, the cookie banner overlay (E63 'Aceptar todas', E64 'Solo las necesarias') is blocking the 'Buscar' button (E4) and the search form cannot be submitted without dismissing it. Re-attempting to dismiss the cookie banner is feasible but the date picker needs to close first by clicking outside it, then clicking Buscar (E4). Since prior batches failed validation for empty steps and abort, and the cookie overlay is dismissible, this is recoverable — switching to append_steps instead of abort.",1,
+"plan failed validation - exploration.follow_up_phase_goal: expected string, got undefined",1,
+"page._wrapApiCall: No unique target for step 6 (click E11) after 5000ms. Tried: getByRole(""button"", { name: ""Destino Alojamientos en Madrid"", exact: true }) -> 0 matches",1,

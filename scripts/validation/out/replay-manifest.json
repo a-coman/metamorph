@@ -1,0 +1,706 @@
+{
+  "createdAt": "2026-07-11T14:23:35.179Z",
+  "batchId": "1b94953b-5473-40dd-9001-6bba0ce44e9f",
+  "sample": [
+    {
+      "domain": "amazon",
+      "transformFamily": "idempotence",
+      "mrVersionId": "9ff5a3b0-e965-493a-9ad4-78402e2c1fd3",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "c3074c8a-e6c0-4c41-aaea-628b27ceac8e"
+        },
+        {
+          "kind": "replay",
+          "runId": "178b9eee-6f10-4ead-acfa-7f19da1e9970"
+        },
+        {
+          "kind": "replay",
+          "runId": "6e7bc363-5c61-480a-831a-c128df0c24ef"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "amazon",
+      "transformFamily": "idempotence",
+      "mrVersionId": "5ec755af-0b57-466b-9bc0-41bfeb952a82",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "cbfbe62e-cfe3-4c14-8beb-031528e3d789"
+        },
+        {
+          "kind": "replay",
+          "runId": "e1dc63b9-07e2-4a12-95b2-fb754927f539"
+        },
+        {
+          "kind": "replay",
+          "runId": "f862a4cb-b3f4-4f37-b6d0-fd39a43304cd"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "amazon",
+      "transformFamily": "subset",
+      "mrVersionId": "f30fa829-0815-46b6-9dd0-382c13a0cb68",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "fbbe6d68-956a-4e65-903c-4f88a1c019c2"
+        },
+        {
+          "kind": "replay",
+          "runId": "33407152-3247-4e75-ace4-e93959b55a7a"
+        },
+        {
+          "kind": "replay",
+          "runId": "a85ddc00-24d4-43bc-9cc6-0a105eb6a757"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "amazon",
+      "transformFamily": "subset",
+      "mrVersionId": "5faa078f-fa4a-4db1-8703-434cbb062401",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "69402123-2e8f-41ad-a34f-ac8893fa1c47"
+        },
+        {
+          "kind": "replay",
+          "runId": "009ee784-4b0d-4a48-9f96-a5ffe5b86e67"
+        },
+        {
+          "kind": "replay",
+          "runId": "42a5c5dc-30ec-41e1-b5f9-1ba00a243d42"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "amazon",
+      "transformFamily": "permutation",
+      "mrVersionId": "59ccb46f-7b5f-4cc0-a4f9-e8a1d9abf8a4",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "a51646b2-1439-4526-b187-b86e87d5086d"
+        },
+        {
+          "kind": "replay",
+          "runId": "57244113-be38-4776-b051-17e8bb7b6d8e"
+        },
+        {
+          "kind": "replay",
+          "runId": "a15245e3-441f-4505-85e1-beaaeb5b1b7a"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "amazon",
+      "transformFamily": "permutation",
+      "mrVersionId": "82842c1c-7384-4156-8203-ff4849853afd",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "390accca-aee8-4256-b869-7ddb0356aaff"
+        },
+        {
+          "kind": "replay",
+          "runId": "8bb48043-6790-4ffe-8240-da6cae8e93ed"
+        },
+        {
+          "kind": "replay",
+          "runId": "5a03940a-3729-425a-b499-ec8d2d15170d"
+        }
+      ],
+      "consistencyClass": "observation_drift"
+    },
+    {
+      "domain": "amazon",
+      "transformFamily": "inverse",
+      "mrVersionId": "825f4a7d-ea0b-47e0-a6e2-d1b14aceb71d",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "f7fe3dc8-3101-469e-a5fe-378542c09d7f"
+        },
+        {
+          "kind": "replay",
+          "runId": "6ef7cde1-070a-4560-8fa2-3760d642e8a8"
+        },
+        {
+          "kind": "replay",
+          "runId": "18072d97-8fcb-43d8-8ac7-18192ffb9352"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "amazon",
+      "transformFamily": "inverse",
+      "mrVersionId": "447f319e-1b57-45e9-8b34-5add3d6e8d48",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "7b3f0b86-1384-45ff-88d9-c3274e8d69fd"
+        },
+        {
+          "kind": "replay",
+          "runId": "f256c200-d853-470a-9131-41ece502c2d2"
+        },
+        {
+          "kind": "replay",
+          "runId": "c9ff0d2c-afba-4b7b-bda7-9ea349a31196"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "airbnb",
+      "transformFamily": "idempotence",
+      "mrVersionId": "0ed31c2e-9313-437a-8d05-6a0bd7d942ea",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "ffbcac36-1bd5-4a74-bfe7-8caf514c4b5d"
+        },
+        {
+          "kind": "replay",
+          "runId": "d0f70cf7-16f8-4c53-ab0f-134ff0942125"
+        },
+        {
+          "kind": "replay",
+          "runId": "f884414b-b149-4f50-9c71-029b7b81d1b6"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "airbnb",
+      "transformFamily": "idempotence",
+      "mrVersionId": "5dfe713d-feca-4bd0-adc7-899bbdbabd94",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "568f3566-13a5-49c0-a4b9-d10882beb95b"
+        },
+        {
+          "kind": "replay",
+          "runId": "724c0d59-13e6-47bd-8141-b7eb014d56b0"
+        },
+        {
+          "kind": "replay",
+          "runId": "91c9abe1-e965-4d87-aeaa-88c7fe96f03a"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "airbnb",
+      "transformFamily": "subset",
+      "mrVersionId": "385787dd-cb32-4309-9d65-826fb322b387",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "c889f460-79ad-4a73-b60b-af26ee785621"
+        },
+        {
+          "kind": "replay",
+          "runId": "366a16d4-804b-49ac-95ca-3c83a7fd4d20"
+        },
+        {
+          "kind": "replay",
+          "runId": "6155085c-b29e-402d-a119-767624b495d8"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "airbnb",
+      "transformFamily": "subset",
+      "mrVersionId": "9b4a390b-91b4-4452-9ce9-7768852a23ec",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "6803a628-2b72-43ce-b9bf-d5d47feb72df"
+        },
+        {
+          "kind": "replay",
+          "runId": "35c3f321-3050-4889-99cd-2754e7bce8ca"
+        },
+        {
+          "kind": "replay",
+          "runId": "03342031-4141-4cbf-91dc-43434304aace"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "airbnb",
+      "transformFamily": "permutation",
+      "mrVersionId": "78c09104-fa2c-428a-9ddc-4f1e416cc05e",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "a8d8a8b8-577e-48a5-a38f-ea746d9152ff"
+        },
+        {
+          "kind": "replay",
+          "runId": "b19b9fa2-a980-44ca-8818-1c07109bd6e1"
+        },
+        {
+          "kind": "replay",
+          "runId": "b95580bc-21bb-4886-aaa2-fc2708a617e3"
+        }
+      ],
+      "consistencyClass": "observation_drift"
+    },
+    {
+      "domain": "airbnb",
+      "transformFamily": "permutation",
+      "mrVersionId": "c8b3fab3-c804-444d-8f44-9654c18bd65a",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "4c1c8ec0-f766-4b00-bf2e-d6d4d659f96b"
+        },
+        {
+          "kind": "replay",
+          "runId": "f340b96d-3825-4316-a6e2-97c64685f8e5"
+        },
+        {
+          "kind": "replay",
+          "runId": "3f5d01dd-9d03-41e7-abfa-b00a949acc9b"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "airbnb",
+      "transformFamily": "inverse",
+      "mrVersionId": "85c41236-2867-4030-8590-7fd31472f5e6",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "7010f9bc-36ad-4684-8cb8-2cadd5514aa3"
+        },
+        {
+          "kind": "replay",
+          "runId": "2845bf52-45ba-453a-801a-e6a1b8093206"
+        },
+        {
+          "kind": "replay",
+          "runId": "d1a3c26c-73bf-425c-bc3f-5d96566e661f"
+        }
+      ],
+      "consistencyClass": "observation_drift"
+    },
+    {
+      "domain": "airbnb",
+      "transformFamily": "inverse",
+      "mrVersionId": "0743d345-951d-4035-9c7a-0589a94be5df",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "3d91c830-c09c-464a-ab94-434910447e14"
+        },
+        {
+          "kind": "replay",
+          "runId": "076498a6-cae3-4555-9251-9907518d8443"
+        },
+        {
+          "kind": "replay",
+          "runId": "40b7fed4-b1ef-41c0-8468-c278655ead90"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "booking",
+      "transformFamily": "idempotence",
+      "mrVersionId": "5fc4d4a0-baf5-4c93-890a-950806b01842",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "00374f71-b025-4c81-9677-c4acbff5e252"
+        },
+        {
+          "kind": "replay",
+          "runId": "938f41e3-ea13-4d80-826e-f3813b8c41af"
+        },
+        {
+          "kind": "replay",
+          "runId": "cade3ba7-7be2-4bac-8f9c-324372acbc23"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "booking",
+      "transformFamily": "idempotence",
+      "mrVersionId": "d4ef3a5a-bbf7-4e99-9ae1-43f06147aa1d",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "e323eb3f-e656-4a4b-b20e-57a61291e1b3"
+        },
+        {
+          "kind": "replay",
+          "runId": "44008253-1fc2-454f-82ff-ffe0bdafd0bd"
+        },
+        {
+          "kind": "replay",
+          "runId": "c324d9f3-d6da-489e-99d4-76c50dbf5321"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "booking",
+      "transformFamily": "inverse",
+      "mrVersionId": "bea96f91-3a57-44c6-89d8-4049857fa8eb",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "836c6e87-72fa-4595-a3a4-b37c7c03733f"
+        },
+        {
+          "kind": "replay",
+          "runId": "0a006192-b538-464b-b659-7c84eb3a586c"
+        },
+        {
+          "kind": "replay",
+          "runId": "a8c4183c-7240-4f37-bd1e-d4bfad384755"
+        }
+      ],
+      "consistencyClass": "observation_drift"
+    },
+    {
+      "domain": "github",
+      "transformFamily": "idempotence",
+      "mrVersionId": "54d418a8-09a6-4e21-bd14-715d7fbe2aa2",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "e3cabab8-0020-448a-9a48-053bcd390494"
+        },
+        {
+          "kind": "replay",
+          "runId": "16e8d958-5546-4fa0-b3e3-9b921b6899b3"
+        },
+        {
+          "kind": "replay",
+          "runId": "17940b76-b248-4d30-bd04-22929bd347b9"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "github",
+      "transformFamily": "idempotence",
+      "mrVersionId": "13b7710b-99d0-45e9-b616-922b8b93c16f",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "40a81747-3a17-406a-888b-7f61174daa29"
+        },
+        {
+          "kind": "replay",
+          "runId": "1ad32060-1f8e-4ce2-973e-7654086db8c8"
+        },
+        {
+          "kind": "replay",
+          "runId": "1a93890f-4feb-41e8-ad67-b1bc1d759802"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "github",
+      "transformFamily": "subset",
+      "mrVersionId": "5bc5e0f9-958a-4277-bc19-f7d8ca53965b",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "6d06d561-16fe-4f59-853d-6ad6d71fac8b"
+        },
+        {
+          "kind": "replay",
+          "runId": "c3420d2a-8788-4328-aa37-1e3dbeeee987"
+        },
+        {
+          "kind": "replay",
+          "runId": "75a71791-745f-497e-bbb7-8bb82f8238bb"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "github",
+      "transformFamily": "subset",
+      "mrVersionId": "a11b81ad-b3f7-4e70-ac88-62c01b952b25",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "68999858-90b0-4dd2-a292-ade104e9250a"
+        },
+        {
+          "kind": "replay",
+          "runId": "d506b27b-99e0-47ef-840c-396df1d2c6a0"
+        },
+        {
+          "kind": "replay",
+          "runId": "5d11cecc-89ed-4ccb-b7c3-0edb9aabda26"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "github",
+      "transformFamily": "permutation",
+      "mrVersionId": "7b5f2a1b-5c67-43ae-ac0a-4b4b21d72f8a",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "a7e4010c-3663-409c-a80e-33441bb75cc4"
+        },
+        {
+          "kind": "replay",
+          "runId": "7a6896ac-474c-4463-865f-f8b7099282ca"
+        },
+        {
+          "kind": "replay",
+          "runId": "631e7e82-9e11-4e12-85b2-e246b329fd10"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "github",
+      "transformFamily": "permutation",
+      "mrVersionId": "ecaf8d8e-e8e4-44fa-85e0-4708671e4868",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "94ce58eb-b701-4bc6-a818-852e475b23ff"
+        },
+        {
+          "kind": "replay",
+          "runId": "0fa6690f-2cf3-4074-b1a7-886ddd03ce89"
+        },
+        {
+          "kind": "replay",
+          "runId": "47a0ba69-dec7-4756-86f1-785287d853e6"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "github",
+      "transformFamily": "inverse",
+      "mrVersionId": "13c6c69a-76e9-4a15-82d4-35c9d86269e9",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "1f998abb-a072-4bb3-bd5e-63feb33a22b0"
+        },
+        {
+          "kind": "replay",
+          "runId": "81ec578b-9a4a-4127-ab9b-f7ffcd959ed1"
+        },
+        {
+          "kind": "replay",
+          "runId": "93218d19-6c49-4a9f-90ab-496966ae2315"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "github",
+      "transformFamily": "inverse",
+      "mrVersionId": "5d9e571d-1967-42b1-b108-c3e045b3cec7",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "6e506cf5-a82a-43f7-8d36-6551c132a879"
+        },
+        {
+          "kind": "replay",
+          "runId": "a37b3950-e931-4344-8ed1-5d90128397cd"
+        },
+        {
+          "kind": "replay",
+          "runId": "a2ef8c40-f54a-46fb-bb33-003d8daa3129"
+        }
+      ],
+      "consistencyClass": "stable"
+    },
+    {
+      "domain": "mediamarkt",
+      "transformFamily": "idempotence",
+      "mrVersionId": "03e64153-a88b-436c-9eab-8378525ef5ff",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "4f2ea71b-5e25-410d-a39f-5ebfc73b1795"
+        },
+        {
+          "kind": "replay",
+          "runId": "cfc4410d-e891-48aa-978e-a081669a0d4a"
+        },
+        {
+          "kind": "replay",
+          "runId": "9df20d28-895a-4adb-9fb8-ad81d96250cc"
+        }
+      ],
+      "consistencyClass": "observation_drift"
+    },
+    {
+      "domain": "mediamarkt",
+      "transformFamily": "idempotence",
+      "mrVersionId": "25bca6a6-8b12-475f-bcef-715b6d624f59",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "381a69ef-9338-484d-a2b9-61aa6155fd63"
+        },
+        {
+          "kind": "replay",
+          "runId": "adb0ccd2-e5b9-4bb5-b6a5-36dc6ef00084"
+        },
+        {
+          "kind": "replay",
+          "runId": "614da72d-0329-4580-b863-d031a7cb7b33"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "mediamarkt",
+      "transformFamily": "subset",
+      "mrVersionId": "cf15d15f-50eb-4d48-ad6c-b51cca955891",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "d4a72392-69cc-41b5-8583-3c74b76678c0"
+        },
+        {
+          "kind": "replay",
+          "runId": "a78d97be-690b-453c-92ff-ddea0d726f1e"
+        },
+        {
+          "kind": "replay",
+          "runId": "beb9b976-3636-4dac-8ce8-765ced485aa2"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "mediamarkt",
+      "transformFamily": "subset",
+      "mrVersionId": "5b8d4726-7726-4d4b-a9b1-a7926408753e",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "c90a5fde-d41e-4c27-b13c-0cd7e8b377bb"
+        },
+        {
+          "kind": "replay",
+          "runId": "16343823-9a2f-4852-bd97-7472f01c1db7"
+        },
+        {
+          "kind": "replay",
+          "runId": "7f450ed2-6150-4cab-b793-293a06bc3639"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "mediamarkt",
+      "transformFamily": "permutation",
+      "mrVersionId": "f37f9f57-07fd-4fe4-97cf-4f8770747559",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "47366b38-aa84-471a-9799-d98f6c618b56"
+        },
+        {
+          "kind": "replay",
+          "runId": "8ebbbf20-c051-4b65-8ddf-4abed121dbf8"
+        },
+        {
+          "kind": "replay",
+          "runId": "cbf9f5cf-0964-4722-83e1-0f0cd9f44285"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "mediamarkt",
+      "transformFamily": "permutation",
+      "mrVersionId": "8d982c0e-5fdf-434c-9980-264cc279d506",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "ada2e982-afc3-4a94-b488-97ff4538d67d"
+        },
+        {
+          "kind": "replay",
+          "runId": "31b67b16-ad25-4c5a-aca4-4eca1b980981"
+        },
+        {
+          "kind": "replay",
+          "runId": "0c0d71c0-9905-4d5f-bdc0-3cef2dcdc634"
+        }
+      ],
+      "consistencyClass": "execute_failure"
+    },
+    {
+      "domain": "mediamarkt",
+      "transformFamily": "inverse",
+      "mrVersionId": "4ae27310-135a-4256-8e25-5b36d6b9a86f",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "3808ce8e-16e8-4102-b96f-adeae4f3bf6e"
+        },
+        {
+          "kind": "replay",
+          "runId": "0a6691d7-3b0c-4702-8914-8ef2707604c9"
+        },
+        {
+          "kind": "replay",
+          "runId": "c83d6e7e-2b44-42a7-b415-b30effcc7192"
+        }
+      ],
+      "consistencyClass": "observation_drift"
+    },
+    {
+      "domain": "mediamarkt",
+      "transformFamily": "inverse",
+      "mrVersionId": "aae73085-6370-4b0a-aed4-10a36a174343",
+      "runIds": [
+        {
+          "kind": "initial_auto",
+          "runId": "e714d2c5-7682-4c14-a28b-aef10bec5810"
+        },
+        {
+          "kind": "replay",
+          "runId": "2cd9866b-48a2-41c4-a820-b4e92e322e25"
+        },
+        {
+          "kind": "replay",
+          "runId": "aa1f7bc3-e405-4035-9ce4-d642b977003b"
+        }
+      ],
+      "consistencyClass": "observation_drift"
+    }
+  ]
+}

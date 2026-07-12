@@ -1,0 +1,1060 @@
+@article{10.1145/3708521,
+author = {Li, Rui and Liu, Huai and Poon, Pak-Lok and Towey, Dave and Sun, Chang-Ai and Zheng, Zheng and Zhou, Zhi Quan and Chen, Tsong Yueh},
+title = {Metamorphic Relation Generation: State of the Art and Research Directions},
+year = {2025},
+issue_date = {June 2025},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {34},
+number = {5},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3708521},
+doi = {10.1145/3708521},
+abstract = {Metamorphic testing has become one mainstream technique to address the notorious oracle problem in software testing, thanks to its great successes in revealing real-life bugs in a wide variety of software systems. Metamorphic relations, the core component of metamorphic testing, have continuously attracted research interests from both academia and industry. In the last decade, a rapidly increasing number of studies have been conducted to systematically generate metamorphic relations from various sources and for different application domains. In this article, based on the systematic review on the state of the art for metamorphic relations’ generation, we summarize and highlight visions for further advancing the theory and techniques for identifying and constructing metamorphic relations and discuss promising research directions in related areas.},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = may,
+articleno = {149},
+numpages = {25},
+keywords = {Metamorphic testing, Metamorphic relation, Metamorphic relation generation}
+}
+
+@article{10.1145/3806653,
+author = {Song, Qunying and Ye, He and Harman, Mark and Sarro, Federica},
+title = {Generative AI for Testing of Autonomous Driving Systems: A Survey},
+year = {2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3806653},
+doi = {10.1145/3806653},
+abstract = {Autonomous driving systems (ADS) have been an active area of research, with the potential to deliver significant benefits to society. However, before large-scale deployment on public roads, extensive testing is necessary to validate their functionality and safety under diverse driving conditions. Therefore, different testing approaches are required, and achieving effective and efficient testing of ADS remains an open challenge. Recently, generative AI has emerged as a powerful tool across many domains and is increasingly applied to ADS testing due to its ability to interpret context, reason about complex tasks, and generate diverse outputs. To understand its role in ADS testing, we systematically analyzed 92 relevant studies and synthesized their findings into six major application categories, primarily centered on scenario-based testing. We further evaluated the effectiveness of these approaches and compiled a comprehensive set of resources, including 37 datasets, 17 simulators, 61 ADS systems, 141 metrics, and 100 benchmarks used for evaluation. In addition, we identified 27 limitations in existing research and outlined six major directions for future work. This survey provides an overview and practical insights into the use of generative AI for testing ADS, highlights existing challenges, and outlines future research opportunities in this rapidly evolving field.},
+note = {Just Accepted},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = apr,
+keywords = {Literature Survey, Autonomous Driving Systems, Testing, Generative AI}
+}
+
+@article{10.1145/3806396,
+author = {Dobslaw, Felix and Feldt, Robert and Yoon, Juyeon and Yoo, Shin},
+title = {Challenges in Testing Large Language Model Based Software: A Faceted Taxonomy},
+year = {2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3806396},
+doi = {10.1145/3806396},
+abstract = {Large Language Models (LLMs) and Multi-Agent LLMs (MALLMs) introduce non-determinism, unlike traditional or machine learning software, where models typically produce deterministic outputs for given inputs. LLM-based software requires new approaches to verifying correctness that account for variability within individual test cases, not just across different inputs. This paper presents a taxonomy for LLM test case design, informed by research literature and our experience. Each facet is exemplified, and we conduct an LLM-assisted analysis of six open-source testing frameworks, perform a sensitivity study of an agent-based system across different model configurations, and provide working examples contrasting atomic and aggregated test cases. We identify key variation points that impact test correctness and highlight open challenges that the research, industry, and open-source communities must address as LLMs become integral to software systems. Our taxonomy defines four facets of LLM test case design, addressing ambiguity in both inputs and outputs while establishing best practices. It distinguishes variability in goals, the system under test, and inputs, and introduces two key oracle types: atomic and aggregated. Our findings reveal that current tools treat test executions as isolated events, lack explicit aggregation mechanisms, and inadequately capture variability across model versions, configurations, and repeated runs. This highlights the need for viewing correctness as a distribution of outcomes rather than a binary property, requiring closer collaboration between academia and practitioners to establish mature, variability-aware testing methodologies.},
+note = {Just Accepted},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = apr,
+keywords = {Large Language Models, Software Testing, Correctness, Ambiguity, Aggregated Oracles}
+}
+
+@inproceedings{10.1145/2896971.2896974,
+author = {Sun, Chang-ai and Liu, Yiqiang and Wang, Zuoyi and Chan, W. K.},
+title = {μMT: a data mutation directed metamorphic relation acquisition methodology},
+year = {2016},
+isbn = {9781450341639},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/2896971.2896974},
+doi = {10.1145/2896971.2896974},
+abstract = {When figuring out the expected output for each test case is difficult, metamorphic testing can be applied to alleviate such situations. An involved key challenge is to derive metamorphic relations for the program under test. This paper proposes a datamutation directed metamorphic relation acquisition methodology called μMT. Experimental results on three case studies show that μMT is feasible in deriving metamorphic relations for numeric applications and the derived metamorphic relations show reasonable fault detection effectiveness.},
+booktitle = {Proceedings of the 1st International Workshop on Metamorphic Testing},
+pages = {12–18},
+numpages = {7},
+keywords = {test oracle, metamorphic testing, metamorphic relation},
+location = {Austin, Texas},
+series = {MET '16}
+}
+
+@inproceedings{10.1145/3787120.3787123,
+author = {Henry, Theis and Savourat, Sian and du Bousquet, Lydie and Nakamura, Masahide},
+title = {MTF: an Open-Source Metamorphic Testing Framework for LLM-based systems},
+year = {2026},
+isbn = {9798400722905},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3787120.3787123},
+doi = {10.1145/3787120.3787123},
+abstract = {Metamorphic testing is an emerging approach to solve oracle problems. It relies on relations among different executions of the System Under Test (SUT), called metamorphic relations. This article presents an open-source metamorphic testing framework dedicated to validating LLM-based web services applications. It is decomposed into a metamorphic test generator and a test driver. Both rely on a predefined set of metamorphic relations implemented as libraries that can be completed.},
+booktitle = {Proceedings of the 2025 5th International Conference on Artificial Intelligence and Application Technologies},
+pages = {62–66},
+numpages = {5},
+keywords = {Metamorphic Testing, Framework, LLMs},
+location = {
+},
+series = {AIAT '25}
+}
+
+@inproceedings{10.1109/ICSE-SEIP52600.2021.00023,
+author = {Ahlgren, John and Berezin, Maria Eugenia and Bojarczuk, Kinga and Dulskyte, Elena and Dvortsova, Inna and George, Johann and Gucevska, Natalija and Harman, Mark and Lomeli, Maria and Meijer, Erik and Sapora, Silvia and Spahr-Summers, Justin},
+title = {Testing web enabled simulation at scale using metamorphic testing},
+year = {2021},
+isbn = {9780738146690},
+publisher = {IEEE Press},
+url = {https://doi.org/10.1109/ICSE-SEIP52600.2021.00023},
+doi = {10.1109/ICSE-SEIP52600.2021.00023},
+abstract = {We report on Facebook's deployment of MIA (Metamorphic Interaction Automaton). MIA is used to test Facebook's Web Enabled Simulation, built on a web infrastructure of hundreds of millions of lines of code. MIA tackles the twin problems of test flakiness and the unknowable oracle problem. It uses metamorphic testing to automate continuous integration and regression test execution. MIA also plays the role of a test bot, automatically commenting on all relevant changes submitted for code review. It currently uses a suite of over 40 metamorphic test cases. Even at this extreme scale, a non-trivial metamorphic test suite subset yields outcomes within 20 minutes (sufficient for continuous integration and review processes). Furthermore, our offline mode simulation reduces test flakiness from approximately 50% (of all online tests) to 0% (offline). Metamorphic testing has been widely-studied for 22 years. This paper is the first reported deployment into an industrial continuous integration system.},
+booktitle = {Proceedings of the 43rd International Conference on Software Engineering: Software Engineering in Practice},
+pages = {140–149},
+numpages = {10},
+keywords = {web-enabled simulation, testing, test flakiness, scalability, oracle problem, metamorphic testing},
+location = {Virtual Event, Spain},
+series = {ICSE-SEIP '21}
+}
+
+@article{10.1145/3768581,
+author = {Gu, Siqi and Fang, Chunrong and Zhang, Quanjun and Chen, Zhenyu},
+title = {ACTesting: Automated Cross-Modal Testing Method of Text-to-Image Software},
+year = {2026},
+issue_date = {July 2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {35},
+number = {7},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3768581},
+doi = {10.1145/3768581},
+abstract = {Recently, creative generative AI software has emerged as a pivotal assistant, enabling users to generate content and seek inspiration rapidly. Text-to-Image (T2I) software, one of the most widely used, synthesizes images with text input by engaging in a cross-modal process. However, despite substantial advancements in the T2I engine, T2I software still encounters errors when generating complex or non-realistic scenes, including omitting focal entities, low image realism, and mismatched text-image information. The cross-modal nature of T2I software complicates error detection for traditional testing methods, and the absence of test oracles further exacerbates the complexity of the testing process. To fill this gap, we propose ACTesting, an Automated Cross-modal Testing Method of Text-to-Image Software, the first testing method explicitly designed for T2I software. ACTesting utilizes the metamorphic testing principle to address the oracle problem and identifies cross-modal semantic consistency as its fundamental Metamorphic Relation (MR) by employing the Entity-Relationship (ER) triples. We design three kinds of mutation operators under the guidance of MR and the adaptability density constraint to construct the new input text. After generating the images based on the text, ACTesting verifies whether MR is satisfied by detecting the ER triples across two modalities to detect the errors of T2I software. In our experiments across five popular T2I software, ACTesting effectively generates error-revealing tests, resulting in a decrease in text-image consistency by up to 20% when compared to the baseline. Additionally, an ablation study demonstrates the efficacy of the proposed mutation operators. The experimental results validate that ACTesting can reliably identify errors within T2I software.},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = jun,
+articleno = {183},
+numpages = {24},
+keywords = {Software Testing, Cross-modal, Text-to-Image}
+}
+
+@inproceedings{10.1145/3650105.3652297,
+author = {Wang, Guanyu and Li, Yuekang and Liu, Yi and Deng, Gelei and Li, Tianlin and Xu, Guosheng and Liu, Yang and Wang, Haoyu and Wang, Kailong},
+title = {MeTMaP: Metamorphic Testing for Detecting False Vector Matching Problems in LLM Augmented Generation},
+year = {2024},
+isbn = {9798400706097},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3650105.3652297},
+doi = {10.1145/3650105.3652297},
+abstract = {Augmented generation techniques such as Retrieval-Augmented Generation (RAG) and Cache-Augmented Generation (CAG) have revolutionized the field by enhancing large language model (LLM) outputs with external knowledge and cached information. However, the integration of vector databases, which serve as a backbone for these augmentations, introduces critical challenges, particularly in ensuring accurate vector matching. False vector matching in these databases can significantly compromise the integrity and reliability of LLM outputs, leading to misinformation or erroneous responses. Despite the crucial impact of these issues, there is a notable research gap in methods to effectively detect and address false vector matches in LLM-augmented generation.This paper presents MeTMaP, a metamorphic testing framework developed to identify false vector matching in LLM-augmented generation systems. We derive eight metamorphic relations (MRs) from six NLP datasets, which form our method's core, based on the idea that semantically similar texts should match and dissimilar ones should not. MeTMaP uses these MRs to create sentence triplets for testing, simulating real-world matching scenarios. Our evaluation of MeTMaP over 203 vector matching configurations, involving 29 embedding models and 7 distance metrics, uncovers significant inaccuracies. The results, showing a maximum accuracy of only 41.51% on our tests compared to the original datasets, emphasize the widespread issue of false matches in vector matching methods and the critical need for effective detection and mitigation in LLM-augmented applications.},
+booktitle = {Proceedings of the 2024 IEEE/ACM First International Conference on AI Foundation Models and Software Engineering},
+pages = {12–23},
+numpages = {12},
+keywords = {metamorphic testing, vector matching, augmented generation},
+location = {Lisbon, Portugal},
+series = {FORGE '24}
+}
+
+@article{10.1145/3656340,
+author = {Xu, Congying and Terragni, Valerio and Zhu, Hengcheng and Wu, Jiarong and Cheung, Shing-Chi},
+title = {MR-Scout: Automated Synthesis of Metamorphic Relations from Existing Test Cases},
+year = {2024},
+issue_date = {July 2024},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {33},
+number = {6},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3656340},
+doi = {10.1145/3656340},
+abstract = {Metamorphic Testing (MT) alleviates the oracle problem by defining oracles based on metamorphic relations (MRs) that govern multiple related inputs and their outputs. However, designing MRs is challenging, as it requires domain-specific knowledge. This hinders the widespread adoption of MT. We observe that developer-written test cases can embed domain knowledge that encodes MRs. Such encoded MRs could be synthesized for testing not only their original programs but also other programs that share similar functionalities.In this article, we propose MR-Scout to automatically synthesize MRs from test cases in open-source software (OSS) projects. MR-Scout first discovers MR-encoded test cases (MTCs), and then synthesizes the encoded MRs into parameterized methods (called codified MRs), and filters out MRs that demonstrate poor quality for new test case generation. MR-Scout discovered over 11,000 MTCs from 701 OSS projects. Experimental results show that over 97% of codified MRs are of high quality for automated test case generation, demonstrating the practical applicability of MR-Scout. Furthermore, codified-MRs-based tests effectively enhance the test adequacy of programs with developer-written tests, leading to 13.52% and 9.42% increases in line coverage and mutation score, respectively. Our qualitative study shows that 55.76% to 76.92% of codified MRs are easily comprehensible for developers.},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = jun,
+articleno = {150},
+numpages = {28},
+keywords = {Software testing, metamorphic testing, metamorphic relation, automated test case generation}
+}
+
+@inproceedings{10.1109/ICSE-Companion52605.2021.00118,
+author = {Lin, Xuanyi and Peng, Zedong and Niu, Nan and Wang, Wentao and Liu, Hui},
+title = {Finding metamorphic relations for scientific software},
+year = {2021},
+publisher = {IEEE Press},
+url = {https://doi.org/10.1109/ICSE-Companion52605.2021.00118},
+doi = {10.1109/ICSE-Companion52605.2021.00118},
+abstract = {Metamorphic testing uncovers defects by checking whether a relation holds among multiple software executions. These relations are known as metamorphic relations (MRs). For scientific software operating in a large multi-parameter input space, identifying MRs that determine the simultaneous changes among multiple variables is challenging. In this poster, we propose a fully automatic approach to classifying input and output variables from scientific software's user manual, mining these variables' associations from the user forum to generate MRs, and validating the MRs with existing regression tests. Preliminary results of our end-to-end MR support for the Storm Water Management Model (SWMM) are reported.},
+booktitle = {Proceedings of the 43rd International Conference on Software Engineering: Companion Proceedings},
+pages = {254–255},
+numpages = {2},
+keywords = {storm water management model (SWMM), scientific software, metamorphic relation identification},
+location = {Virtual Event, Spain},
+series = {ICSE '21}
+}
+
+@inproceedings{10.1145/3659677.3659749,
+author = {Boukhlif, Mohamed and Kharmoum, Nassim and Hanine, Mohamed},
+title = {LLMs for Intelligent Software Testing: A Comparative Study},
+year = {2024},
+isbn = {9798400709296},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3659677.3659749},
+doi = {10.1145/3659677.3659749},
+abstract = {The need for effective and timely testing processes has become critical in the constantly changing field of software development. Large Language Models (LLMs) have demonstrated promise in automating test case creation, defect detection, and other software testing tasks through the use of the capabilities of machine/deep learning and natural language processing. This work explores the field of intelligent software testing, with a focus on the use of LLMs in this context. The purpose of this comparative study is to assess the corpus of research in the field in terms of used LLMs, how to interact with them, the use of fine-tuning, and prompt engineering, and explore the different technologies and testing types automated using LLMs. The findings of this study not only contribute to the growing body of knowledge on intelligent software testing but also guide fellow researchers and industry engineers in selecting the most suitable LLM for their specific testing needs.},
+booktitle = {Proceedings of the 7th International Conference on Networking, Intelligent Systems and Security},
+articleno = {42},
+numpages = {8},
+keywords = {Comparative Study, Large Language Models, Natural Language Processing, Software Testing, Test Case Generation},
+location = {Meknes, AA, Morocco},
+series = {NISS '24}
+}
+
+@inproceedings{10.1145/3468264.3473136,
+author = {Chen, Tsong Yueh and Tse, T. H.},
+title = {New visions on metamorphic testing after a quarter of a century of inception},
+year = {2021},
+isbn = {9781450385626},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3468264.3473136},
+doi = {10.1145/3468264.3473136},
+abstract = {Metamorphic testing (MT) was introduced about a quarter of a century ago. It is increasingly being accepted by researchers and the industry as a useful testing technique. The studies, research results, applications, and extensions of MT have given us many insights and visions for its future. Our visions include: MRs will be a practical means to top up test case generation techniques, beyond the alleviation of the test oracle problem; MT will not only be a standalone technique, but conveniently integrated with other methods; MT and MRs will evolve beyond software testing, or even beyond verification; MRs may be anything that you can imagine, beyond the necessary properties of algorithms; MT research will be beyond empirical studies and move toward a theoretical foundation; MT will not only bring new concepts to software testing but also new concepts to other disciplines; MRs will alleviate the reliable test set problem beyond traditional approaches. These visions may help researchers explore the challenges and opportunities for MT in the next decade.},
+booktitle = {Proceedings of the 29th ACM Joint Meeting on European Software Engineering Conference and Symposium on the Foundations of Software Engineering},
+pages = {1487–1490},
+numpages = {4},
+keywords = {Testing, Test oracle, Reliable test set, Proving, Metamorphic testing, Metamorphic relation, Debugging},
+location = {Athens, Greece},
+series = {ESEC/FSE 2021}
+}
+
+@article{10.1145/3798212,
+author = {Xu, Gengyang and Xiao, Dongwei and Peng, Yiteng and Wang, Shuai},
+title = {MetaSpace: Metamorphic Testing for Spatial Cognition in Embodied Agents},
+year = {2026},
+issue_date = {April 2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {10},
+number = {OOPSLA1},
+url = {https://doi.org/10.1145/3798212},
+doi = {10.1145/3798212},
+abstract = {An embodied agent is an intelligent entity that interacts with its environment through a physical body. Currently, the evaluation of embodied agents primarily relies on two paradigms: (1) manually annotated Visual Question Answering (VQA) pairs and (2) high-level task completion metrics, such as success in navigation or manipulation. The former is labor-intensive and subject to variability in annotation quality. The latter may obscure critical vulnerabilities, allowing agents to complete tasks through suboptimal means or safety violations, thereby concealing safety risks and inefficiencies. Given that spatial cognition is the cornerstone for executing embodied tasks, there is a pressing need to assess whether embodied agents possess robust spatial cognition during task execution.    Inspired by metamorphic testing principles in software engineering, we propose MetaSpace, a novel framework designed to evaluate the spatial cognition of agents. By leveraging spatiotemporal multimodal states derived from real execution trajectories, MetaSpace automatically generates test cases based on predefined metamorphic relations (MRs) grounded in logical rules and physical laws. Crucially, we encode these MRs as executable rules in a logic programming language (Prolog). Violations of these relations indicate failures in spatial cognition. Our empirical evaluation across three embodied scenarios demonstrates that MetaSpace successfully detects 90,422 spatial cognition errors in state-of-the-art (SOTA) MLLM-driven agents. We introduce the Spatial Cognition (SC) score to quantify performance. Results indicate that all SOTA agents achieve average scores between 0.44 and 0.52, significantly lower than the human benchmark of 0.96. Additionally, these agents struggle with directional tasks, with SC scores consistently below 0.38. In contrast, their performance in magnitude-related tasks is relatively better, with most SC scores exceeding 0.5. To mitigate the identified spatial cognition errors, we explore potential improvement strategies. Preliminary results suggest that traditional prompting techniques (e.g., Chain of Thought) are limited, while spatially-aware prompting (e.g., cognitive maps) shows promise. Our findings underscore the importance of ongoing community efforts to enhance embodied agent performance by prioritizing the improvement of spatial cognition, a fundamental requirement for executing embodied tasks.},
+journal = {Proc. ACM Program. Lang.},
+month = apr,
+articleno = {104},
+numpages = {30},
+keywords = {embodied agent, software testing, spatial cognition}
+}
+
+@inproceedings{10.1145/3533767.3534225,
+author = {Fan, Ming and Wei, Jiali and Jin, Wuxia and Xu, Zhou and Wei, Wenying and Liu, Ting},
+title = {One step further: evaluating interpreters using metamorphic testing},
+year = {2022},
+isbn = {9781450393799},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3533767.3534225},
+doi = {10.1145/3533767.3534225},
+abstract = {The black-box nature of the Deep Neural Network (DNN) makes it difficult for people to understand why it makes a specific decision, which restricts its applications in critical tasks. Recently, many interpreters (interpretation methods) are proposed to improve the transparency of DNNs by providing relevant features in the form of a saliency map. However, different interpreters might provide different interpretation results for the same classification case, which motivates us to conduct the robustness evaluation of interpreters.    However, the biggest challenge of evaluating interpreters is the testing oracle problem, i.e., hard to label ground-truth interpretation results. To fill this critical gap, we first use the images with bounding boxes in the object detection system and the images inserted with backdoor triggers as our original ground-truth dataset. Then, we apply metamorphic testing to extend the dataset by three operators, including inserting an object, deleting an object, and feature squeezing the image background. Our key intuition is that after the three operations which do not modify the primary detected objects, the interpretation results should not change for good interpreters. Finally, we measure the qualities of interpretation results quantitatively with the Intersection-over-Minimum (IoMin) score and evaluate interpreters based on the statistics of metamorphic relation's failures.    We evaluate seven popular interpreters on 877,324 metamorphic images in diverse scenes. The results show that our approach can quantitatively evaluate interpreters' robustness, where Grad-CAM provides the most reliable interpretation results among the seven interpreters.},
+booktitle = {Proceedings of the 31st ACM SIGSOFT International Symposium on Software Testing and Analysis},
+pages = {327–339},
+numpages = {13},
+keywords = {Robustness, Metamorphic Testing, Interpreter Evaluation, DNN Model, Backdoor},
+location = {Virtual, South Korea},
+series = {ISSTA 2022}
+}
+
+@article{10.1145/3814604,
+author = {Rajbahadur, Gopi Krishnan and Oliva, Gustavo A. and Lin, Dayi and Shin, Jiho and Hassan, Ahmed E.},
+title = {From Cool Demos to Production-Ready FMware: Core Challenges and a Technology Roadmap},
+year = {2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3814604},
+doi = {10.1145/3814604},
+abstract = {The rapid expansion of foundation models (FMs), such as large language models (LLMs), has given rise to FMware, software systems that integrate FM(s) as core components. While building demonstration-level FMware is relatively straightforward, transitioning to production-ready systems presents numerous challenges, including reliability, high implementation costs, scalability, and compliance with privacy regulations. Our paper conducts a semi-structured thematic synthesis to identify key challenges in productionizing FMware across diverse data sources, including our industry experience developing FMArts, a FMware lifecycle engineering platform, and its integration into Huawei Cloud; grey literature; academic publications; hands-on involvement in the Open Platform for Enterprise AI (OPEA); organizing the AIware conference and bootcamp; and co-leading the ISO SPDX SBOM working group on AI and datasets. We identify critical issues in FM(s) selection, data and model alignment, prompt engineering, agent orchestration, system testing, and deployment, alongside cross-cutting concerns such as memory management, observability, and feedback integration. We discuss necessary technologies and strategies to address these challenges and offer guidance to enable the transition from demonstration systems to scalable, production-ready FMware solutions. Our findings underscore the importance of continued research and multi-industry collaboration to advance the development of production-ready FMware.},
+note = {Just Accepted},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = jun,
+keywords = {AI-powered Software, Production-ready FMware, FMware, Productionization}
+}
+
+@inproceedings{10.1145/3757279.3785602,
+author = {Donini, Massimo and Arcaini, Paolo and Oliverio, Michael and Ishikawa, Fuyuki and Mazzei, Alessandro and Lyu, Deyun and Gena, Cristina},
+title = {Coordinating Speech with Touch Input and Visual Cues in Human–Robot Interaction: A Multimodal System Evaluated through Metamorphic Testing},
+year = {2026},
+isbn = {9798400721281},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3757279.3785602},
+doi = {10.1145/3757279.3785602},
+abstract = {This paper presents a multimodal human-robot interaction (HRI) system for educational contexts implemented on the humanoid robot Pepper. The system leverages multiple communicative channels, allowing learners to combine speech with tablet interaction while the robot responds through synchronized speech, textual captions and dynamic visual cues. To ensure robustness and reliability, we introduce the use of Metamorphic Testing for multimodal HRI. By validating system behavior through systematic input transformations, we demonstrate how metamorphic testing can uncover inconsistencies across linguistic, visual and cross-modal interactions. This work contributes both a novel methodological framework for evaluating multimodal HRI systems and an application to educational robotics.},
+booktitle = {Proceedings of the 21st ACM/IEEE International Conference on Human-Robot Interaction},
+pages = {639–647},
+numpages = {9},
+keywords = {dialogue system, human robot interaction, metamorphic testing, multimodal interaction},
+location = {Edinburgh, Scotland, UK},
+series = {HRI '26}
+}
+
+@article{10.1145/3821438,
+author = {Yousefizadeh, Hossein and Gu, Shenghui and Briand, Lionel C. and Nasr, Ali},
+title = {Constrained Co-evolutionary Differential Metamorphic Testing for Autonomous Systems with an Interpretability Approach},
+year = {2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3821438},
+doi = {10.1145/3821438},
+abstract = {Autonomous systems, such as autonomous driving systems, evolve rapidly through frequent updates, risking unintended behavioral degradations. Effective system-level testing is challenging due to the vast scenario space, the absence of reliable test oracles, and the need for practically applicable and interpretable test cases. We present CoCoMagic, a novel automated test case generation method that combines metamorphic testing, differential testing, and advanced search-based techniques to identify behavioral divergences between versions of autonomous systems. CoCoMagic formulates test generation as a constrained cooperative co-evolutionary search, evolving both source scenarios and metamorphic perturbations to maximize differences in violations of predefined metamorphic relations across versions. Constraints and population initialization strategies guide the search toward realistic, relevant scenarios. An integrated interpretability approach aids in diagnosing the root causes of divergences. We evaluate CoCoMagic on an end-to-end autonomous driving system, InterFuser, within the Carla virtual simulator. Results show significant improvements over baseline search methods, identifying more distinct high-severity behavioral differences while maintaining scenario realism. The interpretability approach provides actionable insights for developers, supporting targeted debugging and safety assessment. CoCoMagic offers an efficient, effective, and interpretable way for the differential testing of evolving autonomous systems across versions.},
+note = {Just Accepted},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = jun,
+keywords = {autonomous systems, autonomous driving systems, system-level testing, metamorphic testing, differential testing, search-based testing, automated testing, cooperative co-evolutionary algorithms}
+}
+
+@article{10.1145/3579642,
+author = {Tang, Shuncheng and Zhang, Zhenya and Zhang, Yi and Zhou, Jixiang and Guo, Yan and Liu, Shuang and Guo, Shengjian and Li, Yan-Fu and Ma, Lei and Xue, Yinxing and Liu, Yang},
+title = {A Survey on Automated Driving System Testing: Landscapes and Trends},
+year = {2023},
+issue_date = {September 2023},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {32},
+number = {5},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3579642},
+doi = {10.1145/3579642},
+abstract = {Automated Driving Systems (ADS) have made great achievements in recent years thanks to the efforts from both academia and industry. A typical ADS is composed of multiple modules, including sensing, perception, planning, and control, which brings together the latest advances in different domains. Despite these achievements, safety assurance of ADS is of great significance, since unsafe behavior of ADS can bring catastrophic consequences. Testing has been recognized as an important system validation approach that aims to expose unsafe system behavior; however, in the context of ADS, it is extremely challenging to devise effective testing techniques, due to the high complexity and multidisciplinarity of the systems. There has been great much literature that focuses on the testing of ADS, and a number of surveys have also emerged to summarize the technical advances. Most of the surveys focus on the system-level testing performed within software simulators, and they thereby ignore the distinct features of different modules. In this article, we provide a comprehensive survey on the existing ADS testing literature, which takes into account both module-level and system-level testing. Specifically, we make the following contributions: (1) We survey the module-level testing techniques for ADS and highlight the technical differences affected by the features of different modules; (2) we also survey the system-level testing techniques, with focuses on the empirical studies that summarize the issues occurring in system development or deployment, the problems due to the collaborations between different modules, and the gap between ADS testing in simulators and the real world; and (3) we identify the challenges and opportunities in ADS testing, which pave the path to the future research in this field.},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = jul,
+articleno = {124},
+numpages = {62},
+keywords = {ADS testing, module-level testing, system-level testing, system security}
+}
+
+@proceedings{10.1145/3524846,
+title = {MET '22: Proceedings of the 7th International Workshop on Metamorphic Testing},
+year = {2022},
+isbn = {9781450393072},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {MET series has provided a good forum for discussing novel ideas, new perspectives, new applications, and the state of research, related to or inspired by Metamorphic Testing. This workshop aims to bring together researchers and practitioners in both academia and industry to discuss their research results, experiences and insights into Metamorphic Testing. In this year, we are facing the similar situation of the pandemic as the previous MET in 2020 and 2021, and hence we will run this workshop virtually again.},
+location = {Pittsburgh, Pennsylvania}
+}
+
+@proceedings{10.1145/3755881,
+editor = {Hong Mei, Jian Lv, Zhi Jin, Xuandong Li, Thomas Zimmermann, Ge Li, Lei Bu and Xin Xia},
+title = {Internetware '25: Proceedings of the 16th International Conference on Internetware},
+year = {2025},
+isbn = {9798400719264},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {
+}
+}
+
+@inproceedings{10.1145/3663529.3663838,
+author = {Alshahwan, Nadia and Harman, Mark and Marginean, Alexandru and Tal, Rotem and Wang, Eddy},
+title = {Observation-Based Unit Test Generation at Meta},
+year = {2024},
+isbn = {9798400706585},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3663529.3663838},
+doi = {10.1145/3663529.3663838},
+abstract = {TestGen automatically generates unit tests, carved from serialized observations of complex objects, observed during app execution.  We describe the development and deployment of TestGen at Meta.   In particular, we focus on the scalability challenges overcome during development in order to deploy observation-based test carving at scale in industry. So far, TestGen has landed 518 tests into production, which have been executed 9,617,349 times in continuous integration, finding 5,702 faults.   Meta is currently in the process of more widespread deployment.  Our evaluation reveals that, when carving its observations from 4,361 reliable end-to-end tests, TestGen was able to generate tests for at least 86% of the classes covered by end-to-end tests.   Testing on 16 Kotlin Instagram app-launch-blocking tasks demonstrated that the TestGen tests would have trapped 13 of these before they became launch blocking.},
+booktitle = {Companion Proceedings of the 32nd ACM International Conference on the Foundations of Software Engineering},
+pages = {173–184},
+numpages = {12},
+keywords = {Automated test generation, test carving, unit testing},
+location = {Porto de Galinhas, Brazil},
+series = {FSE 2024}
+}
+
+@proceedings{10.1145/3643796,
+title = {IDE '24: Proceedings of the 1st ACM/IEEE Workshop on Integrated Development Environments},
+year = {2024},
+isbn = {9798400705809},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {Despite the research community's desire to improve the productivity of software developers, it is challenging for research to move beyond papers into the everyday practice of software development. Since IDEs are one of the most widely used tools in developers' toolkit, they remain a crucial venue for research to reach the practitioners. To close the gap between research and adoption in practice, we launched the first edition of the IDE Workshop.},
+location = {Lisbon, Portugal}
+}
+
+@article{10.1145/3772722,
+author = {Giandomenico, Felicita Di and Masetti, Giulio and Lonetti, Francesca and Bertolino, Antonia},
+title = {Using Metamorphic Relations in Redundancy-based Fault/Intrusion Tolerance},
+year = {2026},
+issue_date = {June 2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {35},
+number = {6},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3772722},
+doi = {10.1145/3772722},
+abstract = {Redundancy is widely used as a method for fault and intrusion tolerance. However, if the redundant components lack sufficient diversity, potentially dangerous common mode failures may go undetected. To address this issue, the design diversity approach has been proposed in the literature for decades. In this article, we take an innovative approach to this problem by introducing a broader notion of diversity, which leverages Metamorphic Relations (MRs), i.e., necessary properties that must hold among diverse inputs and diverse outputs. We define two generic categories of MRs that establish data diversity and functional diversity. Furthermore, we elaborate on two corresponding logical architectures, paying particular attention to the necessary conditions for the adjudicator component. Finally, we present an initial evaluation of the proposed architectures, which points out the advantages with respect to their counterparts based on the traditional design diversity method, and discuss future research directions for this novel conceptual approach to redundancy-based fault/intrusion tolerance.},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = may,
+articleno = {143},
+numpages = {34},
+keywords = {Metamorphic Relations, Fault/Intrusion Tolerance, Data diversity, Functional diversity}
+}
+
+@proceedings{10.1145/3679006,
+title = {MET 2024: Proceedings of the 9th ACM International Workshop on Metamorphic Testing},
+year = {2024},
+isbn = {9798400711176},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {Welcome to the 9th International Workshop on Metamorphic Testing (MET 2024), held in conjunction with the 2024 ACM SIGSOFT International Symposium on Software Testing and Analysis and European Conference on Object-Oriented Programming (ISSTA/ECOOP 2024).},
+location = {Vienna, Austria}
+}
+
+@article{10.1145/3664608,
+author = {Sun, Zeyu and Chen, Zhenpeng and Zhang, Jie and Hao, Dan},
+title = {Fairness Testing of Machine Translation Systems},
+year = {2024},
+issue_date = {July 2024},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {33},
+number = {6},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3664608},
+doi = {10.1145/3664608},
+abstract = {Machine translation is integral to international communication and extensively employed in diverse human-related applications. Despite remarkable progress, fairness issues persist within current machine translation systems. In this article, we propose FairMT, an automated fairness testing approach tailored for machine translation systems. FairMT operates on the assumption that translations of semantically similar sentences, containing protected attributes from distinct demographic groups, should maintain comparable meanings. It comprises three key steps: (1) test input generation, producing inputs covering various demographic groups; (2) test oracle generation, identifying potential unfair translations based on semantic similarity measurements; and (3) regression, discerning genuine fairness issues from those caused by low-quality translation. Leveraging FairMT, we conduct an empirical study on three leading machine translation systems–Google Translate, T5, and Transformer. Our investigation uncovers up to 832, 1,984, and 2,627 unfair translations across the three systems, respectively. Intriguingly, we observe that fair translations tend to exhibit superior translation performance, challenging the conventional wisdom of a fairness-performance tradeoff prevalent in the fairness literature.},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = jun,
+articleno = {156},
+numpages = {27},
+keywords = {Fairness testing, metamorphic testing, machine translation, protected attributes}
+}
+
+@proceedings{10.1145/3787120,
+title = {AIAT '25: Proceedings of the 2025 5th International Conference on Artificial Intelligence and Application Technologies},
+year = {2025},
+isbn = {9798400722905},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {
+}
+}
+
+@article{10.1145/3787202,
+author = {Liu, Chunyan and Lei, Yan and Xie, Huan and Wang, Jinping and Yu, Yue and Lo, David},
+title = {Survey on Learning-based Dynamic Fault Localization: From Traditional Machine Learning to Large Language Models},
+year = {2026},
+issue_date = {July 2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {58},
+number = {9},
+issn = {0360-0300},
+url = {https://doi.org/10.1145/3787202},
+doi = {10.1145/3787202},
+abstract = {Learning-based dynamic fault localization techniques play a crucial role in the field of software engineering. These techniques dynamically execute test cases to meticulously extract useful knowledge from the execution information in the program, with the aim of identifying fault locations by leveraging machine learning, deep learning, and large language models. Currently, there is already a flourishing body of research that is intensely focused on learning-based dynamic fault localization. Research literature can be categorized into two main aspects for learning-based dynamic fault localization: data-based enhancements (i.e., the datasets) and model-based enhancements (i.e., the suspiciousness algorithms). Thus, we conduct an extensive literature review on learning-based dynamic fault localization from the aspects of the data task and the model task. Among them, each task is divided into multiple sub-tasks in a systematic manner to comprehensively discuss the details. In addition, we analyze and summarize the datasets and metrics that have been widely used to evaluate the effectiveness of the proposed techniques in recent years, so that researchers can have an intuitive perception of them. We also discuss the present challenges and the directions for future research.},
+journal = {ACM Comput. Surv.},
+month = feb,
+articleno = {222},
+numpages = {39},
+keywords = {Fault localization, machine learning, deep learning, large language models, survey}
+}
+
+@inproceedings{10.1145/3611643.3616258,
+author = {Cao, Jialun and Lu, Yaojie and Wen, Ming and Cheung, Shing-Chi},
+title = {Testing Coreference Resolution Systems without Labeled Test Sets},
+year = {2023},
+isbn = {9798400703270},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3611643.3616258},
+doi = {10.1145/3611643.3616258},
+abstract = {Coreference resolution (CR) is a task to resolve different expressions   (e.g., named entities, pronouns) that refer to the same real-world en-   tity/event. It is a core natural language processing (NLP) component   that underlies and empowers major downstream NLP applications   such as machine translation, chatbots, and question-answering. De-   spite its broad impact, the problem of testing CR systems has rarely   been studied. A major difficulty is the shortage of a labeled dataset   for testing. While it is possible to feed arbitrary sentences as test   inputs to a CR system, a test oracle that captures their expected   test outputs (coreference relations) is hard to define automatically.   To address the challenge, we propose Crest, an automated testing   methodology for CR systems. Crest uses constituency and depen-   dency relations to construct pairs of test inputs subject to the same   coreference. These relations can be leveraged to define the meta-   morphic relation for metamorphic testing. We compare Crest with   five state-of-the-art test generation baselines on two popular CR   systems, and apply them to generate tests from 1,000 sentences   randomly sampled from CoNLL-2012, a popular dataset for corefer-   ence resolution. Experimental results show that Crest outperforms   baselines significantly. The issues reported by Crest are all true   positives (i.e., 100% precision), compared with 63% to 75% achieved   by the baselines.},
+booktitle = {Proceedings of the 31st ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering},
+pages = {107–119},
+numpages = {13},
+keywords = {Coreference resolution testing, Metamorphic testing, SE4AI},
+location = {San Francisco, CA, USA},
+series = {ESEC/FSE 2023}
+}
+
+@inproceedings{10.1145/3611643.3616295,
+author = {Yu, Boxi and Hu, Yiyan and Mang, Qiuyang and Hu, Wenhan and He, Pinjia},
+title = {Automated Testing and Improvement of Named Entity Recognition Systems},
+year = {2023},
+isbn = {9798400703270},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3611643.3616295},
+doi = {10.1145/3611643.3616295},
+abstract = {Named entity recognition (NER) systems have seen rapid progress in recent years due to the development of deep neural networks. These systems are widely used in various natural language processing applications, such as information extraction, question answering, and sentiment analysis. However, the complexity and intractability of deep neural networks can make NER systems unreliable in certain circumstances, resulting in incorrect predictions. For example, NER systems may misidentify female names as chemicals or fail to recognize the names of minority groups, leading to user dissatisfaction. To tackle this problem, we introduce TIN, a novel, widely applicable approach for automatically testing and repairing various NER systems. The key idea for automated testing is that the NER predictions of the same named entities under similar contexts should be identical. The core idea for automated repairing is that similar named entities should have the same NER prediction under the same context. We use TIN to test two SOTA NER models and two commercial NER APIs, i.e., Azure NER and AWS NER. We manually verify 784 of the suspicious issues reported by TIN and find that 702 are erroneous issues, leading to high precision (85.0%-93.4%) across four categories of NER errors: omission, over-labeling, incorrect category, and range error. For automated repairing, TIN achieves a high error reduction rate (26.8%-50.6%) over the four systems under test, which successfully repairs 1,056 out of the 1,877 reported NER errors.},
+booktitle = {Proceedings of the 31st ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering},
+pages = {883–894},
+numpages = {12},
+keywords = {AI software, Metamorphic testing, named entity recognition, software repairing},
+location = {San Francisco, CA, USA},
+series = {ESEC/FSE 2023}
+}
+
+@inproceedings{10.1145/3691620.3694986,
+author = {Xiong, Yiheng and Su, Ting and Wang, Jue and Sun, Jingling and Pu, Geguang and Su, Zhendong},
+title = {General and Practical Property-based Testing for Android Apps},
+year = {2024},
+isbn = {9798400712487},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3691620.3694986},
+doi = {10.1145/3691620.3694986},
+abstract = {Finding non-crashing functional bugs for Android apps is challenging for both manual testing and automated GUI testing techniques. This paper introduces and designs a general and practical testing technique based on the idea of property-based testing for finding such bugs. Specifically, our technique incorporates (1) a property description language (PDL) to allow specifying desired app properties, and (2) two exploration strategies as the input generators for effectively validating the properties. We implemented our technique as a tool named Kea and evaluated it on 124 historical bugs from eight real-world, popular Android apps. Our evaluation shows that our PDL can specify all the app properties violated by these historical bugs, demonstrating its generability for finding functional bugs. Kea successfully found 66 (68.0%) and 92 (94.8%) of the 97 historical bugs in scope under the two exploration strategies, demonstrating its practicability. Moreover, Kea found 25 new functional bugs on the latest versions of these eight apps, given the specified properties. To date, all these bugs have been confirmed, and 21 have been fixed. In comparison, prior state-of-the-art techniques found only 13 (13.4%) historical bugs and 1 new bug. We have made all the artifacts publicly available at https://github.com/ecnusse/Kea.},
+booktitle = {Proceedings of the 39th IEEE/ACM International Conference on Automated Software Engineering},
+pages = {53–64},
+numpages = {12},
+keywords = {property-based testing, Android app testing, non-crashing functional bugs},
+location = {Sacramento, CA, USA},
+series = {ASE '24}
+}
+
+@proceedings{10.1145/3663529,
+title = {FSE 2024: Companion Proceedings of the 32nd ACM International Conference on the Foundations of Software Engineering},
+year = {2024},
+isbn = {9798400706585},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {We are pleased to welcome all delegates to FSE 2024, the ACM International Conference on the Foundations of Software Engineering (FSE) 2024. The conference now has a shorter name! FSE is an internationally renowned forum for researchers, practitioners, and educators to present and discuss the most recent innovations, trends, experiences, and challenges in the field of software engineering. FSE brings together experts from academia and industry to exchange the latest research results and trends as well as their practical application in all areas of software engineering.},
+location = {Porto de Galinhas, Brazil}
+}
+
+@article{10.1145/3729374,
+author = {Yang, Haowen and Li, Zhengda and Zhong, Zhiqing and Tang, Xiaoying and He, Pinjia},
+title = {Towards Understanding Performance Bugs in Popular Data Science Libraries},
+year = {2025},
+issue_date = {July 2025},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {2},
+number = {FSE},
+url = {https://doi.org/10.1145/3729374},
+doi = {10.1145/3729374},
+abstract = {With the increasing demand for handling large-scale and complex data, data science (DS) applications often suffer from long execution time and rapid RAM exhaustion, which leads to many serious issues like unbearable delays and crashes in financial transactions. As popular DS libraries are frequently used in these applications, their performance bugs (PBs) are a major contributing factor to these issues, making it crucial to address them for improving overall application performance. However, PBs in popular DS libraries remain largely unexplored. To address this gap, we conducted a study of 202 PBs collected from seven popular DS libraries. Our study examined the impact of PBs and proposed a taxonomy for common root causes. We found over half of the PBs arise from inefficient data processing operations, especially within data structure. We also explored the effort required to locate their root causes and fix these bugs, along with the challenges involved. Notably, around 20% of the PBs could be fixed using simple strategies (e.g. Conditions Optimizing), suggesting the potential for automated repair approaches. Our findings highlight the severity of PBs in core DS libraries and offer insights for developing high-performance libraries and detecting PBs. Furthermore, we derived test rules from our identified root causes, identifying eight PBs, of which four were confirmed, demonstrating the practical utility of our findings.},
+journal = {Proc. ACM Softw. Eng.},
+month = jun,
+articleno = {FSE104},
+numpages = {24},
+keywords = {data science, empirical study, performance problem}
+}
+
+@article{10.1145/3617175,
+author = {Golmohammadi, Amid and Zhang, Man and Arcuri, Andrea},
+title = {Testing RESTful APIs: A Survey},
+year = {2023},
+issue_date = {January 2024},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {33},
+number = {1},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3617175},
+doi = {10.1145/3617175},
+abstract = {In industry, RESTful APIs are widely used to build modern Cloud Applications. Testing them is challenging, because not only do they rely on network communications, but also they deal with external services like databases. Therefore, there has been a large amount of research sprout in recent years on how to automatically verify this kind of web services. In this article, we present a comprehensive review of the current state-of-the-art in testing RESTful APIs based on the analysis of 92 scientific articles. These articles were gathered by utilizing search queries formulated around the concept of RESTful API testing on seven popular databases. We eliminated irrelevant articles based on our predefined criteria and conducted a snowballing phase to minimize the possibility of missing any relevant paper. This survey categorizes and summarizes the existing scientific work on testing RESTful APIs and discusses the current challenges in the verification of RESTful APIs. This survey clearly shows an increasing interest among researchers in this field, from 2017 onward. However, there are still a lot of open research challenges to overcome.},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = nov,
+articleno = {27},
+numpages = {41},
+keywords = {Survey, literature review, REST, API, testing, test case generation, fuzzing, web service}
+}
+
+@inproceedings{10.1109/ASE56229.2023.00107,
+author = {Liu, Yi and Li, Yuekang and Deng, Gelei and Juefei-Xu, Felix and Du, Yao and Zhang, Cen and Liu, Chengwei and Li, Yeting and Ma, Lei and Liu, Yang},
+title = {Aster: Automatic Speech Recognition System Accessibility Testing for Stutterers},
+year = {2024},
+isbn = {9798350329964},
+publisher = {IEEE Press},
+url = {https://doi.org/10.1109/ASE56229.2023.00107},
+doi = {10.1109/ase56229.2023.00107},
+abstract = {The popularity of automatic speech recognition (ASR) systems nowadays leads to an increasing need for improving their accessibility. Handling stuttering speech is an important feature for accessible ASR systems. To improve the accessibility of ASR systems for stutterers, we need to expose and analyze the failures of ASR systems on stuttering speech. The speech datasets recorded from stutterers are not diverse enough to expose most of the failures. Furthermore, these datasets lack ground truth information about the non-stuttered text, rendering them unsuitable as comprehensive test suites. Therefore, a methodology for generating stuttering speech as test inputs to test and analyze the performance of ASR systems is needed. However, generating valid test inputs in this scenario is challenging. The reason is that although the generated test inputs should mimic how stutterers speak, they should also be diverse enough to trigger more failures. To address the challenge, we propose Aster, a technique for automatically testing the accessibility of ASR systems. Aster can generate valid test cases by injecting five different types of stuttering. The generated test cases can both simulate realistic stuttering speech and expose failures in ASR systems. Moreover, Aster can further enhance the quality of the test cases with a multi-objective optimization-based seed updating algorithm. We implemented Aster as a framework and evaluated it on four open-source ASR models and three commercial ASR systems. We conduct a comprehensive evaluation of Aster and find that it significantly increases the word error rate, match error rate, and word information loss in the evaluated ASR systems. Additionally, our user study demonstrates that the generated stuttering audio is indistinguishable from real-world stuttering audio clips.},
+booktitle = {Proceedings of the 38th IEEE/ACM International Conference on Automated Software Engineering},
+pages = {510–521},
+numpages = {12},
+keywords = {automatic speech recognition, accessibility testing},
+location = {Echternach, Luxembourg},
+series = {ASE '23}
+}
+
+@inproceedings{10.1109/WI-IAT.2010.101,
+author = {Dong, Guowei and Wu, Shizhong and Wang, Guisi and Guo, Tao and Huang, Yonggang},
+title = {Security Assurance with Metamorphic Testing and Genetic Algorithm},
+year = {2010},
+isbn = {9780769541914},
+publisher = {IEEE Computer Society},
+address = {USA},
+url = {https://doi.org/10.1109/WI-IAT.2010.101},
+doi = {10.1109/wi-iat.2010.101},
+abstract = {The correctness of mission-critical software is an important part of information security, but oracle problem and test data generation are constraints for some programs. Although metamorphic testing (MT) is practical for programs with oracle problem and evolutionary testing (ET) is a good application of genetic algorithm (GA) for automatic test data generation, fitness functions used in ET are not always effective at target search. This article provides a method for improving ET’s efficiency by considering metamorphic relation (MR) when fitness function is constructed, and finally some conclusions are presented.},
+booktitle = {Proceedings of the 2010 IEEE/WIC/ACM International Conference on Web Intelligence and Intelligent Agent Technology - Volume 03},
+pages = {397–401},
+numpages = {5},
+keywords = {security, metamorphic testing, genetic algorithm, correctness},
+series = {WI-IAT '10}
+}
+
+@proceedings{10.1145/3756681,
+editor = {Muhammad Ali Babar, Ay\c{s}e Tosun, Stefan Wagner and Viktoria Stray},
+title = {EASE '25: Proceedings of the 29th International Conference on Evaluation and Assessment in Software Engineering},
+year = {2025},
+isbn = {9798400713859},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {
+}
+}
+
+@inproceedings{10.1145/3475716.3484188,
+author = {Peng, Zedong and Kanewala, Upulee and Niu, Nan},
+title = {Contextual Understanding and Improvement of Metamorphic Testing in Scientific Software Development},
+year = {2021},
+isbn = {9781450386654},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3475716.3484188},
+doi = {10.1145/3475716.3484188},
+abstract = {Background: Metamorphic testing emerges as a simple and effective approach for testing scientific software; yet, its adoption in actual scientific software projects is less studied.Aims: In order for the practitioners to better adopt metamorphic testing in their projects, we set out to first gain a deep understanding about the current qualify assurance workflow, testing practices, and tools.Method: We propose to integrate various empirical sources, including artifact analysis, stakeholder interviews, and gap analysis from the literature.Results: Applying our approach to the Open Water Analytics Stormwater Management Model project helped to identify four new needs requiring continued and more research: (1) systematic and explicit formulation of metamorphic relations, (2) metamorphic testing examples specific to the scientific software, (3) correlating metamorphic testing with regression testing, and (4) integrating metamorphic testing with build tools like CMake and continuous integration tools like GitHub Actions.Conclusions: Integrating different empirical sources is promising for establishing a contextual understanding of software engineering practices, and for action research, such as workflow refinements and tool interventions, to be carried out in a principled manner.},
+booktitle = {Proceedings of the 15th ACM / IEEE International Symposium on Empirical Software Engineering and Measurement (ESEM)},
+articleno = {28},
+numpages = {6},
+keywords = {scientific software, metamorphic testing, empirical software engineering},
+location = {Bari, Italy},
+series = {ESEM '21}
+}
+
+@proceedings{10.1145/3597503,
+title = {ICSE '24: Proceedings of the IEEE/ACM 46th International Conference on Software Engineering},
+year = {2024},
+isbn = {9798400702174},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Lisbon, Portugal}
+}
+
+@article{10.1145/3766552,
+author = {Asgari, Ali and de Koning, Milan and Derakhshanfar, Pouria and Panichella, Annibale},
+title = {Metamorphic Testing of Deep Code Models: A Systematic Literature Review},
+year = {2025},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3766552},
+doi = {10.1145/3766552},
+abstract = {Large language models and deep learning models designed for code intelligence have revolutionized the software engineering field due to their ability to perform various code-related tasks. These models can process source code and software artifacts with high accuracy in tasks such as code completion, defect detection, and code summarization; therefore, they can potentially become an integral part of modern software engineering practices. Despite these capabilities, robustness remains a critical quality attribute for deep-code models as they may produce different results under varied and adversarial conditions (e.g., variable renaming). Metamorphic testing has become a widely used approach to evaluate models’ robustness by applying semantic-preserving transformations to input programs and analyzing the stability of model outputs. While prior research has explored testing deep learning models, this systematic literature review focuses specifically on metamorphic testing for deep code models. By studying 45 primary papers, we analyze the transformations, techniques, and evaluation methods used to assess robustness. Our review summarizes the current landscape, identifying frequently evaluated models, programming tasks, datasets, target languages, and evaluation metrics, and highlights key challenges and future directions for advancing the field.},
+note = {Just Accepted},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = sep,
+keywords = {Metamorphic testing, Software testing, Robustness evaluation, Deep code models, Natural language processing, Systematic literature review}
+}
+
+@proceedings{10.1145/3757279,
+title = {HRI '26: Proceedings of the 21st ACM/IEEE International Conference on Human-Robot Interaction},
+year = {2026},
+isbn = {9798400721281},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {Welcome to the 21st Annual IEEE/ACM International Conference on Human-Robot Interaction: we are very excited to welcome the HRI community to Edinburgh, UK to celebrate the 21st anniversary of the conference. We are excited to announce that the HRI conference series has this year been awarded Category A status. Category A conferences are considered to be top-tier, prestigious, and highly influential, often serving as flagship events in their particular computer science area.},
+location = {Edinburgh, Scotland, UK}
+}
+
+@article{10.1145/3616372,
+author = {Amalfitano, Domenico and Faralli, Stefano and Hauck, Jean Carlo Rossa and Matalonga, Santiago and Distante, Damiano},
+title = {Artificial Intelligence Applied to Software Testing: A Tertiary Study},
+year = {2023},
+issue_date = {March 2024},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {56},
+number = {3},
+issn = {0360-0300},
+url = {https://doi.org/10.1145/3616372},
+doi = {10.1145/3616372},
+abstract = {Context: Artificial intelligence (AI) methods and models have extensively been applied to support different phases of the software development lifecycle, including software testing (ST). Several secondary studies investigated the interplay between AI and ST but restricted the scope of the research to specific domains or sub-domains within either area.Objective: This research aims to explore the overall contribution of AI to ST, while identifying the most popular applications and potential paths for future research directions.Method: We executed a tertiary study following well-established guidelines for conducting systematic literature mappings in software engineering and for answering nine research questions.Results: We identified and analyzed 20 relevant secondary studies. The analysis was performed by drawing from well-recognized AI and ST taxonomies and mapping the selected studies according to them. The resulting mapping and discussions provide extensive and detailed information on the interplay between AI and ST.Conclusion: The application of AI to support ST is a well-consolidated and growing interest research topic. The mapping resulting from our study can be used by researchers to identify opportunities for future research, and by practitioners looking for evidence-based information on which AI-supported technology to possibly adopt in their testing processes.},
+journal = {ACM Comput. Surv.},
+month = oct,
+articleno = {58},
+numpages = {38},
+keywords = {Artificial intelligence, Software testing, Taxonomy, Tertiary study, Systematic literature review, Systematic mapping study}
+}
+
+@proceedings{10.1145/3632366,
+title = {BDCAT '23: Proceedings of the IEEE/ACM 10th International Conference on Big Data Computing, Applications and Technologies},
+year = {2023},
+isbn = {9798400704734},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {The IEEE/ACM International Conference on Big Data Computing, Applications, and Technologies (BDCAT) is a premier annual conference series aiming to provide a platform for researchers from both academia and industry to present new discoveries in the broad area of big data computing and applications.},
+location = {Taormina (Messina), Italy}
+}
+
+@article{10.1145/3628159,
+author = {Liu, Jiawei and Huang, Yuheng and Wang, Zhijie and Ma, Lei and Fang, Chunrong and Gu, Mingzheng and Zhang, Xufan and Chen, Zhenyu},
+title = {Generation-based Differential Fuzzing for Deep Learning Libraries},
+year = {2023},
+issue_date = {February 2024},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {33},
+number = {2},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3628159},
+doi = {10.1145/3628159},
+abstract = {Deep learning (DL) libraries have become the key component in developing and deploying DL-based software nowadays. With the growing popularity of applying DL models in both academia and industry across various domains, any bugs inherent in the DL libraries can potentially cause unexpected server outcomes. As such, there is an urgent demand for improving the software quality of DL libraries. Although there are some existing approaches specifically designed for testing DL libraries, their focus is usually limited to one specific domain, such as computer vision (CV). It is still not very clear how the existing approaches perform in detecting bugs of different DL libraries regarding different task domains and to what extent. To bridge this gap, we first conduct an empirical study on four representative and state-of-the-art DL library testing approaches. Our empirical study results reveal that it is hard for existing approaches to generalize to other task domains. We also find that the test inputs generated by these approaches usually lack diversity, with only a few types of bugs. What is worse, the false-positive rate of existing approaches is also high (up to 58%). To address these issues, we propose a guided differential fuzzing approach based on generation, namely, Gandalf. To generate testing inputs across diverse task domains effectively, Gandalf adopts the context-free grammar to ensure validity and utilizes a Deep Q-Network to maximize the diversity. Gandalf also includes 15 metamorphic relations to make it possible for the generated test cases to generalize across different DL libraries. Such a design can decrease the false positives because of the semantic difference for different APIs. We evaluate the effectiveness of Gandalf on nine versions of three representative DL libraries, covering 309 operators from computer vision, natural language processing, and automated speech recognition. The evaluation results demonstrate that Gandalf can effectively and efficiently generate diverse test inputs. Meanwhile, Gandalf successfully detects five categories of bugs with only 3.1% false-positive rates. We report all 49 new unique bugs found during the evaluation to the DL libraries’ developers, and most of these bugs have been confirmed. Details about our empirical study and evaluation results are available on our project website.1},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = dec,
+articleno = {50},
+numpages = {28},
+keywords = {Software testing, deep learning libraries, generation-based fuzzing}
+}
+
+@proceedings{10.1145/3671016,
+editor = {Hong Mei, Jian Lv, Abdelsalam Helal, Xiaoxing Ma, Shing-Chi Cheung, Jie Zhang and Tao Zhang},
+title = {Internetware '24: Proceedings of the 15th Asia-Pacific Symposium on Internetware},
+year = {2024},
+isbn = {9798400707056},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Macau, China}
+}
+
+@proceedings{10.1145/3650212,
+title = {ISSTA 2024: Proceedings of the 33rd ACM SIGSOFT International Symposium on Software Testing and Analysis},
+year = {2024},
+isbn = {9798400706127},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {Welcome to the 33rd edition of the International Symposium on Software Testing and Analysis, ISSTA 2024, held on September 16--20, 2024 in Vienna, Austria. ISSTA 2024 is co-located with ECOOP and MPLR 2024. ISSTA brings together academics, industrial researchers, and practitioners from all over the world working on testing and analyzing software systems.},
+location = {Vienna, Austria}
+}
+
+@proceedings{10.1145/3650105,
+title = {FORGE '24: Proceedings of the 2024 IEEE/ACM First International Conference on AI Foundation Models and Software Engineering},
+year = {2024},
+isbn = {9798400706097},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {FORGE aims to bring researchers, practitioners, and educators from the AI and Software Engineering community to solve the new challenges we meet in the era of foundation models.},
+location = {Lisbon, Portugal}
+}
+
+@proceedings{10.1145/3659677,
+title = {NISS '24: Proceedings of the 7th International Conference on Networking, Intelligent Systems and Security},
+year = {2024},
+isbn = {9798400709296},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Meknes, AA, Morocco}
+}
+
+@inproceedings{10.1145/3194747.3194750,
+author = {Lin, Xuanyi and Simon, Michelle and Niu, Nan},
+title = {Hierarchical metamorphic relations for testing scientific software},
+year = {2018},
+isbn = {9781450357487},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3194747.3194750},
+doi = {10.1145/3194747.3194750},
+abstract = {Scientist developers have not yet routinely adopted systematic testing techniques to assure software quality. A key challenge is the oracle problem, a situation in which appropriate mechanisms are unavailable for checking if the code produces the expected output when executed using a set of test cases (TCs). Metamorphic testing alleviates the oracle problem by specifying the relationship that a source TC and its follow-up TC shall meet. Such relationships are called metamorphic relations (MRs) which are necessary properties of the intended program's functionality. Existing approaches handle the MRs in a flat manner. This paper introduces a novel way to facilitate a hierarchy of MRs to be developed incrementally. We illustrate our approach by testing U.S. EPA's Storm Water Management Model (SWMM). The results offer concrete insights into developing effective MRs to systematically test scientific software.},
+booktitle = {Proceedings of the International Workshop on Software Engineering for Science},
+pages = {1–8},
+numpages = {8},
+keywords = {scientific software, metamorphic testing, hierarchical metamorphic relations, SWMM, PEST++},
+location = {Gothenburg, Sweden},
+series = {SE4Science '18}
+}
+
+@article{10.1145/3819590,
+author = {Li, Yuechen and Shao, Minqi and Zhao, Jianjun and Wang, Qichen},
+title = {A Methodological Analysis of Empirical Studies in Quantum Software Testing},
+year = {2026},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+issn = {1049-331X},
+url = {https://doi.org/10.1145/3819590},
+doi = {10.1145/3819590},
+abstract = {In quantum software engineering (QSE), quantum software testing (QST) has attracted increasing attention as quantum software systems grow in scale and complexity. Since QST evaluates quantum programs through execution under designed test inputs, empirical studies are widely used to assess the effectiveness of testing approaches. However, the design and reporting of empirical studies in QST remain highly diverse, and a shared methodological understanding has yet to emerge, making it difficult to interpret results and compare findings across studies. To address this, this paper presents a methodological analysis of empirical studies in QST through a systematic examination of 59 primary studies identified from a literature pool of size 384. We organize our analysis around ten research questions that cover key methodological dimensions of QST empirical studies, including objects under test, baseline comparison, testing setup, experimental configuration, and tool and artifact support. Through cross-study analysis along these dimensions, we characterize current empirical practices in QST, identify recurring limitations and inconsistencies, and highlight open methodological challenges. Based on our findings, we derive insights and recommendations to inform the design, execution, and reporting of future empirical studies in QST.},
+note = {Just Accepted},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = jun,
+keywords = {quantum software engineering, software testing, empirical study}
+}
+
+@proceedings{10.1145/3719027,
+title = {CCS '25: Proceedings of the 2025 ACM SIGSAC Conference on Computer and Communications Security},
+year = {2025},
+isbn = {9798400715259},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {On behalf of the ACM CCS 2025 Organizing Committee, we warmly welcome you to the 32nd ACM SIGSAC Conference on Computer and Communications Security (CCS). We are delighted that, for the first time, ACM CCS is being held in Taipei, Taiwan. This year’s conference theme is “Continuity, Creativity, Community”, reflecting our shared commitment to building on the rich legacy of CCS, fostering innovation in security and privacy research, and strengthening our global community.The main conference this year features 316 research presentations, showcasing the latest innovations and developments in security and privacy. We are honored to welcome two distinguished keynote speakers—Prof. Giovanni Vigna (University of California, Santa Barbara) and Prof. David Basin (ETH Zurich)—who will share their insights on pressing challenges shaping the future of our discipline. Complementing the main program, 21 specialized workshops will be held on the pre- and post-conference days, offering venues for in-depth discussion and collaboration on focused research topics.},
+location = {Taipei, Taiwan}
+}
+
+@inproceedings{10.1145/3193977.3193979,
+author = {Wang, Zhenyu and Towey, Dave and Zhou, Zhi Quan and Chen, Tsong Yueh},
+title = {Metamorphic testing for adobe analytics data collection javascript library},
+year = {2018},
+isbn = {9781450357296},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3193977.3193979},
+doi = {10.1145/3193977.3193979},
+abstract = {In recent years, metamorphic testing has been successfully and systematically adopted within Adobe Systems to improve the cost effectiveness of its software process. In this industry experience report, we present a case where metamorphic testing has been applied to the Data Collection JavaScript Library of Adobe Analytics. This type of software is difficult to test using traditional approaches. The application of metamorphic testing alleviated the oracle problem, and detected real-life bugs in the system under test as well as compatibility problems between the system and its environment, namely, the Internet Explorer browser. Our results further justify the adoption of metamorphic testing as a simple yet effective approach in industrial settings.},
+booktitle = {Proceedings of the 3rd International Workshop on Metamorphic Testing},
+pages = {34–37},
+numpages = {4},
+keywords = {oracle problem, metamorphic testing, data collection, combinatorial testing, adobe analytics},
+location = {Gothenburg, Sweden},
+series = {MET '18}
+}
+
+@inproceedings{10.1109/SE4Science.2019.00014,
+author = {Lin, Xuanyi and Simon, Michelle and Niu, Nan},
+title = {Releasing scientific software in GitHub: a case study on SWMM2PEST},
+year = {2019},
+publisher = {IEEE Press},
+url = {https://doi.org/10.1109/SE4Science.2019.00014},
+doi = {10.1109/SE4Science.2019.00014},
+abstract = {Release engineering involves code development, integration, testing, and software delivery. It has been widely applied to deliver high-quality software to users. While release engineering is a widespread practice in the software industry, there have been very few studies on the release engineering pipeline of scientific software. To shorten this gap, we present a case study in this paper to show a GitHub-driven release workflow on SWMM2PEST, a software system automating parameter calibration for the U.S. EPA's Storm Water Management Model (SWMM). Moreover, we analyze software version updates and requirements changes to develop strategies for improving the ongoing releases. The feasibility of improvement strategies is demonstrated by our consecutively released versions of SWMM2PEST. The results offered insights into the continuous release of scientific software.},
+booktitle = {Proceedings of the 14th International Workshop on Software Engineering for Science},
+pages = {47–50},
+numpages = {4},
+keywords = {software engineering, release scientific software, release engineering, SWMM2PEST, SWMM, GitHub},
+location = {Montreal, Quebec, Canada},
+series = {SE4Science '19}
+}
+
+@proceedings{10.1145/3543712,
+title = {ICCTA '22: Proceedings of the 2022 8th International Conference on Computer Technology Applications},
+year = {2022},
+isbn = {9781450396226},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Vienna, Austria}
+}
+
+@proceedings{10.1145/3674805,
+editor = {Xavier Franch, Maya Daneva, Silverio Mart\'{\i}nez-Fern\'{a}ndez and Luigi Quaranta},
+title = {ESEM '24: Proceedings of the 18th ACM/IEEE International Symposium on Empirical Software Engineering and Measurement},
+year = {2024},
+isbn = {9798400710476},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Barcelona, Spain}
+}
+
+@inproceedings{10.1145/3522664.3528607,
+author = {Lu, Qinghua and Zhu, Liming and Xu, Xiwei and Whittle, Jon and Xing, Zhenchang},
+title = {Towards a roadmap on software engineering for responsible AI},
+year = {2022},
+isbn = {9781450392754},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3522664.3528607},
+doi = {10.1145/3522664.3528607},
+abstract = {Although AI is transforming the world, there are serious concerns about its ability to behave and make decisions responsibly. Many ethical regulations, principles, and frameworks for responsible AI have been issued recently. However, they are high level and difficult to put into practice. On the other hand, most AI researchers focus on algorithmic solutions, while the responsible AI challenges actually crosscut the entire engineering lifecycle and components of AI systems. To close the gap in operationalizing responsible AI, this paper aims to develop a roadmap on software engineering for responsible AI. The roadmap focuses on (i) establishing multi-level governance for responsible AI systems, (ii) setting up the development processes incorporating process-oriented practices for responsible AI systems, and (iii) building responsible-AI-by-design into AI systems through system-level architectural style, patterns and techniques.},
+booktitle = {Proceedings of the 1st International Conference on AI Engineering: Software Engineering for AI},
+pages = {101–112},
+numpages = {12},
+keywords = {AI, DevOps, MLOps, ethics, machine learning, requirement engineering, responsible AI, software architecture, software engineering},
+location = {Pittsburgh, Pennsylvania},
+series = {CAIN '22}
+}
+
+@proceedings{10.1145/3611643,
+title = {ESEC/FSE 2023: Proceedings of the 31st ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering},
+year = {2023},
+isbn = {9798400703270},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {We are pleased to welcome all delegates to ESEC/FSE 2023, the ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering. ESEC/FSE is an internationally renowned forum for researchers, practitioners, and educators to present and discuss the most recent innovations, trends, experiences, and challenges in the field of software engineering. ESEC/FSE brings together experts from academia and industry to exchange the latest research results and trends as well as their practical application in all areas of software engineering.},
+location = {San Francisco, CA, USA}
+}
+
+@article{10.1145/3725300,
+author = {Mang, Qiuyang and Ba, Jinsheng and He, Pinjia and Rigger, Manuel},
+title = {Finding Logic Bugs in Graph-processing Systems via Graph-cutting},
+year = {2025},
+issue_date = {June 2025},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {3},
+number = {3},
+url = {https://doi.org/10.1145/3725300},
+doi = {10.1145/3725300},
+abstract = {Graph-processing systems, including Graph Database Management Systems (GDBMSes) and graph libraries, are designed to analyze and manage graph data efficiently. They are widely used in applications such as social networks, recommendation systems, and fraud detection. However, logic bugs in these systems can lead to incorrect results, compromising the reliability of applications. While recent research has explored testing techniques specialized for GDBMSes, it is unclear how to adapt them to graph-processing systems in general. This paper proposes Graph-cutting, a universal approach for detecting logic bugs in both GDBMSes and various algorithms in graph libraries. Our key idea is inspired by the observation that certain graph patterns are critical for various graph-processing tasks. Dividing graph data into subgraphs that preserve those patterns establishes a natural relationship between query results on the original graph and its subgraphs, allowing for the detection of logic bugs when this relationship is violated. We implemented Graph-cutting as a tool, GSlicer, and evaluated it on 3 popular graph-processing systems, NetworkX, Neo4j, and K\`{u}zu. GSlicer detected 39 unique and previously unknown bugs, out of which 34 have been fixed and confirmed by developers. At least 8 logic bugs detected by GSlicer cannot be detected by baseline strategies. Additionally, by leveraging just a few concrete relationships, Graph-cutting can cover over 100 APIs in NetworkX. We expect this technique to be widely applicable and that it can be used to improve the quality of graph-processing systems broadly.},
+journal = {Proc. ACM Manag. Data},
+month = jun,
+articleno = {163},
+numpages = {27},
+keywords = {graph databases, graph-processing, logic bugs}
+}
+
+@inproceedings{10.1145/3524846.3527342,
+author = {N\'{u}\~{n}ez, Alberto and Ca\~{n}izares, Pablo C. and G\'{o}mez-Abajo, Pablo and Guerra, Esther and de Lara, Juan},
+title = {Analyzing the reliability of simulated distributed systems using metamorphic testing},
+year = {2023},
+isbn = {9781450393072},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3524846.3527342},
+doi = {10.1145/3524846.3527342},
+abstract = {Simulation is widely adopted by the research community to analyze and study complex systems. It is based on the idea of creating a model representing the target system under study, so that the experiments can be executed over the model instead of the target system. However, since the model is a simplification of a real-world system, the obtained results entail an accuracy loss, which makes determining the reliability of the experiments a complex task.Testing can be applied to check the correctness of systems. Thus, an oracle is used to determine if a test is correct or not. In the field of simulation, an oracle can be applied to determine the reliability of the results, but in most cases, the oracle is not available or is computationally too expensive to be applied.In this work, we propose to use metamorphic testing to detect faults in simulated distributed systems. In essence, we use metamorphic relations - representing the relevant properties of the system under study - as an oracle. Thus, the results provided are contrasted against these relations to determine their reliability. In order to show the applicability of this approach, we have modelled different distributed systems architectures using the SIMCAN simulator and a high performance application that is executed over the models.},
+booktitle = {Proceedings of the 7th International Workshop on Metamorphic Testing},
+pages = {34–41},
+numpages = {8},
+keywords = {simulation, metamorphic testing, distributed systems, HPC},
+location = {Pittsburgh, Pennsylvania},
+series = {MET '22}
+}
+
+@inproceedings{10.1145/3597503.3623307,
+author = {Jiang, Yuancheng and Liu, Jiahao and Ba, Jinsheng and Yap, Roland H. C. and Liang, Zhenkai and Rigger, Manuel},
+title = {Detecting Logic Bugs in Graph Database Management Systems via Injective and Surjective Graph Query Transformation},
+year = {2024},
+isbn = {9798400702174},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3597503.3623307},
+doi = {10.1145/3597503.3623307},
+abstract = {Graph Database Management Systems (GDBMSs) store graphs as data. They are used naturally in applications such as social networks, recommendation systems and program analysis. However, they can be affected by logic bugs, which cause the GDBMSs to compute incorrect results and subsequently affect the applications relying on them. In this work, we propose injective and surjective Graph Query Transformation (GQT) to detect logic bugs in GDBMSs. Given a query Q, we derive a mutated query Q', so that either their result sets are: (i) semantically equivalent; or (ii) variant based on the mutation to be either a subset or superset of each other. When the expected relationship between the results does not hold, a logic bug in the GDBMS is detected. The key insight to mutate Q is that the graph pattern in graph queries enables systematic query transformations derived from injective and surjective mappings of the directed edge sets between Q and Q'. We implemented injective and surjective Graph Query Transformation (GQT) as a tool called GraphGenie and evaluated it on 6 popular and mature GDBMSs. GraphGenie has found 25 unknown bugs, comprising 16 logic bugs, 3 internal errors, and 6 performance issues. Our results demonstrate the practicality and effectiveness of GraphGenie in detecting logic bugs in GDBMSs which has the potential for improving the reliability of applications relying on these GDBMSs.},
+booktitle = {Proceedings of the IEEE/ACM 46th International Conference on Software Engineering},
+articleno = {46},
+numpages = {12},
+keywords = {graph databases, logic bugs, metamorphic testing},
+location = {Lisbon, Portugal},
+series = {ICSE '24}
+}
+
+@proceedings{10.1145/3593434,
+title = {EASE '23: Proceedings of the 27th International Conference on Evaluation and Assessment in Software Engineering},
+year = {2023},
+isbn = {9798400700446},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Oulu, Finland}
+}
+
+@proceedings{3623290,
+title = {ICSE-SEIS '23: Proceedings of the 45th International Conference on Software Engineering: Software Engineering in Society},
+year = {2023},
+isbn = {9798350322613},
+publisher = {IEEE Press},
+abstract = {We are delighted to introduce the Software Engineering in Society (SEIS) track program as part of the 45th IEEE/ACM International Conference on Software Engineering, to be held in Melbourne, Australia, on May 14-20, 2023. The aim of the track is to bring together researchers studying various roles that software engineering plays in society.},
+location = {Melbourne, Australia}
+}
+
+@proceedings{10.1145/3551349,
+title = {ASE '22: Proceedings of the 37th IEEE/ACM International Conference on Automated Software Engineering},
+year = {2022},
+isbn = {9781450394758},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Rochester, MI, USA}
+}
+
+@proceedings{3606010,
+title = {ICSE '23: Proceedings of the 45th International Conference on Software Engineering},
+year = {2023},
+isbn = {9781665457019},
+publisher = {IEEE Press},
+abstract = {ICSE is the leading and by far the largest conference in Software Engineering, attracting researchers, practitioners and students from around the world. ICSE2023 is co-located with 10 conferences and symposia this year, many long-established and prestigious venues in their own right.},
+location = {Melbourne, Victoria, Australia}
+}
+
+@proceedings{10.1145/3597926,
+title = {ISSTA 2023: Proceedings of the 32nd ACM SIGSOFT International Symposium on Software Testing and Analysis},
+year = {2023},
+isbn = {9798400702211},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {It is our great pleasure to welcome you to ISSTA 2023, the 32nd edition of the International Symposium on Software Testing and Analysis, to be held on July 18–20, 2023 in Seattle, USA. The symposium has become a premier scientific event in the expanding area of software testing and analysis, with a strong appeal to researchers from all continents.},
+location = {Seattle, WA, USA}
+}
+
+@proceedings{10.1145/3600160,
+title = {ARES '23: Proceedings of the 18th International Conference on Availability, Reliability and Security},
+year = {2023},
+isbn = {9798400707728},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Benevento, Italy}
+}
+
+@proceedings{10.1109/3655039,
+title = {ASPDAC '24: Proceedings of the 29th Asia and South Pacific Design Automation Conference},
+year = {2024},
+isbn = {9798350393545},
+publisher = {IEEE Press},
+abstract = {ASP-DAC is a high-quality and premium conference on Electronic Design Automation (EDA) area like other sister conferences such as Design Automation Conference (DAC), Design, Automation &amp; Test in Europe (DATE), International Conference on Computer-Aided Design (ICCAD), and Embedded Systems Week (ESWEEK). ASP-DAC started in 1995 and has continuously offered opportunity to know the recent advanced technologies on LSI design and design automation areas, and to communicate each other for researchers and designers around Asia and South Pacific regions.},
+location = {Incheon, Republic of Korea}
+}
+
+@proceedings{3623293,
+title = {ICSE-SEIP '23: Proceedings of the 45th International Conference on Software Engineering: Software Engineering in Practice},
+year = {2023},
+isbn = {9798350300376},
+publisher = {IEEE Press},
+location = {Melbourne, Australia}
+}
+
+@proceedings{10.1145/3540250,
+title = {ESEC/FSE 2022: Proceedings of the 30th ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering},
+year = {2022},
+isbn = {9781450394130},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {On behalf of all members of the organizing committee, we are delighted to welcome everyone to the ACM Joint European Software Engineering Conference and Symposium on the Foundations of Software Engineering (ESEC/FSE) 2022. The event continues the long, distinguished ESEC/FSE tradition of presenting the most innovative research, and facilitating interactions between scientists and engineers who are passionate about advancing the theory and practice of software engineering.},
+location = {Singapore, Singapore}
+}
+
+@proceedings{10.1145/3652561,
+title = {IFL '23: Proceedings of the 35th Symposium on Implementation and Application of Functional Languages},
+year = {2023},
+isbn = {9798400716317},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Braga, Portugal}
+}
+
+@proceedings{10.1145/3560089,
+title = {IECC '22: Proceedings of the 4th International Electronics Communication Conference},
+year = {2022},
+isbn = {9781450397131},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Tokyo, Japan}
+}
+
+@proceedings{10.1145/3796731,
+title = {CMSDA '25: Proceedings of the 2025 5th International Conference on Computational Modeling, Simulation and Data Analysis},
+year = {2025},
+isbn = {9798400720000},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {
+}
+}
+
+@proceedings{10.1145/2950290,
+title = {FSE 2016: Proceedings of the 2016 24th ACM SIGSOFT International Symposium on Foundations of Software Engineering},
+year = {2016},
+isbn = {9781450342186},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Seattle, WA, USA}
+}
+
+@proceedings{10.1145/3583131,
+title = {GECCO '23: Proceedings of the Genetic and Evolutionary Computation Conference},
+year = {2023},
+isbn = {9798400701191},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+abstract = {GECCO is the largest peer-reviewed conference in the field of Evolutionary Computation, and the main conference of the Special Interest Group on Genetic and Evolutionary Computation (SIGEVO) of the Association for Computing Machinery (ACM).},
+location = {Lisbon, Portugal}
+}
+
+@proceedings{10.1145/3650215,
+title = {ICMLCA '23: Proceedings of the 2023 4th International Conference on Machine Learning and Computer Application},
+year = {2023},
+isbn = {9798400709449},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+location = {Hangzhou, China}
+}
+

@@ -25,7 +25,7 @@ apps/worker-playwright/.runs/
 # Build outputs
 dist/
 build/
-out/
+
 .next/
 
 # TypeScript
@@ -68,7 +68,9 @@ Thumbs.db
 .cache/
 .vscode/
 .cursor/
-docs/
 tmp/
 .pnpm-store/
 .tmp/
+
+docs/literatura/
+docs/memoria/

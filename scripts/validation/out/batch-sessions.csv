@@ -1,0 +1,246 @@
+domain,generation,sessionId,transformFamily,mrVersionId,status,explorationSuccess,explorationFailureReason,initialAutoRunId,initialAutoVerdictStrict,initialAutoRunStatus
+amazon,1,82ece300-e5c9-4b32-9b2d-9cd9fb95944f,idempotence,a5f2188b-4ba9-45be-a749-6da2cefc3606,approved,true,,a7a64c52-3c6b-41d9-9d81-b55ef5d4cb9b,pass,completed
+amazon,1,82ece300-e5c9-4b32-9b2d-9cd9fb95944f,subset,aad029d9-35d9-4117-aa6e-f41e0a0299af,exploration_failed,false,"Plan aborted: The phase requires arriving at the unfiltered results page first, then applying one filter. We filled the search box with 'laptop' but never submitted. There is no submit/Enter control in the current inventory (no E15 searchbox is visible at the top — actually E15 is the searchbox 'Buscar en Amazon.es'). I need to submit the search first. Let me re-examine: E15 is the searchbox with 'laptop' already filled. E4 is 'Ir' (Go) button. I should press Enter on E15 or click E4 to submit. Let me plan that.",,,
+amazon,1,82ece300-e5c9-4b32-9b2d-9cd9fb95944f,permutation,36cbe8cc-9798-4e64-899e-6633d969fa8f,exploration_failed,false,"page.evaluate: Execution context was destroyed, most likely because of a navigation",,,
+amazon,1,82ece300-e5c9-4b32-9b2d-9cd9fb95944f,inverse,825f4a7d-ea0b-47e0-a6e2-d1b14aceb71d,approved,true,,f7fe3dc8-3101-469e-a5fe-378542c09d7f,fail,completed
+amazon,2,651e6dad-6dbb-47a1-8915-7819a63ab37a,idempotence,9ff5a3b0-e965-493a-9ad4-78402e2c1fd3,approved,true,,c3074c8a-e6c0-4c41-aaea-628b27ceac8e,pass,completed
+amazon,2,651e6dad-6dbb-47a1-8915-7819a63ab37a,subset,b969cb0c-7d29-48a0-8aec-5a23475aa32a,exploration_failed,false,"Plan aborted: Phase goal is permanently unachievable in a single batch without login/auth. The page shows a cookies banner with Accept/Reject buttons (E1/E2), but the task requires both dismissing the cookie banner AND typing a search term in one step-batch chain. The rules say one mutating step per batch (no chaining click then fill). I can do dismiss-cookie in this batch, but cannot complete the full source phase goal. Actually wait - the phase goal can be split across batches: dismiss cookie in batch 1, then search in batch 2. So I should just dismiss the cookie banner first.",,,
+amazon,2,651e6dad-6dbb-47a1-8915-7819a63ab37a,permutation,b297dafc-b05c-43ae-b537-efdd0a12acb5,exploration_failed,false,"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('link', { name: 'Saltar a los resultados de búsqueda principales', exact: true })
+    - locator resolved to <a class=""a-link-normal aok-offscreen"" href=""#s-skipLinkTargetForMainSearchResults"" title=""pulsa el tabulador para saltar a los resultados de búsqueda principales"">↵                Saltar a los resultados de búsqu…</a>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <li class=""a-spacing-micro"" aria-labelledby=""-title"" id=""p_n_feature_browse-bin/212351143031"">…</li> from <div class=""a-section"">…</div> subtree intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <li class=""a-spacing-micro"" aria-labelledby=""-title"" id=""p_n_feature_browse-bin/212351143031"">…</li> from <div class=""a-section"">…</div> subtree intercepts pointer events
+  2 × retrying click action
+      - waiting 100ms
+      - waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div aria-level=""2"" role=""heading"" class=""a-section a-spacing-small"" id=""p_n_size_two_browse-vebin-title"">…</div> from <div class=""a-section"">…</div> subtree intercepts pointer events
+  52 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div aria-level=""2"" role=""heading"" class=""a-section a-spacing-small"" id=""p_n_size_two_browse-vebin-title"">…</div> from <div class=""a-section"">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+",,,
+amazon,2,651e6dad-6dbb-47a1-8915-7819a63ab37a,inverse,b5f55fa7-39e9-42c2-98a1-54e886141828,approved,true,,2ac4c086-e2a8-454a-8d70-da56d4a954ac,pass,completed
+airbnb,2,3418dfdf-4c89-4b2c-ae0c-17cfddeaa43b,idempotence,5dfe713d-feca-4bd0-adc7-899bbdbabd94,approved,true,,568f3566-13a5-49c0-a4b9-d10882beb95b,pass,completed
+airbnb,2,3418dfdf-4c89-4b2c-ae0c-17cfddeaa43b,subset,a28bf6b7-594f-4cfc-9f8f-9b92db625897,approved,true,,ba418076-d901-4225-9b45-6e51d1dc2943,,failed
+airbnb,2,3418dfdf-4c89-4b2c-ae0c-17cfddeaa43b,permutation,0ece2ad1-5e4c-40cb-9b6b-26d37fc3c0d3,exploration_failed,false,"page._wrapApiCall: No unique target for step 5 (click E17) after 5000ms. Tried: getByRole(""button"", { name: ""Filtros"", exact: true }) -> 0 matches",,,
+airbnb,2,3418dfdf-4c89-4b2c-ae0c-17cfddeaa43b,inverse,0743d345-951d-4035-9c7a-0589a94be5df,approved,true,,3d91c830-c09c-464a-ab94-434910447e14,,failed
+airbnb,1,10b0558c-33c9-41e1-ac31-86902e7c22f2,idempotence,02429abf-4d30-4f6c-a893-31f2339d6fab,approved,true,,76193c5a-9bff-4d82-9254-0c6b99f07429,pass,completed
+airbnb,1,10b0558c-33c9-41e1-ac31-86902e7c22f2,subset,dff8aaa1-d5be-4145-94a5-a32fddf8dfce,approved,true,,86df249a-d2b3-4c8f-b211-8219e9445ad5,fail,completed
+airbnb,1,10b0558c-33c9-41e1-ac31-86902e7c22f2,permutation,78c09104-fa2c-428a-9ddc-4f1e416cc05e,approved,true,,a8d8a8b8-577e-48a5-a38f-ea746d9152ff,fail,completed
+airbnb,1,10b0558c-33c9-41e1-ac31-86902e7c22f2,inverse,85c41236-2867-4030-8590-7fd31472f5e6,approved,true,,7010f9bc-36ad-4684-8cb8-2cadd5514aa3,fail,completed
+booking,1,a0918e0a-84d5-4f71-872c-03604766e4c4,idempotence,d4c1c629-27b3-404e-b351-f8f8a8a8d927,exploration_failed,false,Max iterations (30) exceeded,,,
+booking,1,a0918e0a-84d5-4f71-872c-03604766e4c4,subset,874bc586-426f-45d4-81f8-5936d8fc9bed,exploration_failed,false,"Phase source smoke replay failed after 2 attempts: page._wrapApiCall: No unique target for step 2 (click E3) after 5000ms. Tried: getByRole(""button"", { name: ""Decline"", exact: true }) -> 0 matches",,,
+booking,1,a0918e0a-84d5-4f71-872c-03604766e4c4,permutation,c734cf95-e7a8-487f-a249-8129186c1f5f,exploration_failed,false,"page._wrapApiCall: No unique target for step 2 (click E4) after 5000ms. Tried: getByRole(""button"", { name: ""Accept"", exact: true }) -> 0 matches",,,
+booking,1,a0918e0a-84d5-4f71-872c-03604766e4c4,inverse,10d613e4-0780-42cf-b139-ab84abd1a0eb,exploration_failed,false,"page._wrapApiCall: No unique target for step 2 (click E4) after 5000ms. Tried: getByRole(""button"", { name: ""Accept"", exact: true }) -> 0 matches",,,
+booking,2,a3edf751-08a9-4d88-bbc3-29970e3362c2,idempotence,eb0817c1-ef8c-46cb-8ba1-082d93719e20,exploration_failed,false,"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('button', { name: 'Dismiss sign-in info.', exact: true })
+    - locator resolved to <button type=""button"" aria-label=""Dismiss sign-in info."" class=""de576f5064 b46cd7aad7 e26a59bb37 c295306d66 c7a901b0e7 daf5d4cb1c e7f2b1a356"">…</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    56 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+",,,
+booking,2,a3edf751-08a9-4d88-bbc3-29970e3362c2,subset,1edab5de-7aa6-4957-82b3-61a7a6ac2b73,exploration_failed,false,"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('button', { name: 'Dismiss sign-in info.', exact: true })
+    - locator resolved to <button type=""button"" aria-label=""Dismiss sign-in info."" class=""de576f5064 b46cd7aad7 e26a59bb37 c295306d66 c7a901b0e7 daf5d4cb1c e7f2b1a356"">…</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    56 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+",,,
+booking,2,a3edf751-08a9-4d88-bbc3-29970e3362c2,permutation,86a6c59e-9cd3-41f3-8f1b-765da01e5326,exploration_failed,false,"Plan aborted: Phase goal cannot be achieved. The Booking.com homepage presents a full-page cookie consent overlay (Manage cookie settings with Decline/Accept/Manage settings) covering the search UI. Although E5/E6 dismiss the cookie banner, the goal requires applying two filters on the search-results page, but per the avoidance rules I cannot reach a login wall and must abort for permanently unachievable goals. The cookie banner is dismissible, however, so I'll continue with append_steps instead — start by dismissing the cookie banner via Decline (E5).",,,
+booking,2,a3edf751-08a9-4d88-bbc3-29970e3362c2,inverse,723253b8-e97b-439b-9d87-b1ff6957d7ac,exploration_failed,false,"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('button', { name: 'Dismiss sign-in info.', exact: true })
+    - locator resolved to <button type=""button"" aria-label=""Dismiss sign-in info."" class=""de576f5064 b46cd7aad7 e26a59bb37 c295306d66 c7a901b0e7 daf5d4cb1c e7f2b1a356"">…</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    56 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <body data-capla-fpr=""true"" data-bui-theme=""traveller-light"">…</body> intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+",,,
+github,1,78327d09-a6c3-4742-9fb6-0e430025d6c9,idempotence,6a5bda01-fc42-4b60-adf4-4b90b7eb1b17,approved,true,,db6d342b-facb-4e6c-9afa-d38e4ead9dd3,,failed
+github,1,78327d09-a6c3-4742-9fb6-0e430025d6c9,subset,65f707df-c847-4831-a088-053aae3ed354,approved,true,,2db12233-cbdc-4d84-ba24-24e4eff92cb3,fail,completed
+github,1,78327d09-a6c3-4742-9fb6-0e430025d6c9,permutation,85e9801a-072d-4685-b1cc-da8746144cb9,approved,true,,d3044724-2c1c-4c2d-b576-cebc066eea29,fail,completed
+github,1,78327d09-a6c3-4742-9fb6-0e430025d6c9,inverse,5d9e571d-1967-42b1-b108-c3e045b3cec7,approved,true,,6e506cf5-a82a-43f7-8d36-6551c132a879,fail,completed
+github,2,7004308f-cb46-41d9-8d9c-7389d381cb0d,idempotence,54d418a8-09a6-4e21-bd14-715d7fbe2aa2,approved,true,,e3cabab8-0020-448a-9a48-053bcd390494,fail,completed
+github,2,7004308f-cb46-41d9-8d9c-7389d381cb0d,subset,a11b81ad-b3f7-4e70-ac88-62c01b952b25,approved,true,,68999858-90b0-4dd2-a292-ade104e9250a,fail,completed
+github,2,7004308f-cb46-41d9-8d9c-7389d381cb0d,permutation,7b5f2a1b-5c67-43ae-ac0a-4b4b21d72f8a,approved,true,,a7e4010c-3663-409c-a80e-33441bb75cc4,pass,completed
+github,2,7004308f-cb46-41d9-8d9c-7389d381cb0d,inverse,9d74b917-456b-4561-8a67-e38686540526,exploration_failed,false,"Plan aborted: Platform dropdown is persistently open. Escape and clicking the trigger (E1) both failed to close it in the prior two batches — the panel stays visible. The follow_up phase requires the dropdown to be closed and the homepage reloaded to compare against source state. Since neither approach (Escape, re-click trigger) works on this implementation, the inverse MR is unrecoverable in this session. Aborting rather than retrying the same failed approaches.",,,
+mediamarkt,1,f0a78df6-4924-40c1-83a8-b8dbc8b72d10,idempotence,4fdf4f1a-b66c-45ac-b227-94885aac9139,approved,true,,a3f0acbd-b35b-4b2b-b35f-554002b87ab9,fail,completed
+mediamarkt,1,f0a78df6-4924-40c1-83a8-b8dbc8b72d10,subset,d1ac4c97-563d-4d16-8c60-66ea3c38b46f,approved,true,,2cf7c3c8-efe1-471e-9c85-4db832a9188c,fail,completed
+mediamarkt,1,f0a78df6-4924-40c1-83a8-b8dbc8b72d10,permutation,04bedd45-723d-43be-9aad-626eea7dc32c,exploration_failed,false,Max iterations (30) exceeded,,,
+mediamarkt,1,f0a78df6-4924-40c1-83a8-b8dbc8b72d10,inverse,b2b5e0cc-cac9-4350-9bac-eabf91e2162c,approved,true,,8bcce91d-6a9f-4d90-9d3f-e8701da50f83,fail,completed
+mediamarkt,2,93d8d6a4-442b-4062-87eb-9d2e4648ae2b,idempotence,03e64153-a88b-436c-9eab-8378525ef5ff,approved,true,,4f2ea71b-5e25-410d-a39f-5ebfc73b1795,fail,completed
+mediamarkt,2,93d8d6a4-442b-4062-87eb-9d2e4648ae2b,subset,5b8d4726-7726-4d4b-a9b1-a7926408753e,approved,true,,c90a5fde-d41e-4c27-b13c-0cd7e8b377bb,,failed
+mediamarkt,2,93d8d6a4-442b-4062-87eb-9d2e4648ae2b,permutation,8d982c0e-5fdf-434c-9980-264cc279d506,approved,true,,ada2e982-afc3-4a94-b488-97ff4538d67d,,failed
+mediamarkt,2,93d8d6a4-442b-4062-87eb-9d2e4648ae2b,inverse,4e0f52d5-52f3-413d-b611-f509c6389842,approved,true,,021e38e1-77b8-49d4-9947-24909baffda3,fail,completed
+mediamarkt,3,467aba61-9311-42d8-bcac-bbe4b3de2713,idempotence,31e3d509-2f0f-4256-b6c0-dfd2017e173d,approved,true,,c2aa9b45-df87-412c-b934-d08554c6fe5b,pass,completed
+mediamarkt,3,467aba61-9311-42d8-bcac-bbe4b3de2713,subset,4cd3456e-81f0-42bc-88d3-0a56d62c56ff,approved,true,,95e70265-f8bc-4136-acdb-33cecbfd55c5,,failed
+mediamarkt,3,467aba61-9311-42d8-bcac-bbe4b3de2713,permutation,bd19709a-5138-45e7-beaf-f49435bd00b0,exploration_failed,false,"Plan aborted: The phase goal is permanently unachievable in the current state. The follow_up requires reaching a combined state with filters 'CECOTEC brand + price 100-500', but the CECOTEC brand option has been completely removed from the current results (87 results for 'portátil', likely an algorithmic/narrowed result set without CECOTEC). Active filters now show 'Campañas destacadas: 27 Aniversario', 'Campañas destacadas: Alquiler', and 'Precio: 102 - 500 €'. The CECOTEC brand filter is not present in the visible brand list (E7 ACER, E8 HP, E9 SANDISK, E10 JBL). Multiple previous attempts (Batches 7-13) have shown the page is unstable - filling the max price field caused navigation to login, and the wrong price range was applied previously. Combined with multiple failures recovering from incorrect filter states, this MR cannot be reached.",,,
+mediamarkt,3,467aba61-9311-42d8-bcac-bbe4b3de2713,inverse,4ae27310-135a-4256-8e25-5b36d6b9a86f,approved,true,,3808ce8e-16e8-4102-b96f-adeae4f3bf6e,fail,completed
+mediamarkt,4,f00a8601-92b4-4c45-baac-b85302337e64,idempotence,ce0e9195-7395-4024-9bdb-ab8b7914371a,exploration_failed,false,OpenRouter returned empty content,,,
+mediamarkt,4,f00a8601-92b4-4c45-baac-b85302337e64,subset,43eafe63-3937-49c8-a726-fb777fe98b03,approved,true,,526a5137-2167-4777-9d1c-a7169bc25342,,failed
+mediamarkt,4,f00a8601-92b4-4c45-baac-b85302337e64,permutation,c98448b3-d475-47df-8879-1ddcdefee16b,exploration_failed,false,OpenRouter returned empty content,,,
+mediamarkt,4,f00a8601-92b4-4c45-baac-b85302337e64,inverse,cc95d280-25a5-4882-a5ad-66ce9318d73f,approved,true,,b9e77064-cf89-4bd8-bed2-2a71ba809037,pass,completed
+mediamarkt,5,9dbed16e-317f-40b7-9c7c-b104c06cd533,idempotence,25bca6a6-8b12-475f-bcef-715b6d624f59,approved,true,,381a69ef-9338-484d-a2b9-61aa6155fd63,fail,completed
+mediamarkt,5,9dbed16e-317f-40b7-9c7c-b104c06cd533,subset,cf15d15f-50eb-4d48-ad6c-b51cca955891,approved,true,,d4a72392-69cc-41b5-8583-3c74b76678c0,,failed
+mediamarkt,5,9dbed16e-317f-40b7-9c7c-b104c06cd533,permutation,f37f9f57-07fd-4fe4-97cf-4f8770747559,approved,true,,47366b38-aa84-471a-9799-d98f6c618b56,,failed
+mediamarkt,5,9dbed16e-317f-40b7-9c7c-b104c06cd533,inverse,aae73085-6370-4b0a-aed4-10a36a174343,approved,true,,e714d2c5-7682-4c14-a28b-aef10bec5810,fail,completed
+github,3,61c3db36-9c41-47d0-a324-41c8a3ec7657,idempotence,f62d5683-d39d-4216-8872-849e5bacc564,approved,true,,a13af59d-0c23-4f8d-85db-324db3d14e40,fail,completed
+github,3,61c3db36-9c41-47d0-a324-41c8a3ec7657,subset,b81498d2-3aca-43cb-a745-9cc88582f3c8,approved,true,,a00d4e87-4da7-443f-bdf7-5d114c63d72c,fail,completed
+github,3,61c3db36-9c41-47d0-a324-41c8a3ec7657,permutation,b312825a-0b09-4e67-ae74-1604e0e8697d,exploration_failed,false,"plan failed validation - observables: expected array, got undefined",,,
+github,3,61c3db36-9c41-47d0-a324-41c8a3ec7657,inverse,d79fc704-0b93-4139-bf82-53e137e3a023,exploration_failed,false,OpenRouter returned empty content,,,
+github,4,5ca7e976-75bb-4809-9f32-10d049ce560c,idempotence,6b583b07-9c73-4477-b962-ba3ec62da110,approved,true,,0b9fcf36-68ed-47f4-8b3c-94de402db2ef,pass,completed
+github,4,5ca7e976-75bb-4809-9f32-10d049ce560c,subset,01fbae66-9855-48b9-97a9-45ce604ac8cc,approved,true,,72296629-4fe4-4349-8a90-dccd9b1b5eff,fail,completed
+github,4,5ca7e976-75bb-4809-9f32-10d049ce560c,permutation,ecaf8d8e-e8e4-44fa-85e0-4708671e4868,approved,true,,94ce58eb-b701-4bc6-a818-852e475b23ff,,failed
+github,4,5ca7e976-75bb-4809-9f32-10d049ce560c,inverse,ba092a1e-bd76-4776-9ab5-c3eb8fd24b7f,exploration_failed,false,"Plan aborted: The inverse transformation T⁻¹ (clearing the search input to collapse the typeahead dropdown) is permanently unachievable in this environment. In prior batches (5, 9), filling the search input with 'react' caused immediate form submission to the search results page (github.com/search?q=react&type=repositories), so the typeahead suggestions dropdown never appeared. Without a populated typeahead dropdown, there is no MR observable to invert. The source phase itself never produced the typeahead state required by the relation, so the follow_up inverse is impossible.",,,
+github,5,8c1c3083-4aab-4cd3-bc81-952170679543,idempotence,13b7710b-99d0-45e9-b616-922b8b93c16f,approved,true,,40a81747-3a17-406a-888b-7f61174daa29,pass,completed
+github,5,8c1c3083-4aab-4cd3-bc81-952170679543,subset,5bc5e0f9-958a-4277-bc19-f7d8ca53965b,approved,true,,6d06d561-16fe-4f59-853d-6ad6d71fac8b,fail,completed
+github,5,8c1c3083-4aab-4cd3-bc81-952170679543,permutation,dcdc79e3-3279-4b23-9df6-d50a94b0d985,exploration_failed,false,"action=scenario_complete rationale=""The phase goal is satisfied. All three facets have been applied on the search..."" steps=(empty) failed validation - steps: Too small: expected array to have >=1 items (got [])",,,
+github,5,8c1c3083-4aab-4cd3-bc81-952170679543,inverse,13c6c69a-76e9-4a15-82d4-35c9d86269e9,approved,true,,1f998abb-a072-4bb3-bd5e-63feb33a22b0,pass,completed
+amazon,3,2c12ab50-ff16-431e-8eeb-58af504c3953,idempotence,4243cbe3-7fd6-4b8d-a9c0-e0c978ab6581,approved,true,,8a2fe707-d457-4211-ab0c-478de69f0f37,pass,completed
+amazon,3,2c12ab50-ff16-431e-8eeb-58af504c3953,subset,09a9071e-bebe-4f66-9a6e-d1bf38ad4c53,approved,true,,ed7f94c8-3c30-44d3-a5cf-bf0ae2853f4a,pass,completed
+amazon,3,2c12ab50-ff16-431e-8eeb-58af504c3953,permutation,59ccb46f-7b5f-4cc0-a4f9-e8a1d9abf8a4,approved,true,,a51646b2-1439-4526-b187-b86e87d5086d,,failed
+amazon,3,2c12ab50-ff16-431e-8eeb-58af504c3953,inverse,49ad94a9-3f40-4310-8f2a-0b69be918865,approved,true,,6f9d5202-6a53-45d4-9c85-3574cfb788ce,,failed
+amazon,4,363d4097-b1ab-4b51-8ad4-478342504cd1,idempotence,2561a3b3-ea45-4e07-bf9c-fa0015f03920,approved,true,,a74f47f0-5ad5-4a4a-9ddb-1f388199e869,pass,completed
+amazon,4,363d4097-b1ab-4b51-8ad4-478342504cd1,subset,5faa078f-fa4a-4db1-8703-434cbb062401,approved,true,,69402123-2e8f-41ad-a34f-ac8893fa1c47,fail,completed
+amazon,4,363d4097-b1ab-4b51-8ad4-478342504cd1,permutation,82842c1c-7384-4156-8203-ff4849853afd,approved,true,,390accca-aee8-4256-b869-7ddb0356aaff,fail,completed
+amazon,4,363d4097-b1ab-4b51-8ad4-478342504cd1,inverse,a472bcc6-b545-4659-9ac2-23c8d1e7e066,approved,true,,c462f357-d2ef-4f7f-82f4-0fed2305b2e1,pass,completed
+amazon,5,ad113544-897a-4596-9cb2-b94b87531fc5,idempotence,5ec755af-0b57-466b-9bc0-41bfeb952a82,approved,true,,cbfbe62e-cfe3-4c14-8beb-031528e3d789,pass,completed
+amazon,5,ad113544-897a-4596-9cb2-b94b87531fc5,subset,f30fa829-0815-46b6-9dd0-382c13a0cb68,approved,true,,fbbe6d68-956a-4e65-903c-4f88a1c019c2,pass,completed
+amazon,5,ad113544-897a-4596-9cb2-b94b87531fc5,permutation,4c9f6c75-fd28-4fe7-93be-800837324904,exploration_failed,false,"Plan aborted: Phase goal permanently unachievable. Current search results show 1-48 of more than 2,000 resultados for 'auriculares inalambricos bluetooth' but no price filter or Sony checkbox is visible in current inventory. The search term was auto-completed to 'auriculares inalambricos bluetooth' instead of the bare 'auriculares'. More critically, E105 'Eliminar selección' is present suggesting a filter is already applied, and the price slider shows E110=40 EUR, E111=50 EUR with checkboxes E106 (De 0 a 20), E107 (De 20 a 30), E108 (De 30 a 40), E109 (De 40 a 50). No checkbox is marked as checked in the aria labels. The state is inconsistent — prior batch 6 clicked E14 'Ver más' to expand brands, and the current snapshot shows 'Ver menos' E18 indicating brands ARE expanded (XIAOMI E85, Sony E86, Soundcore E87... OneOdio E103 visible). However the search query expanded unexpectedly. Cannot recover to a clean state to apply filters B then A in correct order without re-doing the search.",,,
+amazon,5,ad113544-897a-4596-9cb2-b94b87531fc5,inverse,447f319e-1b57-45e9-8b34-5add3d6e8d48,approved,true,,7b3f0b86-1384-45ff-88d9-c3274e8d69fd,pass,completed
+booking,3,1c0480a3-46a9-46cd-b508-53bca53f4513,idempotence,d4ef3a5a-bbf7-4e99-9ae1-43f06147aa1d,approved,true,,e323eb3f-e656-4a4b-b20e-57a61291e1b3,fail,completed
+booking,3,1c0480a3-46a9-46cd-b508-53bca53f4513,subset,0a5fe213-c278-44b2-9f7b-b8a0bf123ec8,exploration_failed,false,"page.evaluate: Execution context was destroyed, most likely because of a navigation",,,
+booking,3,1c0480a3-46a9-46cd-b508-53bca53f4513,permutation,e60b359c-7ffd-4b08-8fc8-5621db7508f5,exploration_failed,false,"page.evaluate: Execution context was destroyed, most likely because of a navigation",,,
+booking,3,1c0480a3-46a9-46cd-b508-53bca53f4513,inverse,f46bb42b-5593-4dac-b65b-402bf0ecf45f,exploring,false,,,,
+booking,4,5cb64ef7-07b1-43be-8bdc-12e4cdc546ba,idempotence,c6e16b76-a7c6-4795-a5ff-727e73ee2f4f,exploration_failed,false,"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('checkbox', { name: 'Friday, July 10, 2026', exact: true })
+    - locator resolved to <span role=""checkbox"" aria-disabled=""true"" aria-checked=""false"" data-date=""2026-07-10"" class=""ecb788f3b7 ad9d5181d0"" aria-label=""Friday, July 10, 2026"">…</span>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+      - waiting 100ms
+    58 × waiting for element to be visible, enabled and stable
+       - element is not enabled
+     - retrying click action
+       - waiting 500ms
+",,,
+booking,4,5cb64ef7-07b1-43be-8bdc-12e4cdc546ba,subset,478021c8-de9a-42dc-a38a-a14a20b4ca12,exploration_failed,false,"locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for getByRole('checkbox', { name: 'Friday, July 10, 2026', exact: true })
+    - locator resolved to <span role=""checkbox"" aria-disabled=""true"" aria-checked=""false"" data-date=""2026-07-10"" class=""ecb788f3b7 ad9d5181d0"" aria-label=""Friday, July 10, 2026"">…</span>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is not enabled
+    - retrying click action
+      - waiting 100ms
+    58 × waiting for element to be visible, enabled and stable
+       - element is not enabled
+     - retrying click action
+       - waiting 500ms
+",,,
+booking,4,5cb64ef7-07b1-43be-8bdc-12e4cdc546ba,permutation,ba01fca1-a866-480b-ad32-edac83f2aef5,exploration_failed,false,"Plan aborted: Filter elements (E1-E5 star rating, E13-E16 review score) are systematically causing page navigation to the Booking.com homepage with empty destination and default dates (Sat Jul 11 - Sun Jul 12), losing the Paris search context. Four consecutive attempts (batches 11-14) with different filters and longer waits all failed with the same regression pattern. The role=link elements appear to be anchor tags with broken/malformed hrefs that navigate to the homepage instead of triggering in-page filter updates. Since the MR requires applying two independent filter facets on the Paris results page and verifying the result set is order-independent, but no filter can be applied without the page regressing, the phase goal is permanently unachievable through the UI.",,,
+booking,4,5cb64ef7-07b1-43be-8bdc-12e4cdc546ba,inverse,dc92a2c9-225a-4029-b332-2d45b806e642,exploration_failed,false,Max iterations (30) exceeded,,,
+booking,5,a0370cf7-125d-41b0-9703-02b7d82be595,idempotence,5fc4d4a0-baf5-4c93-890a-950806b01842,approved,true,,00374f71-b025-4c81-9677-c4acbff5e252,fail,completed
+booking,5,a0370cf7-125d-41b0-9703-02b7d82be595,subset,5468d6fe-4662-4c74-a2fb-8daf7be3898f,exploration_failed,false,"page.evaluate: Execution context was destroyed, most likely because of a navigation",,,
+booking,5,a0370cf7-125d-41b0-9703-02b7d82be595,permutation,7af591bd-9abf-40d9-a8d9-5a4e9432355e,exploration_failed,false,"Plan aborted: The phase goal is to reach the search results grid and apply two filters, but the destination is blocked by the Genius modal which cannot be dismissed (click on E1 fails because body intercepts pointer events, Escape does not close the calendar popup, and the modal persists across batches). Without a working way to dismiss the modal or close the calendar, the search form cannot be submitted reliably to reach the results grid.",,,
+booking,5,a0370cf7-125d-41b0-9703-02b7d82be595,inverse,bea96f91-3a57-44c6-89d8-4049857fa8eb,approved,true,,836c6e87-72fa-4595-a3a4-b37c7c03733f,fail,completed
+airbnb,3,ea0dc79e-2562-4bdf-8faa-12647e93e63d,idempotence,73113416-6308-4930-bc24-baf62fdc6ab3,exploration_failed,false,"page._wrapApiCall: No unique target for step 5 (click E11) after 5000ms. Tried: getByRole(""button"", { name: ""Destino Alojamientos en Madrid"", exact: true }) -> 0 matches",,,
+airbnb,3,ea0dc79e-2562-4bdf-8faa-12647e93e63d,subset,385787dd-cb32-4309-9d65-826fb322b387,approved,true,,c889f460-79ad-4a73-b60b-af26ee785621,pass,completed
+airbnb,3,ea0dc79e-2562-4bdf-8faa-12647e93e63d,permutation,db7d55ef-1dd2-436a-ba7f-bae78f3a35bb,exploration_failed,false,"Plan aborted: Phase goal is impossible: the date picker is open overlaying the page and selecting day 15 (E11) in the prior batch did not finalize check-out. The current inventory still shows day 11 (E7) as 'Fecha de llegada seleccionada' and day 15 (E11) as 'Fecha de salida seleccionada', meaning both dates ARE selected in the picker. However, the cookie banner overlay (E63 'Aceptar todas', E64 'Solo las necesarias') is blocking the 'Buscar' button (E4) and the search form cannot be submitted without dismissing it. Re-attempting to dismiss the cookie banner is feasible but the date picker needs to close first by clicking outside it, then clicking Buscar (E4). Since prior batches failed validation for empty steps and abort, and the cookie overlay is dismissible, this is recoverable — switching to append_steps instead of abort.",,,
+airbnb,3,ea0dc79e-2562-4bdf-8faa-12647e93e63d,inverse,c341f7a9-e0f1-46f1-b73e-968f9a547552,approved,true,,ba39cedc-0c14-4466-8a02-295972178e13,,failed
+airbnb,4,21c534ac-b142-4017-b502-d4b308214649,idempotence,0ed31c2e-9313-437a-8d05-6a0bd7d942ea,approved,true,,ffbcac36-1bd5-4a74-bfe7-8caf514c4b5d,pass,completed
+airbnb,4,21c534ac-b142-4017-b502-d4b308214649,subset,9b4a390b-91b4-4452-9ce9-7768852a23ec,approved,true,,6803a628-2b72-43ce-b9bf-d5d47feb72df,pass,completed
+airbnb,4,21c534ac-b142-4017-b502-d4b308214649,permutation,c8b3fab3-c804-444d-8f44-9654c18bd65a,approved,true,,4c1c8ec0-f766-4b00-bf2e-d6d4d659f96b,,failed
+airbnb,4,21c534ac-b142-4017-b502-d4b308214649,inverse,cbbb76e6-2aee-4592-80e9-e8ca13b6be4a,approved,true,,6c343967-5af7-4ba2-8210-9aac0819ffa4,pass,completed
+airbnb,5,10602e54-a358-44a9-b9b4-bcfe721abaa5,idempotence,8e88464d-0b8f-4e83-8ca0-da14f8c5b679,approved,true,,b1c5b116-994c-45e0-8838-b8cfe7b98fc0,,failed
+airbnb,5,10602e54-a358-44a9-b9b4-bcfe721abaa5,subset,1634f5fc-e4f9-4726-b348-a39e0e2c5980,exploration_failed,false,"plan failed validation - exploration.follow_up_phase_goal: expected string, got undefined",,,
+airbnb,5,10602e54-a358-44a9-b9b4-bcfe721abaa5,permutation,d20dd065-df18-4209-9e71-7e6f7eba1a20,exploration_failed,false,"page._wrapApiCall: No unique target for step 5 (click E17) after 5000ms. Tried: getByRole(""button"", { name: ""Filtros"", exact: true }) -> 0 matches",,,
+airbnb,5,10602e54-a358-44a9-b9b4-bcfe721abaa5,inverse,9f000409-fe07-4a6c-b79e-9cca7a39c558,exploration_failed,false,"page._wrapApiCall: No unique target for step 6 (click E11) after 5000ms. Tried: getByRole(""button"", { name: ""Destino Alojamientos en Madrid"", exact: true }) -> 0 matches",,,

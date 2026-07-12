@@ -1,0 +1,77 @@
+{
+  "strictVerdicts": {
+    "total": 48,
+    "pass": 22,
+    "fail": 26,
+    "passRate": 0.4583333333333333,
+    "failRate": 0.5416666666666666,
+    "byFamily": {
+      "idempotence": {
+        "total": 18,
+        "pass": 11,
+        "fail": 7,
+        "passRate": 0.6111111111111112,
+        "failRate": 0.3888888888888889
+      },
+      "subset": {
+        "total": 12,
+        "pass": 4,
+        "fail": 8,
+        "passRate": 0.3333333333333333,
+        "failRate": 0.6666666666666666
+      },
+      "permutation": {
+        "total": 4,
+        "pass": 1,
+        "fail": 3,
+        "passRate": 0.25,
+        "failRate": 0.75
+      },
+      "inverse": {
+        "total": 14,
+        "pass": 6,
+        "fail": 8,
+        "passRate": 0.42857142857142855,
+        "failRate": 0.5714285714285714
+      }
+    }
+  },
+  "observableItems": {
+    "pass": 256,
+    "fail": 63,
+    "total": 319,
+    "passRate": 0.8025078369905956,
+    "failRate": 0.1974921630094044,
+    "byFamily": {
+      "idempotence": {
+        "pass": 102,
+        "fail": 19,
+        "total": 121,
+        "passRate": 0.8429752066115702,
+        "failRate": 0.15702479338842976
+      },
+      "subset": {
+        "pass": 59,
+        "fail": 16,
+        "total": 75,
+        "passRate": 0.7866666666666666,
+        "failRate": 0.21333333333333335
+      },
+      "permutation": {
+        "pass": 18,
+        "fail": 6,
+        "total": 24,
+        "passRate": 0.75,
+        "failRate": 0.25
+      },
+      "inverse": {
+        "pass": 77,
+        "fail": 22,
+        "total": 99,
+        "passRate": 0.7777777777777778,
+        "failRate": 0.2222222222222222
+      }
+    }
+  },
+  "failingRunCount": 26
+}

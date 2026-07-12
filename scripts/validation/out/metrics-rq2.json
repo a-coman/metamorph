@@ -1,0 +1,55 @@
+{
+  "executeCompletion": {
+    "compiledMrs": 63,
+    "completedRuns": 48,
+    "completionRate": 0.7619047619047619,
+    "byDomain": {
+      "amazon": {
+        "compiled": 15,
+        "completed": 13,
+        "completionRate": 0.8666666666666667
+      },
+      "airbnb": {
+        "compiled": 14,
+        "completed": 9,
+        "completionRate": 0.6428571428571429
+      },
+      "booking": {
+        "compiled": 3,
+        "completed": 3,
+        "completionRate": 1
+      },
+      "github": {
+        "compiled": 15,
+        "completed": 13,
+        "completionRate": 0.8666666666666667
+      },
+      "mediamarkt": {
+        "compiled": 16,
+        "completed": 10,
+        "completionRate": 0.625
+      }
+    }
+  },
+  "replayDuration": {
+    "count": 63,
+    "median": 24257,
+    "q1": 17982,
+    "q3": 51304.5,
+    "min": 13725,
+    "max": 197681,
+    "range": 183956,
+    "iqr": 33322.5,
+    "lowerFence": -32001.75,
+    "upperFence": 101288.25,
+    "lowerWhisker": 13725,
+    "upperWhisker": 84087,
+    "outliers": [
+      131446,
+      133332,
+      157337,
+      189767,
+      197681
+    ]
+  }
+}
