@@ -58,8 +58,7 @@ async function buildFamilyResults(
       };
     }
 
-    const explorationSuccess =
-      mrVersion.playbookBlobId !== null && mrVersion.schemaBlobId !== null;
+    const explorationSuccess = mrVersion.playbookBlobId !== null;
     const initialRun = mrVersion.runs[0] ?? null;
 
     return {

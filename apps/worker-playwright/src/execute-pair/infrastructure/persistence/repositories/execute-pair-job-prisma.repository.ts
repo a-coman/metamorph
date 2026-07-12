@@ -12,7 +12,6 @@ export class ExecutePairJobPrismaRepository extends ExecutePairJobRepositoryPort
         mrVersion: {
           include: {
             playbookBlob: true,
-            schemaBlob: true,
           },
         },
       },

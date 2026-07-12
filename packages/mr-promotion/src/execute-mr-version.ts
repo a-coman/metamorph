@@ -1,3 +1,7 @@
+import {
+  computeReplayBundleHash,
+  GenerationSlotsSchema,
+} from '@metamorph/core';
 import { MrPromotionError } from './errors.js';
 import type { MrPromotionDeps } from './mr-promotion-deps.js';
 
@@ -20,7 +24,10 @@ export async function executeMrVersion(
   });
 
   if (!mrVersion) {
-    throw new MrPromotionError('not_found', `MR version ${mrVersionId} not found`);
+    throw new MrPromotionError(
+      'not_found',
+      `MR version ${mrVersionId} not found`,
+    );
   }
 
   if (mrVersion.status !== 'approved') {
@@ -37,9 +44,43 @@ export async function executeMrVersion(
     );
   }
 
+  const slots = GenerationSlotsSchema.safeParse(mrVersion.generationSlots);
+  if (!slots.success) {
+    throw new MrPromotionError(
+      'missing_playbook',
+      `MR version ${mrVersionId} has an invalid observation specification`,
+    );
+  }
+
+  const hashes = computeReplayBundleHash({
+    playbookContent: mrVersion.playbookBlob.content,
+    observationSpec: slots.data.observation,
+    templateVersion: mrVersion.playbookBlob.templateVersion,
+  });
+  if (
+    mrVersion.playbookBlob.contentHash !== hashes.contentHash ||
+    (mrVersion.replayBundleHash !== null &&
+      mrVersion.replayBundleHash !== hashes.replayBundleHash)
+  ) {
+    throw new MrPromotionError(
+      'integrity_failed',
+      `MR version ${mrVersionId} failed replay bundle integrity validation`,
+    );
+  }
+
+  if (mrVersion.replayBundleHash === null) {
+    await deps.prisma.mrVersion.update({
+      where: { id: mrVersionId },
+      data: { replayBundleHash: hashes.replayBundleHash },
+    });
+  }
+
   const session = mrVersion.session;
   if (!session) {
-    throw new MrPromotionError('not_found', `Session for MR version ${mrVersionId} not found`);
+    throw new MrPromotionError(
+      'not_found',
+      `Session for MR version ${mrVersionId} not found`,
+    );
   }
 
   const created = await deps.prisma.$transaction(async (tx) => {
@@ -58,7 +99,8 @@ export async function executeMrVersion(
         mrVersionId: mrVersion.id,
         jobId: job.id,
         status: 'pending',
-        playbookContentHash: mrVersion.playbookBlob?.contentHash,
+        playbookContentHash: hashes.contentHash,
+        replayBundleHash: hashes.replayBundleHash,
       },
     });
 
@@ -90,7 +132,9 @@ export async function executeMrVersion(
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'Failed to publish execute pair job';
+      error instanceof Error
+        ? error.message
+        : 'Failed to publish execute pair job';
 
     await deps.prisma.job.update({
       where: { id: created.jobId },

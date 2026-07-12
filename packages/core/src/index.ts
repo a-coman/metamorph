@@ -28,9 +28,7 @@ export {
   validateObservableBindingValueType,
 } from './domain/observable-spec-validation.js';
 
-export {
-  COMPARE_OPERATOR_SEMANTICS,
-} from './domain/compare-operator-semantics.js';
+export { COMPARE_OPERATOR_SEMANTICS } from './domain/compare-operator-semantics.js';
 
 export {
   RelationTypeSchema,
@@ -94,7 +92,6 @@ export {
 export {
   PLAYBOOK_TEMPLATE_VERSION,
   renderPlaybook,
-  renderObservationSchema,
   type PlaybookRenderInput,
 } from './infrastructure/templates/playbook-template.v1.js';
 
@@ -203,6 +200,13 @@ export {
 } from './application/mr-engine/mr-engine.js';
 
 export { deriveFinalUrlFromObservation } from './application/mr-engine/derive-final-url.js';
+
+export {
+  computeReplayBundleHash,
+  canonicalJson,
+  type ReplayBundleHashInput,
+  type ReplayBundleHashResult,
+} from './domain/replay-bundle-hash.js';
 
 export {
   parseLocalizedNumbers,

@@ -23,9 +23,37 @@ describe('stats', () => {
 
   it('summarizes numeric arrays', () => {
     const summary = summarizeNumeric([10, 20, 30, 40]);
-    assert.equal(summary.count, 4);
-    assert.equal(summary.median, 25);
-    assert.equal(summary.min, 10);
-    assert.equal(summary.max, 40);
+    assert.deepEqual(summary, {
+      count: 4,
+      median: 25,
+      q1: 17.5,
+      q3: 32.5,
+      min: 10,
+      max: 40,
+      range: 30,
+      iqr: 15,
+      lowerFence: -5,
+      upperFence: 55,
+      lowerWhisker: 10,
+      upperWhisker: 40,
+      outliers: [],
+    });
+  });
+
+  it('computes Tukey whiskers and retains observed outliers', () => {
+    const summary = summarizeNumeric([1, 2, 2, 3, 4, 20]);
+    assert.equal(summary.lowerFence, -0.625);
+    assert.equal(summary.upperFence, 6.375);
+    assert.equal(summary.lowerWhisker, 1);
+    assert.equal(summary.upperWhisker, 4);
+    assert.deepEqual(summary.outliers, [20]);
+  });
+
+  it('summarizes empty arrays', () => {
+    const summary = summarizeNumeric([]);
+    assert.equal(summary.count, 0);
+    assert.equal(summary.lowerWhisker, null);
+    assert.equal(summary.upperWhisker, null);
+    assert.deepEqual(summary.outliers, []);
   });
 });

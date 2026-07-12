@@ -1,4 +1,5 @@
 import {
+  computeReplayBundleHash,
   evaluateMr,
   validateObservationPayload,
 } from '@metamorph/core';
@@ -48,6 +49,18 @@ export class ExecutePairJobService {
     await this.runRepository.markRunning(job.runId);
 
     try {
+      const computedHashes = computeReplayBundleHash({
+        playbookContent: job.playbookContent,
+        observationSpec: job.observationSpec,
+        templateVersion: job.templateVersion,
+      });
+      if (
+        computedHashes.contentHash !== job.playbookContentHash ||
+        computedHashes.replayBundleHash !== job.replayBundleHash
+      ) {
+        throw new Error('Replay bundle integrity check failed');
+      }
+
       const playbookResult = await this.playbookRunner.run(
         job.playbookContent,
         job.runId,
@@ -59,9 +72,8 @@ export class ExecutePairJobService {
         ['follow_up', playbookResult.followUpObservation],
       ] as const) {
         const validation = validateObservationPayload(
-          job.schemaContent,
           observation,
-          job.observables,
+          job.observationSpec,
         );
 
         if (!validation.valid) {
@@ -72,7 +84,7 @@ export class ExecutePairJobService {
       }
 
       const evaluation = evaluateMr(
-        job.observables,
+        job.observationSpec.observables,
         playbookResult.sourceObservation,
         playbookResult.followUpObservation,
       );
@@ -83,7 +95,8 @@ export class ExecutePairJobService {
         mrVersionId: job.mrVersionId,
         playbookContentHash: job.playbookContentHash,
         sessionUrl: job.sessionUrl,
-        observables: job.observables,
+        observables: job.observationSpec.observables,
+        replayBundleHash: job.replayBundleHash,
         sourceObservation: playbookResult.sourceObservation,
         followUpObservation: playbookResult.followUpObservation,
         evaluation,
@@ -101,7 +114,9 @@ export class ExecutePairJobService {
       return right(undefined);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Unknown execute pair job error';
+        error instanceof Error
+          ? error.message
+          : 'Unknown execute pair job error';
 
       if (message === 'Playbook paused by user') {
         await pauseSessionJob(job.sessionId, jobId);

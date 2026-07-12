@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   OBSERVATION_SPEC_SCHEMA_VERSION,
   type CompilePlaybookResult,
@@ -141,27 +140,18 @@ export class ExplorationPrismaRepository {
         },
       });
 
-      const schemaHash = createHash('sha256')
-        .update(input.compiled.schemaContent)
-        .digest('hex');
-
-      const schemaBlob = await tx.schemaBlob.create({
-        data: {
-          content: input.compiled.schemaContent,
-          contentHash: schemaHash,
-        },
-      });
-
       await tx.mrVersion.update({
         where: { id: input.mrVersionId },
         data: {
           status: MrVersionStatus.draft_pending_hitl,
-          generationSlots: input.generationSlots,
+          generationSlots: {
+            ...input.generationSlots,
+            observation: input.compiled.observationSpec,
+          },
           playbookBlobId: playbookBlob.id,
-          schemaBlobId: schemaBlob.id,
+          replayBundleHash: input.compiled.replayBundleHash,
         },
       });
-
     });
   }
 

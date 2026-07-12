@@ -5,6 +5,7 @@ import { writeFile } from 'node:fs/promises';
 import { formatUsd } from './llm-pricing.js';
 import { loadManifest } from './manifest.js';
 import { outPath, ensureOutDir } from './paths.js';
+import { summarizeNumeric, type NumericSummary } from './stats.js';
 import {
   countColumnValues,
   formatMs,
@@ -178,24 +179,19 @@ async function main(): Promise<void> {
           ),
           summarizeNumericBlock(
             'Per successful MR failure rate distribution',
-            {
-              count: mrProbeRates.length,
-              median: median(mrProbeRates),
-              q1: percentile(mrProbeRates, 0.25),
-              q3: percentile(mrProbeRates, 0.75),
-              min: mrProbeRates[0] ?? null,
-              max: mrProbeRates[mrProbeRates.length - 1] ?? null,
-            },
+            summarizeNumeric(mrProbeRates),
             formatPercent,
+            { includeBoxPlot: false },
           ),
+          '_A box plot is omitted because Q1, the median, and Q3 are all zero; the box and whiskers would collapse to a single point._',
         ].join('\n'),
       ),
     );
 
     const validatedSteps = rq1.validatedSteps as {
       summary: {
-        source: { count: number; median: number | null; q1: number | null; q3: number | null; min: number | null; max: number | null };
-        followUp: { count: number; median: number | null; q1: number | null; q3: number | null; min: number | null; max: number | null };
+        source: NumericSummary;
+        followUp: NumericSummary;
       };
     };
     lines.push(
@@ -364,14 +360,7 @@ async function main(): Promise<void> {
       ),
     );
 
-    const timeToDraft = rq1.timeToDraft as {
-      count: number;
-      median: number | null;
-      q1: number | null;
-      q3: number | null;
-      min: number | null;
-      max: number | null;
-    };
+    const timeToDraft = rq1.timeToDraft as NumericSummary;
     lines.push(
       section('RQ1: Time to draft', summarizeNumericBlock('Wall clock', timeToDraft, formatMs)),
     );
@@ -402,14 +391,7 @@ async function main(): Promise<void> {
       completionRate: number | null;
       byDomain: Record<string, { compiled: number; completed: number; completionRate: number | null }>;
     };
-    const replayDuration = rq2.replayDuration as {
-      count: number;
-      median: number | null;
-      q1: number | null;
-      q3: number | null;
-      min: number | null;
-      max: number | null;
-    };
+    const replayDuration = rq2.replayDuration as NumericSummary;
 
     lines.push(
       section(
@@ -693,33 +675,6 @@ function formatNumericPhase(phase: unknown): string {
   }
   const row = phase as { count?: number; median?: number | null };
   return `n=${row.count ?? 0}, median=${formatMs(row.median ?? null)}`;
-}
-
-function median(values: number[]): number | null {
-  if (values.length === 0) {
-    return null;
-  }
-  const sorted = [...values].sort((left, right) => left - right);
-  const middle = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) {
-    return (sorted[middle - 1]! + sorted[middle]!) / 2;
-  }
-  return sorted[middle]!;
-}
-
-function percentile(values: number[], p: number): number | null {
-  if (values.length === 0) {
-    return null;
-  }
-  const sorted = [...values].sort((left, right) => left - right);
-  const index = (sorted.length - 1) * p;
-  const lower = Math.floor(index);
-  const upper = Math.ceil(index);
-  if (lower === upper) {
-    return sorted[lower]!;
-  }
-  const weight = index - lower;
-  return sorted[lower]! * (1 - weight) + sorted[upper]! * weight;
 }
 
 main().catch((error) => {

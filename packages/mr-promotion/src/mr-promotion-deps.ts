@@ -24,26 +24,42 @@ export type MrPromotionPrismaClient = {
     findUnique(args: {
       where: { id: string };
       select: { mode: true; controlStatus: true };
-    }): Promise<{ mode: SessionMode; controlStatus: SessionControlStatus } | null>;
+    }): Promise<{
+      mode: SessionMode;
+      controlStatus: SessionControlStatus;
+    } | null>;
   };
   mrVersion: {
-    findUnique(
-      args: Record<string, unknown>,
-    ): Promise<{
+    findUnique(args: Record<string, unknown>): Promise<{
       id: string;
       sessionId: string;
       status: MrVersionStatus;
       playbookBlobId: string | null;
-      session?: { mode: SessionMode; controlStatus: SessionControlStatus; url: string };
-      playbookBlob?: { contentHash: string } | null;
+      generationSlots: unknown;
+      replayBundleHash: string | null;
+      session?: {
+        mode: SessionMode;
+        controlStatus: SessionControlStatus;
+        url: string;
+      };
+      playbookBlob?: {
+        content: string;
+        contentHash: string;
+        templateVersion: string;
+      } | null;
     } | null>;
     update(args: {
       where: { id: string };
       data: {
         status?: MrVersionStatus;
         approvedAt?: Date;
+        replayBundleHash?: string;
       };
-    }): Promise<{ id: string; status: MrVersionStatus; approvedAt: Date | null }>;
+    }): Promise<{
+      id: string;
+      status: MrVersionStatus;
+      approvedAt: Date | null;
+    }>;
   };
   playbookBlob: {
     update(args: {
@@ -77,6 +93,7 @@ export type MrPromotionPrismaClient = {
         jobId: string;
         status: string;
         playbookContentHash?: string;
+        replayBundleHash?: string;
       };
     }): Promise<{ id: string }>;
   };
@@ -85,5 +102,7 @@ export type MrPromotionPrismaClient = {
 
 export type MrPromotionDeps = {
   prisma: MrPromotionPrismaClient;
-  publishExecutePairJob: (payload: ExecutePairJobMessagePayload) => Promise<void>;
+  publishExecutePairJob: (
+    payload: ExecutePairJobMessagePayload,
+  ) => Promise<void>;
 };

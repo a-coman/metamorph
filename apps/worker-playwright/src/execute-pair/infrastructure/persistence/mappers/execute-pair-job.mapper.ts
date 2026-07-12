@@ -1,4 +1,7 @@
-import type { ObservableDef } from '@metamorph/core';
+import {
+  computeReplayBundleHash,
+  GenerationSlotsSchema,
+} from '@metamorph/core';
 import { UniqueEntityID } from '@metamorph/utils';
 import {
   JobStatus as PrismaJobStatus,
@@ -23,11 +26,15 @@ export class ExecutePairJobMapper {
     mrVersion: {
       id: string;
       generationSlots: unknown;
-      playbookBlob: { content: string; contentHash: string } | null;
-      schemaBlob: { content: string } | null;
+      replayBundleHash: string | null;
+      playbookBlob: {
+        content: string;
+        contentHash: string;
+        templateVersion: string;
+      } | null;
     } | null;
   }): ExecutePairJob | null {
-    if (!row.mrVersion?.playbookBlob || !row.mrVersion.schemaBlob) {
+    if (!row.mrVersion?.playbookBlob) {
       return null;
     }
 
@@ -36,7 +43,18 @@ export class ExecutePairJobMapper {
       return null;
     }
 
-    const observables = extractObservables(row.mrVersion.generationSlots);
+    const slots = GenerationSlotsSchema.safeParse(
+      row.mrVersion.generationSlots,
+    );
+    if (!slots.success) {
+      return null;
+    }
+
+    const computedHashes = computeReplayBundleHash({
+      playbookContent: row.mrVersion.playbookBlob.content,
+      observationSpec: slots.data.observation,
+      templateVersion: row.mrVersion.playbookBlob.templateVersion,
+    });
 
     return ExecutePairJob.reconstitute(
       {
@@ -47,9 +65,11 @@ export class ExecutePairJobMapper {
         type: JobType.execute_pair,
         status: toDomainJobStatus(row.status),
         playbookContent: row.mrVersion.playbookBlob.content,
-        schemaContent: row.mrVersion.schemaBlob.content,
-        observables,
+        observationSpec: slots.data.observation,
         playbookContentHash: row.mrVersion.playbookBlob.contentHash,
+        replayBundleHash:
+          row.mrVersion.replayBundleHash ?? computedHashes.replayBundleHash,
+        templateVersion: row.mrVersion.playbookBlob.templateVersion,
         errorMessage: row.errorMessage,
         startedAt: row.startedAt,
         finishedAt: row.finishedAt,
@@ -67,13 +87,6 @@ export class ExecutePairJobMapper {
       finishedAt: job.finishedAt ?? null,
     };
   }
-}
-
-function extractObservables(generationSlots: unknown): ObservableDef[] {
-  const slots = generationSlots as {
-    observation?: { observables?: ObservableDef[] };
-  };
-  return slots?.observation?.observables ?? [];
 }
 
 function toDomainJobStatus(status: PrismaJobStatus): JobStatus {

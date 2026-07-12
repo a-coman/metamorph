@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { compilePlaybook } from './playbook-compiler.js';
+import { computeReplayBundleHash } from '../../domain/replay-bundle-hash.js';
 import type { GenerationSlots } from '../../domain/schemas/generation-slots.schema.js';
 import type { PageSnapshotInventory } from '../../domain/schemas/page-snapshot.schema.js';
 import { OBSERVATION_SPEC_SCHEMA_VERSION } from '../../domain/schemas/observable.schema.js';
@@ -127,6 +128,25 @@ describe('compilePlaybook with observables', () => {
     assert.match(compiled.playbookContent, /__stablePollCount/);
     assert.match(compiled.playbookContent, /waitUntil: 'load'/);
     assert.equal(compiled.templateVersion, 'playbook-template@5');
+    assert.deepEqual(
+      compiled.observationSpec.observables.map(({ key }) => key),
+      slots.observation.observables.map(({ key }) => key),
+    );
+    assert.equal(
+      compiled.observationSpec.schemaVersion,
+      slots.observation.schemaVersion,
+    );
+    assert.deepEqual(
+      {
+        contentHash: compiled.contentHash,
+        replayBundleHash: compiled.replayBundleHash,
+      },
+      computeReplayBundleHash({
+        playbookContent: compiled.playbookContent,
+        observationSpec: compiled.observationSpec,
+        templateVersion: compiled.templateVersion,
+      }),
+    );
   });
 
   it('allows press steps whose element_id belongs to a later snapshot inventory', () => {
@@ -138,7 +158,8 @@ describe('compilePlaybook with observables', () => {
             action: 'fill',
             element_id: 'E1',
             value: 'laptop',
-            resolved_locator: 'getByRole("searchbox", { name: "Search", exact: true })',
+            resolved_locator:
+              'getByRole("searchbox", { name: "Search", exact: true })',
           },
           { id: 2, action: 'press', element_id: 'E1', key: 'Enter' },
         ],
@@ -150,7 +171,8 @@ describe('compilePlaybook with observables', () => {
             action: 'fill',
             element_id: 'E94',
             value: 'laptop',
-            resolved_locator: 'getByRole("searchbox", { name: "Search", exact: true })',
+            resolved_locator:
+              'getByRole("searchbox", { name: "Search", exact: true })',
           },
           { id: 2, action: 'press', element_id: 'E94', key: 'Enter' },
         ],
@@ -205,7 +227,8 @@ describe('compilePlaybook with observables', () => {
         {
           index: 0,
           shortId: 'E12',
-          locator: 'getByRole("button", { name: "Configuración de cookies", exact: true })',
+          locator:
+            'getByRole("button", { name: "Configuración de cookies", exact: true })',
           selector: '#onetrust-pc-btn-handler',
           score: 75,
           labelShown: true,
@@ -228,7 +251,8 @@ describe('compilePlaybook with observables', () => {
             action: 'fill',
             element_id: 'E12',
             value: 'Madrid',
-            resolved_locator: 'getByRole("combobox", { name: "Origen", exact: true })',
+            resolved_locator:
+              'getByRole("combobox", { name: "Origen", exact: true })',
             fill_behavior: 'autocomplete',
           },
         ],
@@ -266,7 +290,9 @@ describe('compilePlaybook with observables', () => {
       },
       initialSnapshotInventory,
       {
-        anchorInventories: new Map([[anchorSnapshotId, initialSnapshotInventory]]),
+        anchorInventories: new Map([
+          [anchorSnapshotId, initialSnapshotInventory],
+        ]),
       },
     );
 

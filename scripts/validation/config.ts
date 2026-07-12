@@ -16,11 +16,11 @@ export type ValidationDomain = {
 };
 
 export const VALIDATION_DOMAINS: ValidationDomain[] = [
-  { id: 'amazon', url: 'https://www.amazon.es/', generations: 10 },
-  { id: 'booking', url: 'https://www.booking.com/', generations: 10 },
-  { id: 'airbnb', url: 'https://www.airbnb.es/', generations: 10 },
-  { id: 'mediamarkt', url: 'https://www.mediamarkt.es/', generations: 10 },
-  { id: 'github', url: 'https://github.com/', generations: 10 },
+  { id: 'amazon', url: 'https://www.amazon.es/', generations: 5 },
+  { id: 'booking', url: 'https://www.booking.com/', generations: 5 },
+  { id: 'airbnb', url: 'https://www.airbnb.es/', generations: 5 },
+  { id: 'mediamarkt', url: 'https://www.mediamarkt.es/', generations: 5 },
+  { id: 'github', url: 'https://github.com/', generations: 5 },
 ];
 
 export const TERMINAL_MR_STATUSES = new Set([

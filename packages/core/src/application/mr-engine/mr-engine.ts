@@ -1,4 +1,7 @@
-import type { ObservableDef } from '../../domain/schemas/observable.schema.js';
+import type {
+  ObservableDef,
+  ObservationSpec,
+} from '../../domain/schemas/observable.schema.js';
 import { buildObservationPayloadSchema } from '../../domain/schemas/observation-catalog.schema.js';
 import {
   evaluateCardinalityLte,
@@ -51,11 +54,10 @@ function evaluateObservableCompare(
 }
 
 export function validateObservationPayload(
-  _schemaContent: string,
   payload: unknown,
-  observables: ObservableDef[],
+  observationSpec: ObservationSpec,
 ): { valid: true } | { valid: false; error: string } {
-  const zodSchema = buildObservationPayloadSchema(observables);
+  const zodSchema = buildObservationPayloadSchema(observationSpec.observables);
   const parsed = zodSchema.safeParse(payload);
 
   if (!parsed.success) {

@@ -1,11 +1,17 @@
-import { createHash } from 'node:crypto';
-import type { GenerationSlots, SlotStep } from '../../domain/schemas/generation-slots.schema.js';
+import type {
+  GenerationSlots,
+  SlotStep,
+} from '../../domain/schemas/generation-slots.schema.js';
 import type { MrDefinition } from '../../domain/schemas/mr-definition.schema.js';
-import type { InventoryItem, PageSnapshotInventory } from '../../domain/schemas/page-snapshot.schema.js';
+import type { ObservationSpec } from '../../domain/schemas/observable.schema.js';
+import type {
+  InventoryItem,
+  PageSnapshotInventory,
+} from '../../domain/schemas/page-snapshot.schema.js';
+import { computeReplayBundleHash } from '../../domain/replay-bundle-hash.js';
 import {
   PLAYBOOK_TEMPLATE_VERSION,
   buildObservationExtractorContext,
-  renderObservationSchema,
   renderPlaybook,
 } from '../../infrastructure/templates/playbook-template.v1.js';
 import {
@@ -24,8 +30,9 @@ import {
 
 export type CompilePlaybookResult = {
   playbookContent: string;
-  schemaContent: string;
+  observationSpec: ObservationSpec;
   contentHash: string;
+  replayBundleHash: string;
   templateVersion: string;
 };
 
@@ -49,12 +56,18 @@ export function compilePlaybook(
   const observables = slots.observation.observables;
 
   if (observables.length === 0) {
-    throw new PlaybookCompileError('At least one observable is required to compile playbook');
+    throw new PlaybookCompileError(
+      'At least one observable is required to compile playbook',
+    );
   }
 
-  const anchorInventories = options?.anchorInventories ?? new Map<string, PageSnapshotInventory>();
+  const anchorInventories =
+    options?.anchorInventories ?? new Map<string, PageSnapshotInventory>();
   validateObservableBindings(observables, anchorInventories);
-  const resolvedObservables = resolveObservableBindingTargets(observables, anchorInventories);
+  const resolvedObservables = resolveObservableBindingTargets(
+    observables,
+    anchorInventories,
+  );
 
   validateElementIds(slots, itemMap);
 
@@ -83,13 +96,21 @@ export function compilePlaybook(
     observationContext,
   });
 
-  const schemaContent = renderObservationSchema(resolvedObservables);
-  const contentHash = createHash('sha256').update(playbookContent).digest('hex');
+  const observationSpec: ObservationSpec = {
+    schemaVersion: slots.observation.schemaVersion,
+    observables: resolvedObservables,
+  };
+  const { contentHash, replayBundleHash } = computeReplayBundleHash({
+    playbookContent,
+    observationSpec,
+    templateVersion: PLAYBOOK_TEMPLATE_VERSION,
+  });
 
   return {
     playbookContent,
-    schemaContent,
+    observationSpec,
     contentHash,
+    replayBundleHash,
     templateVersion: PLAYBOOK_TEMPLATE_VERSION,
   };
 }

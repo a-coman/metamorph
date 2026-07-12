@@ -29,6 +29,8 @@ export type RunDetailsDto = {
   attempt: number;
   sourceFinalUrl: string | null;
   followUpFinalUrl: string | null;
+  playbookContentHash: string | null;
+  replayBundleHash: string | null;
   inputBundle: RunInputBundleDto;
   createdAt: Date;
   finishedAt: Date | null;

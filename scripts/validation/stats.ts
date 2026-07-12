@@ -46,26 +46,68 @@ function percentile(sorted: number[], p: number): number {
   return sorted[lower]! * (1 - weight) + sorted[upper]! * weight;
 }
 
-export function summarizeNumeric(values: number[]): {
+export type NumericSummary = {
   count: number;
   median: number | null;
   q1: number | null;
   q3: number | null;
   min: number | null;
   max: number | null;
-} {
+  range: number | null;
+  iqr: number | null;
+  lowerFence: number | null;
+  upperFence: number | null;
+  lowerWhisker: number | null;
+  upperWhisker: number | null;
+  outliers: number[];
+};
+
+/**
+ * Summarizes a sample and computes Tukey box-plot values. Min and max are the
+ * observed extremes; whiskers are the most extreme observations within the
+ * Q1 - 1.5*IQR and Q3 + 1.5*IQR fences.
+ */
+export function summarizeNumeric(values: number[]): NumericSummary {
   if (values.length === 0) {
-    return { count: 0, median: null, q1: null, q3: null, min: null, max: null };
+    return {
+      count: 0,
+      median: null,
+      q1: null,
+      q3: null,
+      min: null,
+      max: null,
+      range: null,
+      iqr: null,
+      lowerFence: null,
+      upperFence: null,
+      lowerWhisker: null,
+      upperWhisker: null,
+      outliers: [],
+    };
   }
   const sorted = [...values].sort((left, right) => left - right);
   const spread = iqr(sorted);
+  const q1 = spread.q1!;
+  const q3 = spread.q3!;
+  const interquartileRange = q3 - q1;
+  const lowerFence = q1 - 1.5 * interquartileRange;
+  const upperFence = q3 + 1.5 * interquartileRange;
+  const inliers = sorted.filter((value) => value >= lowerFence && value <= upperFence);
+  const outliers = sorted.filter((value) => value < lowerFence || value > upperFence);
   return {
     count: values.length,
     median: median(values),
-    q1: spread.q1,
-    q3: spread.q3,
+    q1,
+    q3,
     min: sorted[0]!,
     max: sorted[sorted.length - 1]!,
+    range: sorted[sorted.length - 1]! - sorted[0]!,
+    iqr: interquartileRange,
+    lowerFence,
+    upperFence,
+    lowerWhisker: inliers[0]!,
+    upperWhisker: inliers[inliers.length - 1]!,
+    outliers,
   };
 }
 

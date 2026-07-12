@@ -1,4 +1,7 @@
-import { createHash } from 'node:crypto';
+import {
+  computeReplayBundleHash,
+  GenerationSlotsSchema,
+} from '@metamorph/core';
 import { MrPromotionError } from './errors.js';
 import type { MrPromotionPrismaClient } from './mr-promotion-deps.js';
 
@@ -19,7 +22,10 @@ export async function approveMrVersion(
   });
 
   if (!mrVersion) {
-    throw new MrPromotionError('not_found', `MR version ${mrVersionId} not found`);
+    throw new MrPromotionError(
+      'not_found',
+      `MR version ${mrVersionId} not found`,
+    );
   }
 
   if (mrVersion.status !== 'draft_pending_hitl') {
@@ -29,6 +35,29 @@ export async function approveMrVersion(
     );
   }
 
+  if (!mrVersion.playbookBlob) {
+    throw new MrPromotionError(
+      'missing_playbook',
+      `MR version ${mrVersionId} has no playbook to approve`,
+    );
+  }
+
+  const slots = GenerationSlotsSchema.safeParse(mrVersion.generationSlots);
+  if (!slots.success) {
+    throw new MrPromotionError(
+      'missing_playbook',
+      `MR version ${mrVersionId} has an invalid observation specification`,
+    );
+  }
+
+  const approvedPlaybookContent =
+    playbookContent ?? mrVersion.playbookBlob.content;
+  const hashes = computeReplayBundleHash({
+    playbookContent: approvedPlaybookContent,
+    observationSpec: slots.data.observation,
+    templateVersion: mrVersion.playbookBlob.templateVersion,
+  });
+
   if (playbookContent !== undefined) {
     if (!mrVersion.playbookBlobId) {
       throw new MrPromotionError(
@@ -37,13 +66,11 @@ export async function approveMrVersion(
       );
     }
 
-    const contentHash = createHash('sha256').update(playbookContent).digest('hex');
-
     await prisma.playbookBlob.update({
       where: { id: mrVersion.playbookBlobId },
       data: {
         content: playbookContent,
-        contentHash,
+        contentHash: hashes.contentHash,
       },
     });
   }
@@ -54,6 +81,7 @@ export async function approveMrVersion(
     data: {
       status: 'approved',
       approvedAt,
+      replayBundleHash: hashes.replayBundleHash,
     },
   });
 

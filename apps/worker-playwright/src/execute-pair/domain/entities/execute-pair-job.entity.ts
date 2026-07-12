@@ -1,4 +1,4 @@
-import type { ObservableDef } from '@metamorph/core';
+import type { ObservationSpec } from '@metamorph/core';
 import {
   Entity,
   Either,
@@ -19,9 +19,10 @@ export type ExecutePairJobProps = {
   type: JobType;
   status: JobStatus;
   playbookContent: string;
-  schemaContent: string;
-  observables: ObservableDef[];
+  observationSpec: ObservationSpec;
   playbookContentHash: string;
+  replayBundleHash: string;
+  templateVersion: string;
   errorMessage?: string | null;
   startedAt?: Date | null;
   finishedAt?: Date | null;
@@ -67,16 +68,20 @@ export class ExecutePairJob extends Entity<ExecutePairJobProps> {
     return this.props.playbookContent;
   }
 
-  get schemaContent(): string {
-    return this.props.schemaContent;
-  }
-
-  get observables(): ObservableDef[] {
-    return this.props.observables;
+  get observationSpec(): ObservationSpec {
+    return this.props.observationSpec;
   }
 
   get playbookContentHash(): string {
     return this.props.playbookContentHash;
+  }
+
+  get replayBundleHash(): string {
+    return this.props.replayBundleHash;
+  }
+
+  get templateVersion(): string {
+    return this.props.templateVersion;
   }
 
   get errorMessage(): string | null | undefined {
@@ -94,7 +99,10 @@ export class ExecutePairJob extends Entity<ExecutePairJobProps> {
   start(): Either<DomainError, void> {
     if (this.props.type !== JobType.execute_pair) {
       return left(
-        new ExecutePairJobNotRunnableError(this.id.value, `type=${this.props.type}`),
+        new ExecutePairJobNotRunnableError(
+          this.id.value,
+          `type=${this.props.type}`,
+        ),
       );
     }
 

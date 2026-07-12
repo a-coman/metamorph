@@ -192,7 +192,7 @@ model MrVersion {
   /// LLM-filled slots JSON (element_id references, actions catalog)
   generationSlots        Json            @default("{}") @map("generation_slots")
   playbookBlobId         String?         @map("playbook_blob_id") @db.Uuid
-  schemaBlobId           String?         @map("schema_blob_id") @db.Uuid
+  replayBundleHash       String?         @map("replay_bundle_hash")
   /// Locator validation score for auto-approve (0–1)
   locatorValidationScore Float?          @map("locator_validation_score")
   /// Set when status becomes exploration_failed (LangGraph fail node)
@@ -207,7 +207,6 @@ model MrVersion {
   mrDefinition MrDefinition  @relation(fields: [mrDefinitionId], references: [id], onDelete: Restrict)
   pageSnapshot PageSnapshot? @relation(fields: [pageSnapshotId], references: [id], onDelete: SetNull)
   playbookBlob PlaybookBlob? @relation(fields: [playbookBlobId], references: [id], onDelete: SetNull)
-  schemaBlob   SchemaBlob?   @relation(fields: [schemaBlobId], references: [id], onDelete: SetNull)
   jobs         Job[]
   runs         Run[]
   violations              Violation[]
@@ -253,18 +252,6 @@ model PlaybookBlob {
   @@map("playbook_blobs")
 }
 
-model SchemaBlob {
-  id          String   @id @default(uuid()) @db.Uuid
-  content     String   @db.Text
-  contentHash String   @map("content_hash")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  mrVersions MrVersion[]
-
-  @@index([contentHash])
-  @@map("schema_blobs")
-}
-
 // ─── Execution ───────────────────────────────────────────────────────────────
 
 model Run {
@@ -278,6 +265,7 @@ model Run {
   verdictWeak         Verdict?          @map("verdict_weak")
   verdictEffective    VerdictEffective? @map("verdict_effective")
   playbookContentHash String?           @map("playbook_content_hash")
+  replayBundleHash    String?           @map("replay_bundle_hash")
   openrouterModel     String?           @map("openrouter_model")
   promptVersion       String?           @map("prompt_version")
   sourceFinalUrl      String?           @map("source_final_url")

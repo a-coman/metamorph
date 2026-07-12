@@ -9,6 +9,7 @@ export type MrVersionDetailsDto = {
   mrDefinition: unknown;
   pageSnapshotId: string | null;
   locatorValidationScore: number | null;
+  replayBundleHash: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -55,6 +56,7 @@ export type MrVersionPlaybookDto = {
   id: string;
   content: string;
   contentHash: string;
+  replayBundleHash: string | null;
   templateVersion: string;
 };
 

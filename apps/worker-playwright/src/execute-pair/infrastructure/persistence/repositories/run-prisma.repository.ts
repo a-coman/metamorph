@@ -47,6 +47,7 @@ export class RunPrismaRepository {
     sessionId: string;
     mrVersionId: string;
     playbookContentHash: string;
+    replayBundleHash: string;
     sessionUrl: string;
     observables: ObservableDef[];
     sourceObservation: Record<string, unknown>;
@@ -77,6 +78,7 @@ export class RunPrismaRepository {
           status: RunStatus.completed,
           verdictStrict: input.evaluation.verdict as Verdict,
           playbookContentHash: input.playbookContentHash,
+          replayBundleHash: input.replayBundleHash,
           sourceFinalUrl,
           followUpFinalUrl,
           finishedAt: new Date(),

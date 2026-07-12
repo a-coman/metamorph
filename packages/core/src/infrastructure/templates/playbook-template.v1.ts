@@ -53,34 +53,6 @@ ${renderFinalCaptureStabilizationCode('  ')}
 `;
 }
 
-const VALUE_TYPE_JSON: Record<ObservableDef['valueType'], string | { type: string; items: { type: string } }> = {
-  string: 'string',
-  number: 'number',
-  boolean: 'boolean',
-  'string[]': { type: 'array', items: { type: 'string' } },
-};
-
-export function renderObservationSchema(observables: ObservableDef[]): string {
-  const properties: Record<string, unknown> = {};
-  const required = observables.map((o) => o.key);
-
-  for (const observable of observables) {
-    properties[observable.key] = VALUE_TYPE_JSON[observable.valueType];
-  }
-
-  return JSON.stringify(
-    {
-      $schema: 'http://json-schema.org/draft-07/schema#',
-      type: 'object',
-      properties,
-      required,
-      additionalProperties: false,
-    },
-    null,
-    2,
-  );
-}
-
 export function buildObservationExtractorContext(input: {
   observables: ObservableDef[];
   anchorInventories: Map<string, PageSnapshotInventory>;

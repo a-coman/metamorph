@@ -1,3 +1,5 @@
+import type { NumericSummary } from './stats.js';
+
 export function mdTable(headers: string[], rows: string[][]): string {
   if (rows.length === 0) {
     return '_No data._\n';
@@ -26,7 +28,7 @@ export function formatMs(value: number | null | undefined): string {
   if (value === null || value === undefined) {
     return 'n/a';
   }
-  if (value < 1000) {
+  if (Math.abs(value) < 1000) {
     return `${Math.round(value)} ms`;
   }
   return `${(value / 1000).toFixed(1)} s`;
@@ -34,30 +36,38 @@ export function formatMs(value: number | null | undefined): string {
 
 export function summarizeNumericBlock(
   label: string,
-  summary: {
-    count: number;
-    median: number | null;
-    q1: number | null;
-    q3: number | null;
-    min?: number | null;
-    max?: number | null;
-  },
+  summary: NumericSummary,
   valueFormatter: (value: number | null | undefined) => string = formatNumber,
+  options: { includeBoxPlot?: boolean } = {},
 ): string {
-  return mdTable(
-    ['Metric', 'Count', 'Median', 'Q1', 'Q3', 'Min', 'Max'],
-    [
-      [
-        label,
-        String(summary.count),
-        valueFormatter(summary.median),
-        valueFormatter(summary.q1),
-        valueFormatter(summary.q3),
-        valueFormatter(summary.min ?? null),
-        valueFormatter(summary.max ?? null),
-      ],
-    ],
+  const distribution = mdTable(
+    ['Metric', 'Count', 'Median', 'Q1', 'Q3', 'Observed min', 'Observed max', 'Range (max-min)'],
+    [[
+      label,
+      String(summary.count),
+      valueFormatter(summary.median),
+      valueFormatter(summary.q1),
+      valueFormatter(summary.q3),
+      valueFormatter(summary.min),
+      valueFormatter(summary.max),
+      valueFormatter(summary.range),
+    ]],
   );
+  const boxPlot = mdTable(
+    ['Box plot', 'IQR', 'Lower fence', 'Upper fence', 'Lower whisker', 'Upper whisker', 'Outliers'],
+    [[
+      label,
+      valueFormatter(summary.iqr),
+      valueFormatter(summary.lowerFence),
+      valueFormatter(summary.upperFence),
+      valueFormatter(summary.lowerWhisker),
+      valueFormatter(summary.upperWhisker),
+      summary.outliers.length > 0
+        ? summary.outliers.map((value) => valueFormatter(value)).join(', ')
+        : 'none',
+    ]],
+  );
+  return options.includeBoxPlot === false ? distribution : `${distribution}\n${boxPlot}`;
 }
 
 export function hasFilledColumn(rows: Array<Record<string, string>>, column: string): boolean {

@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { RunDetailsDto, RunInputBundleDto, RunSummaryDto } from '../../application/dtos/run.dto.js';
+import type {
+  RunDetailsDto,
+  RunInputBundleDto,
+  RunSummaryDto,
+} from '../../application/dtos/run.dto.js';
 import { RunQueryPort } from '../../application/ports/run-query.port.js';
 import { PrismaService } from '../../../shared/infrastructure/prisma/prisma.service.js';
 
@@ -48,6 +52,8 @@ export class RunPrismaQuery extends RunQueryPort {
       attempt: row.attempt,
       sourceFinalUrl: row.sourceFinalUrl,
       followUpFinalUrl: row.followUpFinalUrl,
+      playbookContentHash: row.playbookContentHash,
+      replayBundleHash: row.replayBundleHash,
       inputBundle: normalizeInputBundle(row.inputBundle),
       createdAt: row.createdAt,
       finishedAt: row.finishedAt,

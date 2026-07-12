@@ -32,6 +32,7 @@ export class MrVersionPrismaQuery extends MrVersionQueryPort {
       mrDefinition: row.mrDefinition.definition,
       pageSnapshotId: row.pageSnapshotId,
       locatorValidationScore: row.locatorValidationScore,
+      replayBundleHash: row.replayBundleHash,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -55,6 +56,7 @@ export class MrVersionPrismaQuery extends MrVersionQueryPort {
       id: row.id,
       content: row.playbookBlob.content,
       contentHash: row.playbookBlob.contentHash,
+      replayBundleHash: row.replayBundleHash,
       templateVersion: row.playbookBlob.templateVersion,
     };
   }
