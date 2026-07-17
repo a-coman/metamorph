@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   formatCompareOperator,
   formatObservationValue,
+  formatSourceToFollowUpCompareOperator,
   observationValuesMatch,
   parseRunEvaluation,
   parseRunInputBundleError,
@@ -79,6 +80,13 @@ describe('formatCompareOperator', () => {
     assert.equal(formatCompareOperator('set_equal'), 'set =');
     assert.equal(formatCompareOperator('cardinality_lte'), '≤');
     assert.equal(formatCompareOperator('custom'), 'custom');
+  });
+});
+
+describe('formatSourceToFollowUpCompareOperator', () => {
+  it('reverses directional operators displayed between source and follow-up', () => {
+    assert.equal(formatSourceToFollowUpCompareOperator('cardinality_lte'), '≥');
+    assert.equal(formatSourceToFollowUpCompareOperator('equal'), '=');
   });
 });
 

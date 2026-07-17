@@ -111,6 +111,14 @@ export function formatCompareOperator(compare: string): string {
   }
 }
 
+export function formatSourceToFollowUpCompareOperator(compare: string): string {
+  if (compare === 'cardinality_lte') {
+    return '≥';
+  }
+
+  return formatCompareOperator(compare);
+}
+
 export function observationValuesMatch(source: unknown, followUp: unknown): boolean {
   return formatObservationValue(source) === formatObservationValue(followUp);
 }

@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import {
-  formatCompareOperator,
   formatObservationValue,
+  formatSourceToFollowUpCompareOperator,
   type RunEvaluation,
 } from '@/lib/run-evaluation';
 
@@ -180,7 +180,7 @@ export function RunEvaluationPanel({ evaluation }: { evaluation: RunEvaluation }
                       className="font-mono text-[10px] px-1.5 tabular-nums"
                       title={detail.compare}
                     >
-                      {formatCompareOperator(detail.compare)}
+                      {formatSourceToFollowUpCompareOperator(detail.compare)}
                     </Badge>
                   </TableCell>
                   <TableCell className="align-middle py-3 font-mono text-xs whitespace-normal">
