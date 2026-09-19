@@ -380,6 +380,29 @@ export class ExploreOpenRouterClient {
       content = payload.choices?.[0]?.message?.content?.trim() ?? '';
     }
 
+    const maxEmptyContentRetries = this.emptyContentMaxRetries();
+    for (
+      let retryNumber = 1;
+      !content && retryNumber <= maxEmptyContentRetries;
+      retryNumber += 1
+    ) {
+      const providerError = payload.error?.message;
+      console.warn(
+        `OpenRouter returned empty content${providerError ? `: ${providerError}` : ''}; ` +
+          `retrying (${retryNumber}/${maxEmptyContentRetries})`,
+      );
+
+      await this.waitBeforeEmptyContentRetry(retryNumber);
+      response = await this.postCompletion(messages, responseFormat, maxTokens);
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`OpenRouter request failed (${response.status}): ${body}`);
+      }
+
+      payload = (await response.json()) as ChatCompletionResponse;
+      content = payload.choices?.[0]?.message?.content?.trim() ?? '';
+    }
+
     if (!content) {
       const providerError = payload.error?.message;
       throw new Error(
@@ -395,6 +418,25 @@ export class ExploreOpenRouterClient {
   private openRouterTimeoutMs(): number {
     const configured = Number(process.env.OPENROUTER_TIMEOUT_MS ?? 120_000);
     return Number.isFinite(configured) && configured > 0 ? configured : 120_000;
+  }
+
+  private emptyContentMaxRetries(): number {
+    const configured = Number(process.env.OPENROUTER_EMPTY_CONTENT_MAX_RETRIES ?? 2);
+    return Number.isInteger(configured) && configured >= 0 ? configured : 2;
+  }
+
+  private emptyContentRetryDelayMs(): number {
+    const configured = Number(process.env.OPENROUTER_EMPTY_CONTENT_RETRY_DELAY_MS ?? 250);
+    return Number.isFinite(configured) && configured >= 0 ? configured : 250;
+  }
+
+  private async waitBeforeEmptyContentRetry(retryNumber: number): Promise<void> {
+    const delayMs = this.emptyContentRetryDelayMs() * retryNumber;
+    if (delayMs === 0) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
   }
 
   private planExploreMaxTokens(): number {
