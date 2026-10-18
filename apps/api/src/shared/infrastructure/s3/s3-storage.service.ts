@@ -8,34 +8,33 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
-export class MinioStorageService {
+export class S3StorageService {
   private readonly client: S3Client;
+  private readonly signingClient: S3Client;
   private readonly bucket: string;
-  private readonly internalEndpoint: string;
-  private readonly publicEndpoint: string;
 
   constructor() {
-    const endpoint = process.env.MINIO_ENDPOINT;
-    const accessKeyId = process.env.MINIO_ACCESS_KEY;
-    const secretAccessKey = process.env.MINIO_SECRET_KEY;
-    this.bucket = process.env.MINIO_BUCKET ?? 'metamorph-artifacts';
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    this.bucket = process.env.S3_BUCKET ?? 'metamorph-artifacts';
 
     if (!endpoint || !accessKeyId || !secretAccessKey) {
       throw new Error(
-        'MINIO_ENDPOINT, MINIO_ACCESS_KEY, and MINIO_SECRET_KEY are required',
+        'S3_ENDPOINT, S3_ACCESS_KEY, and S3_SECRET_KEY are required',
       );
     }
 
-    this.internalEndpoint = endpoint.replace(/\/$/, '');
-    this.publicEndpoint = (
-      process.env.MINIO_PUBLIC_ENDPOINT ?? endpoint
-    ).replace(/\/$/, '');
-
-    this.client = new S3Client({
-      endpoint,
-      region: process.env.MINIO_REGION ?? 'us-east-1',
+    const options = {
+      region: process.env.S3_REGION ?? 'garage',
       credentials: { accessKeyId, secretAccessKey },
       forcePathStyle: true,
+    };
+    this.client = new S3Client({ ...options, endpoint });
+    // The host is part of the signature: sign the browser's endpoint directly.
+    this.signingClient = new S3Client({
+      ...options,
+      endpoint: process.env.S3_PUBLIC_ENDPOINT ?? endpoint,
     });
   }
 
@@ -73,13 +72,9 @@ export class MinioStorageService {
       command: GetObjectCommand,
       options: { expiresIn: number },
     ) => Promise<string>;
-    let url = await signUrl(this.client, command, {
+    const url = await signUrl(this.signingClient, command, {
       expiresIn: ttlSeconds,
     });
-
-    if (this.publicEndpoint !== this.internalEndpoint) {
-      url = url.replace(this.internalEndpoint, this.publicEndpoint);
-    }
 
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
     return { url, expiresAt };

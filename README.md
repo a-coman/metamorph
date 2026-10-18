@@ -51,7 +51,7 @@ The monorepo separates deployable applications from shared packages so that brow
 | `@metamorph/session-control` | Package | Cooperative pause and resume signals across workers. |
 | `@metamorph/utils` | Package | Shared domain and infrastructure utilities. |
 
-PostgreSQL stores lifecycle state, MinIO stores screenshots and traces, and RabbitMQ connects the API with both worker types.
+PostgreSQL stores lifecycle state, Garage stores screenshots and traces through its S3 API, and RabbitMQ connects the API with both worker types.
 
 ## Run locally
 ### Prerequisites
@@ -67,10 +67,18 @@ Create a local environment file, install dependencies, and start the infrastruct
 cp .env.example .env
 pnpm install
 ```
-Set `OPENROUTER_API_KEY` in `.env`, then start the workers in Docker:
+Set `OPENROUTER_API_KEY` in `.env`. Replace the example storage credentials with generated values:
 
 ```bash
-docker compose up -d
+printf 'S3_ACCESS_KEY=GK%s\n' "$(openssl rand -hex 16)"
+printf 'S3_SECRET_KEY=%s\n' "$(openssl rand -hex 32)"
+printf 'GARAGE_RPC_SECRET=%s\n' "$(openssl rand -hex 32)"
+```
+
+Copy the output into the corresponding `.env` entries, then start the infrastructure and workers in Docker:
+
+```bash
+docker compose up -d --build
 ```
 
 Generate the database schema:
@@ -88,6 +96,40 @@ pnpm dev
 
 
 Open [http://localhost:3000](http://localhost:3000), create a session with a public URL, choose the relation families and either review mode or auto mode. The API health endpoint is available at [http://localhost:3001/health](http://localhost:3001/health).
+
+### Artifact storage
+
+The Compose stack runs Garage `v2.4.1` as a single development node, with persistent `garage_meta` and `garage_data` volumes. Garage creates the `S3_BUCKET` bucket and its access key at startup. The `garage-init` service applies read-only browser CORS for signed artifact links, including the external Playwright trace viewer; workers wait for initialization to complete. Garage's RPC port is kept inside the container.
+
+The API and workers use provider-neutral `S3_*` variables:
+
+- `S3_ENDPOINT`: address used for uploads, downloads, and bucket health checks. Host processes default to `http://localhost:3900`; Compose workers use `http://garage:3900`.
+- `S3_PUBLIC_ENDPOINT`: address reachable by the browser, used directly when signing artifact URLs. Defaults to `S3_ENDPOINT` when omitted. Set this before generating links; changing the host of an already signed URL invalidates its signature.
+- `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, and `S3_REGION`: credentials, bucket, and signing region. Local Garage uses region `garage`, matching `infra/garage/garage.toml`.
+- `S3_BIND_HOST`: host interface for Garage's published port, defaulting to `127.0.0.1`.
+
+For a remote preview over Tailscale, set `S3_BIND_HOST` to your server's Tailscale IP and both S3 endpoints to `http://<tailscale-ip>:3900`. Also set `NEXT_PUBLIC_API_URL=http://<tailscale-ip>:3001` and `CORS_ORIGIN=http://<tailscale-ip>:3000`, and launch the web app with those settings:
+
+```bash
+pnpm --filter @metamorph/api dev
+# In another terminal; substitute your server's Tailscale IP:
+NEXT_PUBLIC_API_URL=http://<tailscale-ip>:3001 pnpm --filter @metamorph/web dev --hostname <tailscale-ip>
+```
+
+Validate uploads from the browser worker, reads from the LLM worker, public URL signatures, CORS, byte ranges, and private access with:
+
+```bash
+docker compose up -d garage garage-init
+pnpm storage:test
+```
+
+This test needs `.env` and removes only the objects it creates. A single Garage node has no redundancy; keep backups of both volumes for any artifacts you need to retain. For cloud storage, configure an S3-compatible endpoint, region, credentials, and bucket instead of running Garage, and apply the bucket's browser CORS rules through that provider.
+
+### Upgrading from MinIO
+
+Rename existing `MINIO_*` environment variables to their `S3_*` equivalents, update the endpoints to port `3900`, and use region `garage`. Generate a Garage access key (`GK` followed by 32 hexadecimal characters), a secret, and an RPC secret as above. The `/health` response now reports object storage under `storage` instead of `minio`.
+
+Garage uses a different on-disk format. If an existing installation contains artifacts, keep its MinIO container and volume intact and copy the bucket's objects through S3 using a tool such as `rclone copy`, preserving their object keys. Pause writers while copying, verify the copied objects and `pnpm storage:test`, then switch the API and workers to Garage. Existing database artifact paths remain valid because they store object keys. Retain the original volume until the migration has been verified; this Compose change does not copy or delete existing data.
 
 ## Validation
 

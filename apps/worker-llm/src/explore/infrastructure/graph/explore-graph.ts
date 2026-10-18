@@ -26,7 +26,7 @@ import {
   type ObservableDef,
   type SlotStep,
 } from '@metamorph/core';
-import { S3ArtifactReaderAdapter } from '../../../shared/infrastructure/minio/s3-artifact-reader.adapter.js';
+import { S3ArtifactReaderAdapter } from '../../../shared/infrastructure/s3/s3-artifact-reader.adapter.js';
 import { ProbeJobPublisher } from '../messaging/probe-job.publisher.js';
 import {
   ExploreOpenRouterClient,

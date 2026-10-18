@@ -316,7 +316,7 @@ model Violation {
   @@map("violations")
 }
 
-// ─── Artifacts (MinIO paths) ─────────────────────────────────────────────────
+// ─── Artifacts (S3 object keys) ─────────────────────────────────────────────────
 
 model Artifact {
   id             String       @id @default(uuid()) @db.Uuid

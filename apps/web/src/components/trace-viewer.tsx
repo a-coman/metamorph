@@ -66,7 +66,6 @@ function TraceViewerEmbed({ traceUrl }: { traceUrl: string }) {
         >
           trace.playwright.dev
         </a>
-        {' '}— requires MinIO CORS to allow the origin.
       </p>
     </div>
   );

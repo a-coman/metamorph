@@ -1,5 +1,5 @@
 import { SavePageSnapshotService } from '../discovery/application/services/save-page-snapshot.service.js';
-import { S3ArtifactStorageAdapter } from '../discovery/infrastructure/minio/s3-artifact-storage.adapter.js';
+import { S3ArtifactStorageAdapter } from '../discovery/infrastructure/s3/s3-artifact-storage.adapter.js';
 import { PageSnapshotPrismaRepository } from '../discovery/infrastructure/persistence/repositories/page-snapshot-prisma.repository.js';
 import { ProbeJobService } from '../probe/application/services/probe-job.service.js';
 import { RabbitMqExploreResumePublisherAdapter } from '../probe/infrastructure/messaging/rabbitmq-explore-resume-publisher.adapter.js';

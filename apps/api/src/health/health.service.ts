@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../shared/infrastructure/prisma/prisma.service.js';
-import { MinioStorageService } from '../shared/infrastructure/minio/minio-storage.service.js';
+import { S3StorageService } from '../shared/infrastructure/s3/s3-storage.service.js';
 import { RabbitMqConnectionService } from '../shared/infrastructure/messaging/rabbitmq-connection.service.js';
 
 export type HealthCheckResult = {
   status: 'ok' | 'degraded';
   postgres: 'ok' | 'error';
-  minio: 'ok' | 'error';
+  storage: 'ok' | 'error';
   rabbitmq: 'ok' | 'error';
 };
 
@@ -14,23 +14,23 @@ export type HealthCheckResult = {
 export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly minio: MinioStorageService,
+    private readonly storage: S3StorageService,
     private readonly rabbitMq: RabbitMqConnectionService,
   ) {}
 
   async check(): Promise<HealthCheckResult> {
-    const [postgres, minio, rabbitmq] = await Promise.all([
+    const [postgres, storage, rabbitmq] = await Promise.all([
       this.checkPostgres(),
-      this.checkMinio(),
+      this.checkStorage(),
       this.checkRabbitMq(),
     ]);
 
-    const allOk = postgres === 'ok' && minio === 'ok' && rabbitmq === 'ok';
+    const allOk = postgres === 'ok' && storage === 'ok' && rabbitmq === 'ok';
 
     return {
       status: allOk ? 'ok' : 'degraded',
       postgres,
-      minio,
+      storage,
       rabbitmq,
     };
   }
@@ -44,9 +44,9 @@ export class HealthService {
     }
   }
 
-  private async checkMinio(): Promise<'ok' | 'error'> {
+  private async checkStorage(): Promise<'ok' | 'error'> {
     try {
-      await this.minio.ping();
+      await this.storage.ping();
       return 'ok';
     } catch {
       return 'error';

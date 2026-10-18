@@ -1,4 +1,4 @@
-import { S3ArtifactStorageAdapter } from '../discovery/infrastructure/minio/s3-artifact-storage.adapter.js';
+import { S3ArtifactStorageAdapter } from '../discovery/infrastructure/s3/s3-artifact-storage.adapter.js';
 import { ExecutePairJobService } from './application/services/execute-pair-job.service.js';
 import { ExecutePairJobPrismaRepository } from './infrastructure/persistence/repositories/execute-pair-job-prisma.repository.js';
 import { RunPrismaRepository } from './infrastructure/persistence/repositories/run-prisma.repository.js';
