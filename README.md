@@ -76,15 +76,24 @@ Open [http://localhost:3000](http://localhost:3000), create a session with a pub
 
 Metamorph was evaluated in auto mode on Amazon, Booking, Airbnb, MediaMarkt, and GitHub, with all four families and five sessions per site, for 100 exploration attempts.
 
+| RQ | Question | Answer |
+| --- | --- | --- |
+| RQ1 | Can LLM-guided exploration discover and compile metamorphic relations on unseen websites, and at what cost? | Yes, in 63 of 100 attempts, at about $0.05 and 10.5 minutes per relation. |
+| RQ2 | Do compiled relations replay without the LLM, and are their results stable? | 48 of 63 completed their first run in a median of 24.3 s. 16 of 35 replayed relations were fully stable. |
+| RQ3 | Are the strict verdicts and the relations behind them meaningful? | 22 of 48 pairs passed. None of the 26 failures was a real defect, so human review remains necessary. |
+
 | Result | Value |
 | --- | --- |
 | Relations compiled into Playwright tests | 63 / 100 |
-| Compiled tests completing their first paired execution | 48 / 63 |
+| Compilation rate by site | 15% (Booking) to 80% (MediaMarkt) |
+| Compilation rate by family | 36% (permutation) to 80% (idempotence) |
 | Median exploration time per compiled relation | 10.5 min |
-| Model cost per compiled relation | about $0.05 |
+| Model cost per compiled relation | about $0.05 ($5.58 for the full batch) |
+| Compiled tests completing their first paired execution | 48 / 63 |
 | Median paired execution time | 24.3 s |
-
-Compilation ranged from 15% on Booking to 80% on MediaMarkt, and from 36% for permutation to 80% for idempotence. None of the 26 strict failures was a confirmed defect in the target sites. They came from non-equivalent paths, invalid relations, or brittle observables, which is why human review remains part of the design.
+| Relations stable across three replays | 16 / 35 |
+| Paired executions passing every comparison | 22 / 48 |
+| Strict failures caused by a real defect in the site | 0 / 26 |
 
 To reproduce the study with the stack running:
 
