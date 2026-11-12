@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# @metamorph/web
 
-## Getting Started
+Next.js interface for Metamorph. Testers create sessions, follow exploration live, review and edit compiled relations, and triage runs with their screenshots and Playwright traces.
 
-First, run the development server:
+## Running
+
+With the API running, start the web app with
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm --filter @metamorph/web dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+and open [http://localhost:3000](http://localhost:3000). `pnpm dev` from the root starts it together with the API. The API address comes from `NEXT_PUBLIC_API_URL` in the root `.env`, and `API_INTERNAL_URL` can override it for server-side requests.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Purpose |
+| --- | --- |
+| `/` | Session list and new session form. |
+| `/sessions/:id` | Session hub with per-family progress and live activity. |
+| `/sessions/:id/mr/:mrId` | Relation review with the exploration timeline, observables, and playbook editor. |
+| `/sessions/:id/mr/:mrId/runs/:runId` | Run details with the verdict, observations, and evidence. |
+| `/traces/:artifactId` | Embedded Playwright trace viewer. |
 
-## Learn More
+## Tests
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm --filter @metamorph/web test
+```
