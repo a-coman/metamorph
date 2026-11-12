@@ -99,7 +99,7 @@ Open [http://localhost:3000](http://localhost:3000), create a session with a pub
 
 ### Artifact storage
 
-The Compose stack runs Garage `v2.4.1` as a single development node, with persistent `garage_meta` and `garage_data` volumes. Garage creates the `S3_BUCKET` bucket and its access key at startup. The `garage-init` service applies read-only browser CORS for signed artifact links, including the external Playwright trace viewer; workers wait for initialization to complete. Garage's RPC port is kept inside the container.
+The Compose stack runs Garage `v2.4.1` as a single development node, with persistent `garage_meta` and `garage_data` volumes. Garage creates the `S3_BUCKET` bucket and its access key at startup. The `garage-init` service applies read-only browser CORS for signed artifact links; workers wait for initialization to complete. Garage's RPC port is kept inside the container.
 
 The API and workers use provider-neutral `S3_*` variables:
 

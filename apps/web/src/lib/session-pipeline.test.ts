@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolvePipelineStepStates } from './session-pipeline.ts';
+import { resolvePipelineStepStates } from './session-pipeline.js';
 
 const approvedMr = {
   id: 'mr-1',

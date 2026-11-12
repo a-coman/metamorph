@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import {
   aggregateMrPipelineStatus,
   sortMrVersionsByFamily,
-} from './mr-versions.ts';
+} from './mr-versions.js';
 
 describe('mr-versions', () => {
   it('sorts families in canonical order', () => {

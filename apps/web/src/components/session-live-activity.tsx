@@ -642,22 +642,8 @@ function SessionCaptureCard({
   screenshot: ScreenshotDto;
   isNew: boolean;
 }) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
-  useEffect(() => {
-    api
-      .getArtifactUrl(screenshot.artifactId)
-      .then(({ url }) => {
-        setImageUrl(url);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError(true);
-        setLoading(false);
-      });
-  }, [screenshot.artifactId]);
+  const imageUrl = `/api/artifact-url/${encodeURIComponent(screenshot.artifactId)}`;
 
   if (error) {
     return null;
@@ -680,16 +666,13 @@ function SessionCaptureCard({
           </span>
         )}
       </div>
-      {loading ? (
-        <Skeleton className="w-full aspect-video" />
-      ) : imageUrl ? (
-        <img
-          src={imageUrl}
-          alt="Page screenshot"
-          className="w-full aspect-video object-cover object-top"
-          loading="lazy"
-        />
-      ) : null}
+      <img
+        src={imageUrl}
+        alt="Page screenshot"
+        className="w-full aspect-video object-cover object-top"
+        loading="lazy"
+        onError={() => setError(true)}
+      />
     </div>
   );
 }

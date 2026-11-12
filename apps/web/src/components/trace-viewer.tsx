@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ExternalLink, Maximize2, Minimize2, Loader2, FileSearch } from 'lucide-react';
+import { useState } from 'react';
+import { ExternalLink, Maximize2, Minimize2, FileSearch } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
+import { TraceViewerFrame } from '@/components/trace-viewer-frame';
 import type { RunDetailsDto } from '@metamorph/api-client';
 
 interface TraceViewerProps {
   artifacts: RunDetailsDto['artifacts'];
 }
 
-function TraceViewerEmbed({ traceUrl }: { traceUrl: string }) {
+function TraceViewerEmbed({ artifactId }: { artifactId: string }) {
   const [expanded, setExpanded] = useState(false);
-  const viewerUrl = `https://trace.playwright.dev/?trace=${encodeURIComponent(traceUrl)}`;
+  const viewerUrl = `/traces/${encodeURIComponent(artifactId)}`;
 
   return (
     <div className="space-y-2">
@@ -48,52 +48,17 @@ function TraceViewerEmbed({ traceUrl }: { traceUrl: string }) {
         className="rounded-lg overflow-hidden border border-border transition-all duration-300"
         style={{ height: expanded ? '720px' : '420px' }}
       >
-        <iframe
-          src={viewerUrl}
-          className="w-full h-full"
-          title="Playwright trace viewer"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        />
+        <TraceViewerFrame artifactId={artifactId} />
       </div>
-
-      <p className="text-xs font-mono text-muted-foreground">
-        Powered by{' '}
-        <a
-          href="https://trace.playwright.dev"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary hover:text-primary/80 transition-colors"
-        >
-          trace.playwright.dev
-        </a>
-      </p>
     </div>
   );
 }
 
 export function TraceViewer({ artifacts }: TraceViewerProps) {
   const traceArtifacts = artifacts.filter((a) => a.kind === 'trace');
-  const [urls, setUrls] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (traceArtifacts.length === 0) return;
-    setLoading(true);
-    Promise.all(
-      traceArtifacts.map(async (art) => {
-        const { url } = await api.getArtifactUrl(art.id);
-        return [art.id, url] as const;
-      }),
-    )
-      .then((entries) => {
-        const map = Object.fromEntries(entries);
-        setUrls(map);
-        setSelected(traceArtifacts[0]?.id ?? null);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const [selection, setSelected] = useState<string | null>(null);
+  const selected = traceArtifacts.find((artifact) => artifact.id === selection)?.id
+    ?? traceArtifacts[0]?.id;
 
   if (traceArtifacts.length === 0) return null;
 
@@ -106,14 +71,7 @@ export function TraceViewer({ artifacts }: TraceViewerProps) {
         </span>
       </div>
 
-      {loading && (
-        <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground font-mono">
-          <Loader2 className="size-4 animate-spin" />
-          Generating presigned URLs…
-        </div>
-      )}
-
-      {!loading && traceArtifacts.length > 1 && (
+      {traceArtifacts.length > 1 && (
         <div className="flex gap-2 flex-wrap">
           {traceArtifacts.map((art) => (
             <button
@@ -133,8 +91,8 @@ export function TraceViewer({ artifacts }: TraceViewerProps) {
         </div>
       )}
 
-      {!loading && selected && urls[selected] && (
-        <TraceViewerEmbed traceUrl={urls[selected]} />
+      {selected && (
+        <TraceViewerEmbed artifactId={selected} />
       )}
     </div>
   );

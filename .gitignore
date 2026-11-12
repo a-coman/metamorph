@@ -28,6 +28,9 @@ build/
 
 .next/
 
+# Copied from the pinned playwright-core package before web dev/build.
+apps/web/public/trace-viewer/
+
 # TypeScript
 *.tsbuildinfo
 
