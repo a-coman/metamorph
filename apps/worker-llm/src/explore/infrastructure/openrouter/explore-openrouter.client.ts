@@ -73,6 +73,7 @@ export type ExploreLlmAudit = {
 export type ExploreLlmResult<T> = {
   output: T;
   audit: ExploreLlmAudit;
+  debugJson?: unknown;
 };
 
 export class ExploreOpenRouterClient {
@@ -190,6 +191,23 @@ export class ExploreOpenRouterClient {
     });
   }
 
+  async fillPlanValue(input: {
+    system: string;
+    userText: string;
+    promptVersion?: string;
+  }): Promise<ExploreLlmResult<{ value: string }>> {
+    return this.call({
+      purpose: 'plan_explore_fill',
+      promptVersion: input.promptVersion ?? 'plan-explore-fill-v1',
+      system: input.system,
+      userText: input.userText,
+      schema: FillPlanValueSchema,
+      schemaName: 'plan_explore_fill',
+      model: this.fillModel(),
+      maxTokens: 128,
+    });
+  }
+
   async verifyCheckpoint(input: {
     url: string;
     urlAfter: string;
@@ -224,10 +242,12 @@ export class ExploreOpenRouterClient {
     schemaName: string;
     normalize?: (raw: unknown) => unknown;
     maxTokens?: number;
+    model?: string;
   }): Promise<ExploreLlmResult<T>> {
     const startedAt = Date.now();
     const screenshotCount = input.screenshotsBase64?.length ?? 0;
     const promptAudit = buildPromptAudit(input.system, input.userText, input.purpose, screenshotCount);
+    const model = input.model ?? this.model;
 
     const userContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
       { type: 'text', text: input.userText },
@@ -251,6 +271,7 @@ export class ExploreOpenRouterClient {
         input.schemaName,
         input.schema,
         input.maxTokens,
+        model,
       );
       const { content, payload } = completion;
 
@@ -276,7 +297,7 @@ export class ExploreOpenRouterClient {
         logExploreLlmExchange({
           purpose: input.purpose,
           promptVersion: input.promptVersion,
-          model: this.model,
+          model,
           userText: input.userText,
           system: input.system,
           screenshotCount,
@@ -300,7 +321,7 @@ export class ExploreOpenRouterClient {
       logExploreLlmExchange({
         purpose: input.purpose,
         promptVersion: input.promptVersion,
-        model: this.model,
+        model,
         userText: input.userText,
         system: input.system,
         screenshotCount,
@@ -314,7 +335,7 @@ export class ExploreOpenRouterClient {
         output,
         audit: {
           purpose: input.purpose,
-          model: this.model,
+          model,
           promptVersion: input.promptVersion,
           tokensIn: usage.tokensIn,
           tokensOut: usage.tokensOut,
@@ -337,13 +358,14 @@ export class ExploreOpenRouterClient {
     schemaName: string,
     zodSchema: unknown,
     maxTokens?: number,
+    model: string = this.model,
   ): Promise<{
     content: string;
     payload: ChatCompletionResponse;
     responseFormat: OpenRouterResponseFormat;
   }> {
     let responseFormat = buildOpenRouterResponseFormat(zodSchema, schemaName);
-    let response = await this.postCompletion(messages, responseFormat, maxTokens);
+    let response = await this.postCompletion(messages, responseFormat, maxTokens, model);
 
     if (!response.ok) {
       const body = await response.text();
@@ -352,7 +374,7 @@ export class ExploreOpenRouterClient {
         isStructuredOutputUnsupported(response.status, body)
       ) {
         responseFormat = { type: 'json_object' };
-        response = await this.postCompletion(messages, responseFormat, maxTokens);
+        response = await this.postCompletion(messages, responseFormat, maxTokens, model);
         if (!response.ok) {
           const retryBody = await response.text();
           throw new Error(`OpenRouter request failed (${response.status}): ${retryBody}`);
@@ -371,7 +393,7 @@ export class ExploreOpenRouterClient {
 
     if (shouldFallbackToJsonObject) {
       responseFormat = { type: 'json_object' };
-      response = await this.postCompletion(messages, responseFormat, maxTokens);
+      response = await this.postCompletion(messages, responseFormat, maxTokens, model);
       if (!response.ok) {
         const body = await response.text();
         throw new Error(`OpenRouter request failed (${response.status}): ${body}`);
@@ -393,7 +415,7 @@ export class ExploreOpenRouterClient {
       );
 
       await this.waitBeforeEmptyContentRetry(retryNumber);
-      response = await this.postCompletion(messages, responseFormat, maxTokens);
+      response = await this.postCompletion(messages, responseFormat, maxTokens, model);
       if (!response.ok) {
         const body = await response.text();
         throw new Error(`OpenRouter request failed (${response.status}): ${body}`);
@@ -444,10 +466,16 @@ export class ExploreOpenRouterClient {
     return Number.isFinite(configured) && configured > 0 ? configured : 4096;
   }
 
+  private fillModel(): string {
+    const configured = process.env.PLAN_EXPLORE_FILL_MODEL?.trim();
+    return configured && configured.length > 0 ? configured : this.model;
+  }
+
   private async postCompletion(
     messages: Array<{ role: string; content: unknown }>,
     responseFormat: OpenRouterResponseFormat,
     maxTokens?: number,
+    model: string = this.model,
   ): Promise<Response> {
     const plugins = openRouterPlugins(responseFormat);
     const temperature = process.env.OPENROUTER_TEMPERATURE
@@ -466,7 +494,7 @@ export class ExploreOpenRouterClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: this.model,
+          model,
           response_format: responseFormat,
           ...(maxTokens !== undefined ? { max_tokens: maxTokens } : {}),
           ...(plugins ? { plugins } : {}),
@@ -479,7 +507,7 @@ export class ExploreOpenRouterClient {
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(
-          `OpenRouter request timed out after ${timeoutMs}ms (model=${this.model})`,
+          `OpenRouter request timed out after ${timeoutMs}ms (model=${model})`,
         );
       }
       throw error;
@@ -786,3 +814,31 @@ function buildPromptAudit(
         : null,
   };
 }
+
+const FillPlanValueSchema = {
+  safeParse(
+    data: unknown,
+  ):
+    | { success: true; data: { value: string } }
+    | { success: false; error: { message: string; issues: { message: string }[] } } {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return {
+        success: false,
+        error: { message: 'Expected object', issues: [{ message: 'Expected object' }] },
+      };
+    }
+
+    const value = (data as { value?: unknown }).value;
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      return {
+        success: false,
+        error: {
+          message: 'value must be a non-empty string',
+          issues: [{ message: 'value must be a non-empty string' }],
+        },
+      };
+    }
+
+    return { success: true, data: { value: value.trim() } };
+  },
+};

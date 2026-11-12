@@ -13,7 +13,6 @@ import {
   observationLabelText,
   requireObservationItems,
   parseLocalizedNumbers,
-  PLAN_EXPLORE_PROMPT_VERSION,
   resolveObservableBindingTargets,
   resolveStepTargets,
   trimProbeBatchAtMutatingStep,
@@ -28,6 +27,7 @@ import {
 } from '@metamorph/core';
 import { S3ArtifactReaderAdapter } from '../../../shared/infrastructure/minio/s3-artifact-reader.adapter.js';
 import { ProbeJobPublisher } from '../messaging/probe-job.publisher.js';
+import type { PlanExplorePort } from '../../application/ports/plan-explore.port.js';
 import {
   ExploreOpenRouterClient,
   type ExploreLlmResult,
@@ -61,6 +61,7 @@ export type ExploreGraphDeps = {
   explorationRepo: ExplorationPrismaRepository;
   snapshotRepo: ExploreSnapshotRepository;
   openRouter: ExploreOpenRouterClient;
+  planExplore: PlanExplorePort;
   probePublisher: ProbeJobPublisher;
   artifactReader: S3ArtifactReaderAdapter;
   sessionControl: SessionControlChecker;
@@ -124,6 +125,7 @@ async function runTrackedLlmCall<T>(
   meta: {
     purpose: string;
     promptVersion: string;
+    model?: string;
     enrichResponse?: (output: T) => unknown;
     enrichFailureResponse?: (error: string) => unknown;
   },
@@ -133,18 +135,26 @@ async function runTrackedLlmCall<T>(
     exploreJobId: state.exploreJobId,
     mrVersionId: state.mrVersionId,
     purpose: meta.purpose,
-    model: deps.openRouter.getModel(),
+    model: meta.model ?? deps.openRouter.getModel(),
     promptVersion: meta.promptVersion,
   });
 
   try {
     const result = await call();
+    const enriched = meta.enrichResponse
+      ? meta.enrichResponse(result.output)
+      : result.output;
+    const responseJson =
+      result.debugJson !== undefined &&
+      enriched !== null &&
+      typeof enriched === 'object' &&
+      !Array.isArray(enriched)
+        ? { ...(enriched as Record<string, unknown>), jev: result.debugJson }
+        : enriched;
     await deps.explorationRepo.completeLlmCall({
       id: llmCallId,
       audit: result.audit,
-      responseJson: meta.enrichResponse
-        ? meta.enrichResponse(result.output)
-        : result.output,
+      responseJson,
     });
     return { output: result.output, llmCallId };
   } catch (error) {
@@ -436,13 +446,16 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
       return { failed: true, failureReason: 'Current snapshot not found' };
     }
 
-    const screenshotBase64 = await loadAnnotatedBase64(state.currentSnapshotId);
+    const screenshotBase64 = deps.planExplore.needsVision
+      ? await loadAnnotatedBase64(state.currentSnapshotId)
+      : undefined;
     const latestProbeScreenshotId =
       findLatestProbeFailureScreenshotId(state.batchLog ?? EMPTY_BATCH_LOG, state.phase) ??
       state.probeFailureContext?.screenshotBeforeSnapshotId;
-    const failureScreenshotBase64 = latestProbeScreenshotId
-      ? await loadRawBase64(latestProbeScreenshotId)
-      : undefined;
+    const failureScreenshotBase64 =
+      deps.planExplore.needsVision && latestProbeScreenshotId
+        ? await loadRawBase64(latestProbeScreenshotId)
+        : undefined;
     const { latestProbeFailureBatch } = formatBatchLogForPrompt(
       state.batchLog ?? EMPTY_BATCH_LOG,
       state.phase,
@@ -455,7 +468,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
         state,
         {
           purpose: 'plan_explore',
-          promptVersion: PLAN_EXPLORE_PROMPT_VERSION,
+          promptVersion: deps.planExplore.getPromptVersion(),
+          model: deps.planExplore.getModel(),
           enrichResponse: (output) => ({
             ...output,
             inventorySnapshotId: state.currentSnapshotId,
@@ -466,8 +480,8 @@ export function buildExploreGraph(deps: ExploreGraphDeps) {
           }),
         },
         () =>
-          deps.openRouter.planNext({
-            url: state.sessionUrl,
+          deps.planExplore.planNext({
+            url: snapshot.url,
             phase: state.phase,
             mrIntent,
             inventory: snapshot.inventory,

@@ -3,6 +3,7 @@ import { ExploreGraphRunner } from './infrastructure/graph/explore-graph-runner.
 import { LlmExploreSubscriber } from './infrastructure/messaging/llm-explore.subscriber.js';
 import { ProbeJobPublisher } from './infrastructure/messaging/probe-job.publisher.js';
 import { ExploreOpenRouterClient } from './infrastructure/openrouter/explore-openrouter.client.js';
+import { createPlanExplorePort } from './infrastructure/jev/create-plan-explore-port.js';
 import { ExplorationPrismaRepository } from './infrastructure/persistence/exploration-prisma.repository.js';
 import { ExploreSnapshotRepository } from './infrastructure/persistence/explore-snapshot.repository.js';
 import { ExploreJobPrismaRepository } from './infrastructure/persistence/repositories/explore-job-prisma.repository.js';
@@ -20,10 +21,12 @@ function requireRabbitMqUrl(): string {
 }
 
 function createExploreGraphRunner(): ExploreGraphRunner {
+  const openRouter = new ExploreOpenRouterClient();
   return new ExploreGraphRunner({
     explorationRepo: new ExplorationPrismaRepository(),
     snapshotRepo: new ExploreSnapshotRepository(),
-    openRouter: new ExploreOpenRouterClient(),
+    openRouter,
+    planExplore: createPlanExplorePort(openRouter),
     probePublisher: new ProbeJobPublisher(requireRabbitMqUrl()),
     artifactReader: new S3ArtifactReaderAdapter(),
     sessionControl: sessionControlChecker,

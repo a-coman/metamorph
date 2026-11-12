@@ -197,4 +197,18 @@ describe('explore-graph pendingProbeSteps', () => {
     assert.equal(assessBody.includes('revert snapshot'), false);
     assert.equal(assessBody.includes('revertedSnapshotId'), false);
   });
+
+  it('routes plan_explore through planExplore and skips vision I/O when the port does not need it', () => {
+    const source = readFileSync(graphSourcePath, 'utf8');
+    const planStart = source.indexOf('async function planNextNode');
+    const dispatchStart = source.indexOf('async function dispatchProbeNode');
+    assert.ok(planStart >= 0);
+    assert.ok(dispatchStart > planStart);
+    const planBody = source.slice(planStart, dispatchStart);
+
+    assert.match(planBody, /deps\.planExplore\.planNext/);
+    assert.match(planBody, /deps\.planExplore\.needsVision/);
+    assert.match(planBody, /url: snapshot\.url/);
+    assert.equal(planBody.includes('deps.openRouter.planNext'), false);
+  });
 });
