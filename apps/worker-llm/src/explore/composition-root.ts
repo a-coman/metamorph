@@ -6,7 +6,7 @@ import { ExploreOpenRouterClient } from './infrastructure/openrouter/explore-ope
 import { ExplorationPrismaRepository } from './infrastructure/persistence/exploration-prisma.repository.js';
 import { ExploreSnapshotRepository } from './infrastructure/persistence/explore-snapshot.repository.js';
 import { ExploreJobPrismaRepository } from './infrastructure/persistence/repositories/explore-job-prisma.repository.js';
-import { S3ArtifactReaderAdapter } from '../shared/infrastructure/minio/s3-artifact-reader.adapter.js';
+import { S3ArtifactReaderAdapter } from '../shared/infrastructure/s3/s3-artifact-reader.adapter.js';
 import { sessionControlChecker } from '../shared/infrastructure/session-control/session-control.js';
 import { AutoPromoter } from './infrastructure/messaging/auto-promoter.js';
 import { ExecutePairJobPublisher } from './infrastructure/messaging/execute-pair-job.publisher.js';

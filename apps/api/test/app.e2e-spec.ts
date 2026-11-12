@@ -26,7 +26,7 @@ describe('Health (e2e)', () => {
       .expect((res) => {
         expect([200, 503]).toContain(res.status);
         expect(res.body).toHaveProperty('postgres');
-        expect(res.body).toHaveProperty('minio');
+        expect(res.body).toHaveProperty('storage');
       });
   });
 });

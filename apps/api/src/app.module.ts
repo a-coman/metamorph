@@ -6,7 +6,7 @@ import { MrVersionsModule } from './mr-versions/mr-versions.module.js';
 import { PageSnapshotsModule } from './page-snapshots/page-snapshots.module.js';
 import { SessionsModule } from './sessions/sessions.module.js';
 import { CoreModule } from './shared/core/core.module.js';
-import { MinioModule } from './shared/infrastructure/minio/minio.module.js';
+import { S3Module } from './shared/infrastructure/s3/s3.module.js';
 import { RabbitMqModule } from './shared/infrastructure/messaging/rabbitmq.module.js';
 import { PrismaModule } from './shared/infrastructure/prisma/prisma.module.js';
 
@@ -14,7 +14,7 @@ import { PrismaModule } from './shared/infrastructure/prisma/prisma.module.js';
   imports: [
     CoreModule,
     PrismaModule,
-    MinioModule,
+    S3Module,
     RabbitMqModule,
     HealthModule,
     SessionsModule,

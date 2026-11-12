@@ -40,10 +40,10 @@ COPY apps/worker-playwright apps/worker-playwright
 
 RUN pnpm --filter @metamorph/worker-playwright exec prisma generate \
       --schema=../api/prisma/schema.prisma \
+  && pnpm --filter @metamorph/core build \
   && pnpm --filter @metamorph/contracts build \
   && pnpm --filter @metamorph/utils build \
   && pnpm --filter @metamorph/session-control build \
-  && pnpm --filter @metamorph/core build \
   && pnpm --filter @metamorph/inventory build
 
 ENTRYPOINT ["pnpm", "--filter", "@metamorph/worker-playwright", "exec", "tsx", "src/main.ts"]

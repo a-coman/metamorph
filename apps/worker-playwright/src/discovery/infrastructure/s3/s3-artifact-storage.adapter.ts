@@ -8,20 +8,20 @@ export class S3ArtifactStorageAdapter extends ArtifactStoragePort {
   constructor() {
     super();
 
-    const endpoint = process.env.MINIO_ENDPOINT;
-    const accessKeyId = process.env.MINIO_ACCESS_KEY;
-    const secretAccessKey = process.env.MINIO_SECRET_KEY;
-    this.bucket = process.env.MINIO_BUCKET ?? 'metamorph-artifacts';
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    this.bucket = process.env.S3_BUCKET ?? 'metamorph-artifacts';
 
     if (!endpoint || !accessKeyId || !secretAccessKey) {
       throw new Error(
-        'MINIO_ENDPOINT, MINIO_ACCESS_KEY, and MINIO_SECRET_KEY are required',
+        'S3_ENDPOINT, S3_ACCESS_KEY, and S3_SECRET_KEY are required',
       );
     }
 
     this.client = new S3Client({
       endpoint,
-      region: process.env.MINIO_REGION ?? 'us-east-1',
+      region: process.env.S3_REGION ?? 'garage',
       credentials: { accessKeyId, secretAccessKey },
       forcePathStyle: true,
     });

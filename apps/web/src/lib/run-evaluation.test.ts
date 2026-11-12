@@ -7,7 +7,7 @@ import {
   observationValuesMatch,
   parseRunEvaluation,
   parseRunInputBundleError,
-} from './run-evaluation.ts';
+} from './run-evaluation.js';
 
 const passRunBundle = {
   evaluation_details: {

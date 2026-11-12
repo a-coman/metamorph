@@ -36,11 +36,11 @@ COPY apps/worker-llm apps/worker-llm
 
 RUN pnpm --filter @metamorph/worker-llm exec prisma generate \
       --schema=../api/prisma/schema.prisma \
+  && pnpm --filter @metamorph/core build \
   && pnpm --filter @metamorph/contracts build \
   && pnpm --filter @metamorph/utils build \
   && pnpm --filter @metamorph/session-control build \
-  && pnpm --filter @metamorph/mr-promotion build \
-  && pnpm --filter @metamorph/core build
+  && pnpm --filter @metamorph/mr-promotion build
 
 ENTRYPOINT ["pnpm", "--filter", "@metamorph/worker-llm", "exec", "tsx", "src/main.ts"]
 CMD ["consume"]

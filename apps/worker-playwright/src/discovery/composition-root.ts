@@ -3,7 +3,7 @@ import { ChainExploreJobService } from './application/services/chain-explore-job
 import { DiscoverJobService } from './application/services/discover-job.service.js';
 import { SavePageSnapshotService } from './application/services/save-page-snapshot.service.js';
 import { RabbitMqLlmPublisherAdapter } from './infrastructure/messaging/rabbitmq-llm-publisher.adapter.js';
-import { S3ArtifactStorageAdapter } from './infrastructure/minio/s3-artifact-storage.adapter.js';
+import { S3ArtifactStorageAdapter } from './infrastructure/s3/s3-artifact-storage.adapter.js';
 import { createExecutePairJobService } from '../execute-pair/composition-root.js';
 import { createProbeJobService } from '../probe/composition-root.js';
 import { PlaywrightJobSubscriber } from '../shared/infrastructure/messaging/playwright-job.subscriber.js';

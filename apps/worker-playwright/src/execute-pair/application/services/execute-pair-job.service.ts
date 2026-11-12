@@ -18,7 +18,7 @@ import type { ExecutePairJob } from '../../domain/entities/execute-pair-job.enti
 import { ExecutePairJobRepositoryPort } from '../../domain/repositories/execute-pair-job.repository.port.js';
 import { PlaybookRunnerAdapter } from '../../infrastructure/playwright/playbook-runner.adapter.js';
 import { RunPrismaRepository } from '../../infrastructure/persistence/repositories/run-prisma.repository.js';
-import type { S3ArtifactStorageAdapter } from '../../../discovery/infrastructure/minio/s3-artifact-storage.adapter.js';
+import type { S3ArtifactStorageAdapter } from '../../../discovery/infrastructure/s3/s3-artifact-storage.adapter.js';
 
 export class ExecutePairJobService {
   constructor(

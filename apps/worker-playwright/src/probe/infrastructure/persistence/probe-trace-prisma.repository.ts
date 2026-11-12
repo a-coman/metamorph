@@ -1,6 +1,6 @@
 import { ArtifactKind } from '../../../../../api/generated/prisma/enums.js';
 import { prisma } from '../../../shared/infrastructure/prisma/prisma-client.js';
-import { S3ArtifactStorageAdapter } from '../../../discovery/infrastructure/minio/s3-artifact-storage.adapter.js';
+import { S3ArtifactStorageAdapter } from '../../../discovery/infrastructure/s3/s3-artifact-storage.adapter.js';
 
 export class ProbeTracePrismaRepository {
   constructor(

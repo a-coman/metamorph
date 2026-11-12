@@ -21,7 +21,8 @@
     "validation:metrics": "pnpm --filter @metamorph/api-client build && pnpm db:generate && tsx scripts/validation/extract-metrics.ts",
     "validation:replay": "pnpm --filter @metamorph/api-client build && tsx scripts/validation/run-replay.ts",
     "validation:summary": "tsx scripts/validation/generate-summary.ts",
-    "validation:test": "tsx --test scripts/validation/*.test.ts"
+    "validation:test": "tsx --test scripts/validation/*.test.ts",
+    "storage:test": "pnpm --filter @metamorph/api test:storage"
   },
   "keywords": [],
   "author": "",

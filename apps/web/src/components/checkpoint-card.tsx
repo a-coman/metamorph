@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  Loader2,
   Play,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/status-badge';
@@ -38,40 +37,18 @@ function ActivityTimestamp({ value }: { value: Date | string }) {
 }
 
 export function CheckpointTraceLink({ artifactId }: { artifactId: string }) {
-  const [loading, setLoading] = useState(false);
-
-  async function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (loading) return;
-    setLoading(true);
-    try {
-      const { url } = await api.getArtifactUrl(artifactId);
-      const viewerUrl = `https://trace.playwright.dev/?trace=${encodeURIComponent(url)}`;
-      window.open(viewerUrl, '_blank', 'noopener,noreferrer');
-    } catch {
-      window.open(`/api/artifact-url/${artifactId}`, '_blank', 'noopener,noreferrer');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <a
-      href="#"
-      onClick={handleClick}
-      aria-disabled={loading}
+      href={`/traces/${encodeURIComponent(artifactId)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) => event.stopPropagation()}
       className={cn(
         'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-all cursor-pointer',
         'bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-sm',
-        loading && 'opacity-60 pointer-events-none',
       )}
     >
-      {loading ? (
-        <Loader2 className="size-2.5 animate-spin" />
-      ) : (
-        <ExternalLink className="size-2.5" />
-      )}
+      <ExternalLink className="size-2.5" />
       View trace
     </a>
   );
@@ -84,12 +61,11 @@ export function CheckpointScreenshot({ snapshotId }: { snapshotId: string }) {
   useEffect(() => {
     api
       .getPageSnapshot(snapshotId)
-      .then(async (snap) => {
+      .then((snap) => {
         const artifactId =
           snap.annotatedScreenshotArtifactId ?? snap.rawScreenshotArtifactId;
         if (!artifactId) return;
-        const result = await api.getArtifactUrl(artifactId);
-        setUrl(result.url);
+        setUrl(`/api/artifact-url/${encodeURIComponent(artifactId)}`);
       })
       .catch(() => setError(true));
   }, [snapshotId]);
