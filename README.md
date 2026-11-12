@@ -1,157 +1,106 @@
 # Metamorph
 
-Metamorph is a research prototype for discovering and replaying metamorphic tests on arbitrary web interfaces. Given a user-supplied URL, it explores the rendered page, proposes candidate relations with bounded LLM assistance, compiles them into Playwright playbooks, and evaluates their source and follow-up executions with a strict deterministic verdict.
+Metamorph is an agentic framework for end-to-end metamorphic testing of web applications. Given a URL, a vision-language model explores the rendered page and proposes metamorphic relations. Those relations are compiled into Playwright tests and evaluated through paired executions by a deterministic engine, with no further model calls.
 
-## The problem
+## Motivation
 
-End-to-end web tests often face the oracle problem: the expected result of one execution is difficult to define in advance. Dynamic content, asynchronous rendering, and changing layouts make fixed assertions costly and brittle.
+End-to-end tests check a web application the way users experience it, but deciding whether an observed outcome is correct is hard when the page depends on dynamic data, session state, or external services. This is the oracle problem. Exact assertions break when a label or layout changes, and weak ones such as "the page loaded" miss real defects.
 
-Metamorphic testing addresses this problem by checking a relation between two executions instead of checking one absolute output. A metamorphic relation defines a source interaction, a transformed follow-up interaction, and an expected relation between their observations. For example, adding a restrictive filter should not increase the reported number of results.
+Metamorphic testing avoids the need for an expected output by checking a relation between two related executions. A metamorphic relation (MR) defines a source execution, a transformation that yields a follow-up execution, and a property that must hold between their observations. On the web, however, writing an MR still means finding a navigable path, locating the controls, and choosing what to observe for each specific site. Metamorph automates that work for any URL supplied at test time.
 
-Metamorph applies four relation families during discovery:
+Exploration covers four transformation families.
 
 | Family | Expected relation |
 | --- | --- |
-| Idempotence | Repeating an action preserves the observable outcome. |
-| Subset | Adding a restriction does not increase the result set. |
-| Permutation | Reordering independent actions preserves the final state. |
-| Inverse | Applying an action and undoing it restores the previous state. |
+| Idempotence | Repeating an action keeps the observables equal. |
+| Subset | Adding a restriction does not increase the result count. |
+| Permutation | Applying two independent actions in either order yields the same set. |
+| Inverse | Applying an action and undoing it restores the earlier state. |
 
-The LLM is used only during bounded exploration. Once a relation has been compiled and approved, replay executes fixed Playwright steps and evaluates predefined observations without further LLM inference.
-
-## Workflow
+## How it works
 
 ```mermaid
 flowchart LR
-    A[URL] --> B[Page inventory]
-    B --> C[LLM-guided exploration]
-    C --> D[Compiled draft]
-    D --> E{Review or auto-promotion}
-    E --> F[Paired Playwright execution]
-    F --> G[Strict verdict]
+    A[URL + families] --> B[Discover]
+    B --> C[Plan MR]
+    C --> D[Explore]
+    D --> E[Probe]
+    E --> F[Verify]
+    F -- replan --> D
+    F --> G[Observe]
+    G --> H[Compile]
+    H --> I{Review or auto mode}
+    I --> J[Paired execution]
+    J --> K[Deterministic verdict]
 ```
 
-The browser worker builds a Set of Marks inventory that labels interactable page elements as `E1`, `E2`, and so on. The exploration worker uses that grounded inventory to propose and validate actions. Drafts can be reviewed in the web interface before promotion, while auto mode executes successful drafts immediately. Screenshots, Playwright traces, observations, and verdicts remain linked to the session for later triage.
+1. **Discover.** The Playwright worker loads the page and builds a Set of Marks inventory, labelling every interactable element as `E1`, `E2`, and so on, both on the screenshot and in a textual list.
+2. **Plan.** For each family, the model proposes a candidate MR and splits it into a source goal and a follow-up goal.
+3. **Explore, probe, verify.** The model plans short batches of steps that reference inventory identifiers. The browser replays them and returns a fresh screenshot and inventory, and the model checks whether the goal was reached or replans. This loop is how cookie banners, modals, and login walls are handled. A smoke replay of the full path acts as a stability gate.
+4. **Observe and compile.** The model binds each observable (result counts, headings, URL parts) to the final snapshot and picks a comparison allowed by the family. The compiler validates every reference and renders a Playwright specification with source and follow-up scenarios.
+5. **Review.** In review mode a tester inspects the relation, the exploration timeline with screenshots and traces, and the compiled playbook, and can edit, approve, or reject it. Auto mode promotes drafts immediately.
+6. **Execute.** Approved relations run as paired executions. The relation engine compares each observable and passes only if every comparison holds. Every verdict links back to its screenshots, traces, and observation values.
 
-## Workspace
+The design follows one principle. The LLM proposes and the rest of the system decides. The model never emits free selectors or code, and replay never calls it, so repeated runs measure the stability of the test and the application rather than the variance of the model.
 
-The monorepo separates deployable applications from shared packages so that browser automation, LLM exploration, and deterministic replay use the same contracts and metamorphic semantics.
+## Architecture
 
-| Module | Kind | Responsibility |
-| --- | --- | --- |
-| `@metamorph/web` | App | Human-in-the-loop interface for sessions, live activity, review, and run triage. |
-| `@metamorph/api` | App | REST API, job orchestration, artifact URLs, and server-sent events. |
-| `@metamorph/worker-playwright` | App | Page inventory capture, exploration probes, and paired browser execution. |
-| `@metamorph/worker-llm` | App | LangGraph-based exploration and draft-compilation orchestration. |
-| `@metamorph/core` | Package | Shared MR schemas, relation engine, compiler, and Playwright playbook templates. |
-| `@metamorph/inventory` | Package | Set of Marks inventory capture over Playwright. |
-| `@metamorph/mr-promotion` | Package | Approval, auto-promotion, and execution-enqueueing use cases. |
-| `@metamorph/contracts` | Package | Validated RabbitMQ messages and routing keys. |
-| `@metamorph/api-client` | Package | Typed HTTP client and SSE helpers shared with the web app. |
-| `@metamorph/session-control` | Package | Cooperative pause and resume signals across workers. |
-| `@metamorph/utils` | Package | Shared domain and infrastructure utilities. |
+Metamorph is a TypeScript monorepo with four applications and seven shared packages.
 
-PostgreSQL stores lifecycle state, Garage stores screenshots and traces through its S3 API, and RabbitMQ connects the API with both worker types.
+| Module | Responsibility |
+| --- | --- |
+| `apps/web` | Next.js interface for sessions, live activity, review, and run triage. |
+| `apps/api` | NestJS API for session lifecycle, job orchestration, and server-sent events. |
+| `apps/worker-playwright` | Page inventories, exploration probes, and paired test execution. |
+| `apps/worker-llm` | LangGraph state machine that plans, explores, verifies, and observes. |
+| `packages/*` | MR schemas, relation engine and compiler (`core`), Set of Marks capture (`inventory`), message contracts, promotion, session control, and the API client. |
 
-## Run locally
-### Prerequisites
+The API and workers communicate through RabbitMQ. PostgreSQL stores sessions, jobs, MR versions, runs, verdicts, and an audit entry for every model call. Screenshots and traces go to an S3-compatible store. The model is called through OpenRouter.
 
-- Node.js 22.13 or newer
-- pnpm 11.5 or newer
-- Docker Compose v2
-- An OpenRouter API key for LLM-assisted exploration
+## Running locally
 
-Create a local environment file, install dependencies, and start the infrastructure:
+Requirements are Node.js 22.13+, pnpm 11.5+, Docker Compose v2, and an [OpenRouter](https://openrouter.ai) API key.
 
 ```bash
-cp .env.example .env
+cp .env.example .env          # then set OPENROUTER_API_KEY
 pnpm install
-```
-Set `OPENROUTER_API_KEY` in `.env`. Replace the example storage credentials with generated values:
-
-```bash
-printf 'S3_ACCESS_KEY=GK%s\n' "$(openssl rand -hex 16)"
-printf 'S3_SECRET_KEY=%s\n' "$(openssl rand -hex 32)"
-printf 'GARAGE_RPC_SECRET=%s\n' "$(openssl rand -hex 32)"
-```
-
-Copy the output into the corresponding `.env` entries, then start the infrastructure and workers in Docker:
-
-```bash
-docker compose up -d --build
-```
-
-Generate the database schema:
-
-```bash
+docker compose up -d --build  # infrastructure and both workers
 pnpm db:migrate
 pnpm db:generate
+pnpm dev                      # API and web app
 ```
 
-Run the API and web application:
+Open [http://localhost:3000](http://localhost:3000), create a session with a public URL, pick the relation families, and choose review or auto mode. The model is set with `OPENROUTER_MODEL` in `.env` and defaults to `minimax/minimax-m3`, the one used in the evaluation.
 
-```bash
-pnpm dev
-```
+## Evaluation
 
+Metamorph was evaluated in auto mode on Amazon, Booking, Airbnb, MediaMarkt, and GitHub, with all four families and five sessions per site, for 100 exploration attempts.
 
-Open [http://localhost:3000](http://localhost:3000), create a session with a public URL, choose the relation families and either review mode or auto mode. The API health endpoint is available at [http://localhost:3001/health](http://localhost:3001/health).
-
-### Artifact storage
-
-The Compose stack runs Garage `v2.4.1` as a single development node, with persistent `garage_meta` and `garage_data` volumes. Garage creates the `S3_BUCKET` bucket and its access key at startup. The `garage-init` service applies read-only browser CORS for signed artifact links; workers wait for initialization to complete. Garage's RPC port is kept inside the container.
-
-The API and workers use provider-neutral `S3_*` variables:
-
-- `S3_ENDPOINT`: address used for uploads, downloads, and bucket health checks. Host processes default to `http://localhost:3900`; Compose workers use `http://garage:3900`.
-- `S3_PUBLIC_ENDPOINT`: address reachable by the browser, used directly when signing artifact URLs. Defaults to `S3_ENDPOINT` when omitted. Set this before generating links; changing the host of an already signed URL invalidates its signature.
-- `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, and `S3_REGION`: credentials, bucket, and signing region. Local Garage uses region `garage`, matching `infra/garage/garage.toml`.
-- `S3_BIND_HOST`: host interface for Garage's published port, defaulting to `127.0.0.1`.
-
-For a remote preview over Tailscale, set `S3_BIND_HOST` to your server's Tailscale IP and both S3 endpoints to `http://<tailscale-ip>:3900`. Also set `NEXT_PUBLIC_API_URL=http://<tailscale-ip>:3001` and `CORS_ORIGIN=http://<tailscale-ip>:3000`, and launch the web app with those settings:
-
-```bash
-pnpm --filter @metamorph/api dev
-# In another terminal; substitute your server's Tailscale IP:
-NEXT_PUBLIC_API_URL=http://<tailscale-ip>:3001 pnpm --filter @metamorph/web dev --hostname <tailscale-ip>
-```
-
-Validate uploads from the browser worker, reads from the LLM worker, public URL signatures, CORS, byte ranges, and private access with:
-
-```bash
-docker compose up -d garage garage-init
-pnpm storage:test
-```
-
-This test needs `.env` and removes only the objects it creates. A single Garage node has no redundancy; keep backups of both volumes for any artifacts you need to retain. For cloud storage, configure an S3-compatible endpoint, region, credentials, and bucket instead of running Garage, and apply the bucket's browser CORS rules through that provider.
-
-### Upgrading from MinIO
-
-Rename existing `MINIO_*` environment variables to their `S3_*` equivalents, update the endpoints to port `3900`, and use region `garage`. Generate a Garage access key (`GK` followed by 32 hexadecimal characters), a secret, and an RPC secret as above. The `/health` response now reports object storage under `storage` instead of `minio`.
-
-Garage uses a different on-disk format. If an existing installation contains artifacts, keep its MinIO container and volume intact and copy the bucket's objects through S3 using a tool such as `rclone copy`, preserving their object keys. Pause writers while copying, verify the copied objects and `pnpm storage:test`, then switch the API and workers to Garage. Existing database artifact paths remain valid because they store object keys. Retain the original volume until the migration has been verified; this Compose change does not copy or delete existing data.
-
-## Validation
-
-The thesis validation protocol defines a case study on Amazon, Booking, Airbnb, MediaMarkt, and GitHub. It uses 25 sessions across the five domains and explores all four relation families, yielding 100 discovery attempts. The evaluation measures:
-
-| Research question | Evidence |
+| Result | Value |
 | --- | --- |
-| RQ1 | Exploration and compilation success, failure causes, cost, and time to draft. |
-| RQ2 | LLM-free replay completion, execution time, and stable verdict and observation extraction. |
-| RQ3 | Strict verdicts, observable failures, manual triage, and relation quality. |
+| Relations compiled into Playwright tests | 63 / 100 |
+| Compiled tests completing their first paired execution | 48 / 63 |
+| Median exploration time per compiled relation | 10.5 min |
+| Model cost per compiled relation | about $0.05 |
+| Median paired execution time | 24.3 s |
 
-With the stack, API, and workers running, execute a single validation session and then extract its results:
+Compilation ranged from 15% on Booking to 80% on MediaMarkt, and from 36% for permutation to 80% for idempotence. None of the 26 strict failures was a confirmed defect in the target sites. They came from non-equivalent paths, invalid relations, or brittle observables, which is why human review remains part of the design.
+
+To reproduce the study with the stack running:
 
 ```bash
-pnpm validation:batch -- --domain github --generation 1
+pnpm validation:batch -- --domain github --generation 1   # one session, or --all for the full study
 pnpm validation:metrics
 pnpm validation:replay
 pnpm validation:summary
 ```
 
-Use `pnpm validation:batch -- --all` for the complete study. The scripts write their manifest, metric exports, review CSV files, and Markdown summary to `scripts/validation/out/`.
+Outputs are written to [`scripts/validation/out/`](scripts/validation/out/), which already contains the data from the reported run.
 
-## Notes
+## License
 
-This project was carried out as part of the Master's Thesis at the University of Murcia, within the Master's program in Software Engineering.
+Metamorph is released under the [MIT License](LICENSE).
+
+## Acknowledgements
+
+This work was carried out as part of a Master's thesis in the Master's programme in Software Engineering at the University of Murcia.
